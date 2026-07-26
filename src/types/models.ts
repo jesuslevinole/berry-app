@@ -1,0 +1,150 @@
+/**
+ * Modelos de datos: espejo 1:1 del diagrama entidad-relacion.
+ * Los nombres de campos y colecciones son identicos a los del diagrama
+ * para que Firestore y la documentacion siempre coincidan.
+ */
+
+export type ID = string;
+
+export interface BaseDoc {
+  id: ID;
+  createdAt?: unknown;
+  updatedAt?: unknown;
+}
+
+/* ---------- Colecciones (nombres exactos del diagrama) ---------- */
+export const COLLECTIONS = {
+  PURCHASE_ORDER: 'BD_PURCHASEORDER',
+  PURCHASE_DETAILS: 'BD_PURCHASEDETAILS',
+  SALES_ORDER: 'BD_SALESORDER',
+  SALES_ORDER_DETAIL: 'BD_SALESORDERDETAIL',
+  EXPENSES: 'BD_EXPENSES',
+  PAYMENT_SALES: 'BD_PAYMENTSALES',
+  PAYMENT_BILL: 'BD_PAYMENTBILL',
+  CUSTOMER: 'BD_CUSTOMER',
+  USERS: 'BD_USERS',
+  CATEGORY_BILL: 'BD_CATEGORYBILL',
+  GROWER: 'CAT_GROWER',
+  CARRIER: 'CAT_CARRIER',
+  LOCATIONS: 'CAT_LOCATIONS',
+  COMMODITIES: 'CAT_COMMODITIES',
+  SUPPLIERS: 'CAT_SUPPLIERS',
+  SHIPVIA: 'CAT_SHIPVIA',
+  TERMSHIPPING: 'CAT_TERMSHIPPING',
+  PAYMENT_METHOD: 'CAT_PAYMENTMETHOD',
+} as const;
+
+export type CollectionName = (typeof COLLECTIONS)[keyof typeof COLLECTIONS];
+
+/* ---------- Modulo de compras ---------- */
+export interface PurchaseOrder extends BaseDoc {
+  /** Consecutivo visible tipo PO00061 (columna "Lot #" en la UI). */
+  LOT_NUMBER: string;
+  ID_GROWER: ID;
+  ID_CUSTOMER: ID;
+  SHIPTO: ID;
+  ID_USERS: ID;
+  ID_CARRIER: ID;
+  NOTE: string;
+  COMMISION_PERCENT: number;
+  REF_NUMBER: string;
+  ARRIVAL_DATE: string; // ISO yyyy-mm-dd
+  SUBTOTAL: number;
+  COMMISION_AMOUNT: number;
+  EXPENSES: number;
+  TOTAL_EXPENSES: number;
+  TOTAL: number;
+  AMOUNT_PAID: number;
+  BALANCE: number;
+  QUANTITY: number;
+}
+
+export interface PurchaseDetail extends BaseDoc {
+  ID_PURCHASEORDER: ID;
+  ID_COMMODITIES: ID;
+  QUANTITY: number;
+  PRICE: number;
+  TOTAL: number;
+}
+
+/* ---------- Modulo de ventas ---------- */
+export const SALES_STATUSES = ['Draft', 'Loaded', 'Delivered', 'Paid', 'Cancelled'] as const;
+export type SalesStatus = (typeof SALES_STATUSES)[number];
+
+export interface SalesOrder extends BaseDoc {
+  ID_CUSTOMER: ID;
+  BUYER: string;
+  ID_USERS: ID;
+  REF: string;
+  REF_PICKUP: string;
+  DATE: string;
+  DUE_DATE: string;
+  STATUS: SalesStatus;
+  SALES_ORDER_NUMBER: string;
+  PICK_UP_NUMBER: string;
+  ADDRESS: string;
+  CITY_STATE_ZIP: string;
+  ID_SUPPLIERS: ID;
+  TEMP_LOG: string;
+  DESCRIPTION: string;
+  ID_CARRIER: ID;
+  ID_TERMSHIPPING: ID;
+  ID_SHIPVIA: ID;
+  TOTAL: number;
+  INCOMES: number;
+  BALANCE: number;
+  OD_DAY: number;
+  SENT: boolean;
+}
+
+export interface SalesOrderDetail extends BaseDoc {
+  ID_SALESORDER: ID;
+  ID_PURCHASEORDER: ID;
+  ID_COMMODITIES: ID;
+  DESCRIPTION: string;
+  QUANTITY: number;
+  PRICE: number;
+  TOTAL: number;
+}
+
+/* ---------- Modulo de gastos ---------- */
+export interface Expense extends BaseDoc {
+  ID_PURCHASEORDER: ID;
+  DEDUCT: boolean;
+  ID_SUPPLIERS: ID;
+  ID_CATEGORYBILL: ID;
+  INVOICE_NUMBER: string;
+  DATE: string;
+  AMOUNT: number;
+  PAY_AMOUNT: number;
+  BALANCE: number;
+  PHOTO_CHECK: string;
+  CHECK_NUMBER: string;
+  NOTE: string;
+}
+
+/* ---------- Pagos ---------- */
+export interface PaymentBase extends BaseDoc {
+  DATE: string;
+  ID_PAYMENTMETHOD: ID;
+  AMOUNT: number;
+  CHECK_NUMBER: string;
+  REF_NUMBER: string;
+  PHOTO: string;
+  NOTE: string;
+}
+
+export interface PaymentSales extends PaymentBase {
+  ID_SALESORDER: ID;
+}
+
+export interface PaymentBill extends PaymentBase {
+  ID_EXPENSES: ID;
+}
+
+/* ---------- Maestras ---------- */
+export interface AppUser extends BaseDoc {
+  EMAIL_USERS: string;
+  USER_LEVEL_USERS: string;
+  STATUS_USERS: string;
+}

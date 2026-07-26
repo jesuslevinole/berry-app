@@ -1,0 +1,3 @@
+.sales-desk { display: flex; flex-direction: column; min-width: 0; }
+.sales-desk__pay-btn { color: var(--green-600); }
+.sales-desk__pay-btn:hover { color: var(--green-800); }

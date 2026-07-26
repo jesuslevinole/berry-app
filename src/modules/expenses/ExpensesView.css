@@ -1,0 +1,3 @@
+.expenses { display: flex; flex-direction: column; min-width: 0; }
+.expenses__pay-btn { color: var(--green-600); }
+.expenses__pay-btn:hover { color: var(--green-800); }

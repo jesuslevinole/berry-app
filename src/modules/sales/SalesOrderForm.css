@@ -1,0 +1,19 @@
+.so-form { display: flex; flex-direction: column; gap: 15px; }
+.so-form__section {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--green-700);
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 5px;
+}
+.so-form__summary {
+  display: flex;
+  justify-content: flex-end;
+  font-size: 12.5px;
+  color: var(--muted);
+  border-top: 1px solid var(--line);
+  padding-top: 13px;
+}
+.so-form__summary b { color: var(--green-700); margin-left: 6px; font-size: 15px; }

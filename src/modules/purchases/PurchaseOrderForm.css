@@ -1,0 +1,15 @@
+.po-form { display: flex; flex-direction: column; gap: 16px; }
+
+.po-form__summary {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 22px;
+  flex-wrap: wrap;
+  font-size: 12.5px;
+  color: var(--muted);
+  border-top: 1px solid var(--line);
+  padding-top: 13px;
+}
+.po-form__summary b { color: var(--ink); margin-left: 5px; font-size: 13.5px; }
+.po-form__summary-total b { color: var(--green-700); font-size: 15px; }
