@@ -1,8 +1,10 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
+import { cloudflare } from "@cloudflare/vite-plugin";
+
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), cloudflare()],
   // ExcelJS espera un objeto global; en el navegador se mapea a globalThis.
   define: { global: 'globalThis' },
   build: {
