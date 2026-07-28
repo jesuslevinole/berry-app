@@ -7,6 +7,7 @@ import { COLLECTIONS, type PurchaseDetail, type PurchaseOrder } from '../../type
 import { fmtMoney, round2, todayISO, toNumber } from '../../utils/format';
 import { Modal } from '../../components/ui/Modal';
 import { FormField, FormGrid } from '../../components/ui/FormField';
+import { CatalogSelect } from '../../components/ui/CatalogSelect';
 import {
   LineItemsEditor,
   lineTotal,
@@ -168,16 +169,24 @@ export function PurchaseOrderForm({ open, initial, onClose }: PurchaseOrderFormP
             <input className="input" type="date" value={arrivalDate} onChange={(e) => setArrivalDate(e.target.value)} />
           </FormField>
           <FormField label="Grower / Origin">
-            <select className="input" value={growerId} onChange={(e) => setGrowerId(e.target.value)}>
-              <option value="">Select…</option>
-              {growers.options.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-            </select>
+            <CatalogSelect
+              value={growerId}
+              onChange={setGrowerId}
+              options={growers.options}
+              collection={COLLECTIONS.GROWER}
+              nameField="NAME_GROWER"
+              catalogLabel="grower"
+            />
           </FormField>
           <FormField label="Vendor">
-            <select className="input" value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
-              <option value="">Select…</option>
-              {customers.options.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-            </select>
+            <CatalogSelect
+              value={customerId}
+              onChange={setCustomerId}
+              options={customers.options}
+              collection={COLLECTIONS.CUSTOMER}
+              nameField="NAME_CUSTOMER"
+              catalogLabel="vendor"
+            />
           </FormField>
           <FormField label="Buyer">
             <select className="input" value={userId} onChange={(e) => setUserId(e.target.value)}>
@@ -186,16 +195,24 @@ export function PurchaseOrderForm({ open, initial, onClose }: PurchaseOrderFormP
             </select>
           </FormField>
           <FormField label="Carrier">
-            <select className="input" value={carrierId} onChange={(e) => setCarrierId(e.target.value)}>
-              <option value="">Select…</option>
-              {carriers.options.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-            </select>
+            <CatalogSelect
+              value={carrierId}
+              onChange={setCarrierId}
+              options={carriers.options}
+              collection={COLLECTIONS.CARRIER}
+              nameField="NAME_CARRIER"
+              catalogLabel="carrier"
+            />
           </FormField>
           <FormField label="Ship to">
-            <select className="input" value={shipTo} onChange={(e) => setShipTo(e.target.value)}>
-              <option value="">Select…</option>
-              {locations.options.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-            </select>
+            <CatalogSelect
+              value={shipTo}
+              onChange={setShipTo}
+              options={locations.options}
+              collection={COLLECTIONS.LOCATIONS}
+              nameField="NAME_LOCATIONS"
+              catalogLabel="location"
+            />
           </FormField>
           <FormField label="Commission %">
             <input

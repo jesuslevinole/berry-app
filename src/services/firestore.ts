@@ -131,4 +131,20 @@ export async function setDocumentWithId(
   await setDoc(doc(db, colName, id), { ...data, updatedAt: serverTimestamp() }, { merge: true });
 }
 
+/**
+ * Creacion local-first: genera el ID en el cliente, dispara la escritura en
+ * segundo plano y devuelve el ID de inmediato (para seleccionarlo en un form).
+ */
+export function createDocumentLocalFirst(
+  colName: string,
+  data: Record<string, unknown>,
+  onError?: (error: Error) => void,
+): string {
+  const ref = doc(collection(db, colName));
+  setDoc(ref, { ...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp() }).catch(
+    (error: Error) => onError?.(error),
+  );
+  return ref.id;
+}
+
 export { where };

@@ -1,0 +1,79 @@
+.catsel {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  width: 100%;
+}
+
+.catsel__select {
+  flex: 1;
+  min-width: 0;
+}
+
+.catsel__add {
+  flex-shrink: 0;
+  width: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--green-50);
+  color: var(--green-600);
+  border: 1px solid var(--green-100);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.catsel__add:hover {
+  background-color: var(--green-600);
+  color: #ffffff;
+}
+
+.catsel__overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(11, 31, 24, 0.45);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10050;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.catsel__modal {
+  background-color: var(--surface);
+  width: 100%;
+  max-width: 380px;
+  border-radius: 14px;
+  padding: 22px;
+  box-shadow: 0 20px 45px -12px rgba(0, 0, 0, 0.4);
+  box-sizing: border-box;
+}
+
+.catsel__title {
+  margin: 0 0 14px 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--ink);
+  text-transform: capitalize;
+}
+
+.catsel__input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.catsel__hint {
+  margin: 10px 0 16px 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.catsel__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}

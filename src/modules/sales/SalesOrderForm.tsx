@@ -7,6 +7,7 @@ import { COLLECTIONS, SALES_STATUSES, type SalesOrder, type SalesOrderDetail, ty
 import { fmtMoney, round2, todayISO, toNumber } from '../../utils/format';
 import { Modal } from '../../components/ui/Modal';
 import { FormField, FormGrid } from '../../components/ui/FormField';
+import { CatalogSelect } from '../../components/ui/CatalogSelect';
 import { LineItemsEditor, lineTotal, sumLineTotals, type LineDraft } from '../../components/ui/LineItemsEditor';
 import './SalesOrderForm.css';
 
@@ -193,10 +194,14 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
             <input className="input" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
           </FormField>
           <FormField label="Customer">
-            <select className="input" value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
-              <option value="">Select…</option>
-              {customers.options.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-            </select>
+            <CatalogSelect
+              value={customerId}
+              onChange={setCustomerId}
+              options={customers.options}
+              collection={COLLECTIONS.CUSTOMER}
+              nameField="NAME_CUSTOMER"
+              catalogLabel="customer"
+            />
           </FormField>
           <FormField label="Buyer">
             <input className="input" placeholder="W. Bentley" value={buyer} onChange={(e) => setBuyer(e.target.value)} />
@@ -208,10 +213,14 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
             </select>
           </FormField>
           <FormField label="Supplier">
-            <select className="input" value={supplierId} onChange={(e) => setSupplierId(e.target.value)}>
-              <option value="">Select…</option>
-              {suppliers.options.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-            </select>
+            <CatalogSelect
+              value={supplierId}
+              onChange={setSupplierId}
+              options={suppliers.options}
+              collection={COLLECTIONS.SUPPLIERS}
+              nameField="NAME_SUPPLIERS"
+              catalogLabel="supplier"
+            />
           </FormField>
           <FormField label="Ref">
             <input className="input" value={ref} onChange={(e) => setRef(e.target.value)} />
@@ -236,22 +245,34 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
             <input className="input" value={cityStateZip} onChange={(e) => setCityStateZip(e.target.value)} />
           </FormField>
           <FormField label="Carrier">
-            <select className="input" value={carrierId} onChange={(e) => setCarrierId(e.target.value)}>
-              <option value="">Select…</option>
-              {carriers.options.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-            </select>
+            <CatalogSelect
+              value={carrierId}
+              onChange={setCarrierId}
+              options={carriers.options}
+              collection={COLLECTIONS.CARRIER}
+              nameField="NAME_CARRIER"
+              catalogLabel="carrier"
+            />
           </FormField>
           <FormField label="Ship via">
-            <select className="input" value={shipViaId} onChange={(e) => setShipViaId(e.target.value)}>
-              <option value="">Select…</option>
-              {shipVia.options.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-            </select>
+            <CatalogSelect
+              value={shipViaId}
+              onChange={setShipViaId}
+              options={shipVia.options}
+              collection={COLLECTIONS.SHIPVIA}
+              nameField="NAME_SHIPVIA"
+              catalogLabel="ship via"
+            />
           </FormField>
           <FormField label="Shipping terms">
-            <select className="input" value={termShippingId} onChange={(e) => setTermShippingId(e.target.value)}>
-              <option value="">Select…</option>
-              {termShipping.options.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-            </select>
+            <CatalogSelect
+              value={termShippingId}
+              onChange={setTermShippingId}
+              options={termShipping.options}
+              collection={COLLECTIONS.TERMSHIPPING}
+              nameField="NAME_TERMSHIPPING"
+              catalogLabel="shipping term"
+            />
           </FormField>
           <FormField label="Temp log">
             <input className="input" value={tempLog} onChange={(e) => setTempLog(e.target.value)} />

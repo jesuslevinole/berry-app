@@ -1,4 +1,6 @@
 import type { CatalogOption } from '../../hooks/useCatalog';
+import { CatalogSelect } from './CatalogSelect';
+import { COLLECTIONS } from '../../types/models';
 import { fmtMoney, round2, toNumber } from '../../utils/format';
 import './LineItemsEditor.css';
 
@@ -64,16 +66,16 @@ export function LineItemsEditor({
               ))}
             </select>
           )}
-          <select
-            className="input line-editor__commodity"
-            value={line.ID_COMMODITIES}
-            onChange={(e) => patch(index, { ID_COMMODITIES: e.target.value })}
-          >
-            <option value="">Commodity…</option>
-            {commodities.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
+          <div className="line-editor__commodity">
+            <CatalogSelect
+              value={line.ID_COMMODITIES}
+              onChange={(id) => patch(index, { ID_COMMODITIES: id })}
+              options={commodities}
+              collection={COLLECTIONS.COMMODITIES}
+              nameField="NAME_COMMODITIES"
+              catalogLabel="commodity"
+            />
+          </div>
           {showDescription && (
             <input
               className="input line-editor__description"

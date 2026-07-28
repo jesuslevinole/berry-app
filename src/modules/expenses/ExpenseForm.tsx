@@ -6,6 +6,7 @@ import { COLLECTIONS, type Expense } from '../../types/models';
 import { round2, todayISO, toNumber } from '../../utils/format';
 import { Modal } from '../../components/ui/Modal';
 import { FormField, FormGrid } from '../../components/ui/FormField';
+import { CatalogSelect } from '../../components/ui/CatalogSelect';
 import './ExpenseForm.css';
 
 interface ExpenseFormProps {
@@ -116,16 +117,24 @@ export function ExpenseForm({ open, initial, purchaseOrderOptions, onClose }: Ex
             </select>
           </FormField>
           <FormField label="Supplier">
-            <select className="input" value={supplierId} onChange={(e) => setSupplierId(e.target.value)}>
-              <option value="">Select…</option>
-              {suppliers.options.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-            </select>
+            <CatalogSelect
+              value={supplierId}
+              onChange={setSupplierId}
+              options={suppliers.options}
+              collection={COLLECTIONS.SUPPLIERS}
+              nameField="NAME_SUPPLIERS"
+              catalogLabel="supplier"
+            />
           </FormField>
           <FormField label="Category">
-            <select className="input" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
-              <option value="">Select…</option>
-              {categories.options.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-            </select>
+            <CatalogSelect
+              value={categoryId}
+              onChange={setCategoryId}
+              options={categories.options}
+              collection={COLLECTIONS.CATEGORY_BILL}
+              nameField="NAME"
+              catalogLabel="bill category"
+            />
           </FormField>
           <FormField label="Invoice #">
             <input className="input" value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} />
