@@ -1,0 +1,218 @@
+.login {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--green-950);
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+.login__card {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  width: 100%;
+  max-width: 900px;
+  min-height: 520px;
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.55);
+}
+
+/* ---- Panel del formulario ---- */
+.login__form-panel {
+  background-color: var(--surface);
+  padding: 56px 48px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.login__title {
+  margin: 0 0 6px 0;
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--ink);
+  text-align: center;
+}
+
+.login__hint {
+  margin: 0 0 28px 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.login__label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--green-700);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+}
+
+.login__input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  border-radius: 10px;
+  border: 1px solid var(--line-strong);
+  background-color: var(--green-50);
+  color: var(--ink);
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.login__input:focus {
+  border-color: var(--green-500);
+  box-shadow: 0 0 0 3px var(--green-100);
+  background-color: var(--surface);
+}
+
+.login__forgot {
+  background: none;
+  border: none;
+  align-self: center;
+  color: var(--muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+  margin: 4px 0 16px 0;
+  padding: 4px;
+}
+
+.login__forgot:hover {
+  color: var(--green-600);
+  text-decoration: underline;
+}
+
+.login__message {
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 0.85rem;
+  margin-bottom: 14px;
+  text-align: center;
+}
+
+.login__message--error {
+  background-color: var(--bad-bg);
+  color: var(--bad);
+}
+
+.login__message--ok {
+  background-color: var(--ok-bg);
+  color: var(--ok);
+}
+
+.login__submit {
+  align-self: center;
+  min-width: 180px;
+  background-color: var(--green-600);
+  color: #ffffff;
+  border: none;
+  padding: 13px 32px;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background-color 0.15s, transform 0.1s;
+}
+
+.login__submit:hover {
+  background-color: var(--green-700);
+}
+
+.login__submit:active {
+  transform: scale(0.98);
+}
+
+.login__submit:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+/* ---- Panel de marca ---- */
+.login__brand-panel {
+  background: linear-gradient(160deg, var(--green-600) 0%, var(--green-800) 55%, var(--green-950) 100%);
+  color: #ffffff;
+  padding: 56px 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.login__logo {
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  background-color: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.8rem;
+  font-weight: 800;
+  margin-bottom: 20px;
+}
+
+.login__brand-title {
+  margin: 0;
+  font-size: 2.1rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+
+.login__brand-sub {
+  margin: 2px 0 20px 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.28em;
+  color: var(--green-100);
+}
+
+.login__brand-text {
+  margin: 0 0 26px 0;
+  max-width: 300px;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.login__brand-note {
+  margin: 0;
+  max-width: 300px;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.6);
+  border-top: 1px solid rgba(255, 255, 255, 0.18);
+  padding-top: 18px;
+}
+
+/* ---- Responsive ---- */
+@media (max-width: 760px) {
+  .login__card {
+    grid-template-columns: 1fr;
+    max-width: 440px;
+  }
+
+  .login__brand-panel {
+    order: -1;
+    padding: 36px 32px;
+  }
+
+  .login__brand-text {
+    display: none;
+  }
+
+  .login__form-panel {
+    padding: 36px 28px 44px;
+  }
+}

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import { useCollection } from '../../hooks/useCollection';
 import { useCatalog, type CatalogOption } from '../../hooks/useCatalog';
 import { updateDocument } from '../../services/firestore';
@@ -15,6 +16,7 @@ import { SalesOrderForm } from './SalesOrderForm';
 import './SalesDeskView.css';
 
 export function SalesDeskView() {
+  const { can } = useAuth();
   const { data, loading } = useCollection<SalesOrder>(COLLECTIONS.SALES_ORDER);
   const { data: purchaseOrders } = useCollection<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER);
   const customers = useCatalog(COLLECTIONS.CUSTOMER, 'NAME_CUSTOMER');
@@ -94,17 +96,19 @@ export function SalesDeskView() {
   return (
     <div className="sales-desk">
       <Toolbar title="Sales Desk" subtitle={`${rows.length} orders`} searchValue={search} onSearchChange={setSearch}>
-        <DataPortButtons schemas={SALES_SCHEMAS} fileName="sales-orders" />
-        <button
-          type="button"
-          className="btn btn--primary"
-          onClick={() => {
-            setEditing(null);
-            setFormOpen(true);
-          }}
-        >
-          + Add
-        </button>
+        {can('sales', 'documents') && <DataPortButtons schemas={SALES_SCHEMAS} fileName="sales-orders" />}
+        {can('sales', 'add') && (
+          <button
+            type="button"
+            className="btn btn--primary"
+            onClick={() => {
+              setEditing(null);
+              setFormOpen(true);
+            }}
+          >
+            + Add
+          </button>
+        )}
       </Toolbar>
 
       <DataTable

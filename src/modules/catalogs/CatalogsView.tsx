@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import { useCollection } from '../../hooks/useCollection';
 import { createDocument, deleteDocument, updateDocument } from '../../services/firestore';
 import type { BaseDoc } from '../../types/models';
@@ -14,12 +15,12 @@ import './CatalogsView.css';
 type CatalogDoc = BaseDoc & Record<string, unknown>;
 
 export function CatalogsView() {
+  const { can } = useAuth();
   const [def, setDef] = useState<CatalogDef>(CATALOG_DEFS[0]);
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<CatalogDoc | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [draft, setDraft] = useState<Record<string, string>>({});
-  const [saving, setSaving] = useState(false);
 
   const { data, loading } = useCollection<CatalogDoc>(def.collection);
 
@@ -64,28 +65,33 @@ export function CatalogsView() {
     setFormOpen(true);
   };
 
-  const handleSave = async () => {
+  /**
+   * Guardado local-first: el modal cierra de inmediato y la escritura corre en
+   * segundo plano. La tabla se actualiza al instante via onSnapshot; si Firestore
+   * rechaza la escritura se avisa con un alert.
+   */
+  const handleSave = () => {
     if (!draft[def.nameField]?.trim()) return;
-    setSaving(true);
-    try {
-      const payload: Record<string, string> = { [def.nameField]: draft[def.nameField].trim() };
-      for (const field of def.extraFields) payload[field.key] = (draft[field.key] ?? '').trim();
-      if (editing) {
-        await updateDocument(def.collection, editing.id, payload);
-      } else {
-        await createDocument<CatalogDoc>(def.collection, payload as Omit<CatalogDoc, 'id'>);
-      }
-      setFormOpen(false);
-    } finally {
-      setSaving(false);
-    }
+    const payload: Record<string, string> = { [def.nameField]: draft[def.nameField].trim() };
+    for (const field of def.extraFields) payload[field.key] = (draft[field.key] ?? '').trim();
+    const target = editing;
+    setFormOpen(false);
+    const persist = target
+      ? updateDocument(def.collection, target.id, payload)
+      : createDocument<CatalogDoc>(def.collection, payload as Omit<CatalogDoc, 'id'>);
+    persist.catch((error: unknown) =>
+      alert(`Failed to save: ${(error as Error).message ?? 'Unknown error'}`),
+    );
   };
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!editing) return;
     if (!window.confirm(`Delete "${String(editing[def.nameField] ?? '')}"?`)) return;
-    await deleteDocument(def.collection, editing.id);
+    const target = editing;
     setFormOpen(false);
+    deleteDocument(def.collection, target.id).catch((error: unknown) =>
+      alert(`Failed to delete: ${(error as Error).message ?? 'Unknown error'}`),
+    );
   };
 
   const columns: Array<Column<CatalogDoc>> = [
@@ -122,8 +128,12 @@ export function CatalogsView() {
           searchValue={search}
           onSearchChange={setSearch}
         >
-          <DataPortButtons schemas={[schema]} fileName={def.collection.toLowerCase()} />
-          <button type="button" className="btn btn--primary" onClick={openCreate}>+ Add</button>
+          {can('catalogs', 'documents') && (
+            <DataPortButtons schemas={[schema]} fileName={def.collection.toLowerCase()} />
+          )}
+          {can('catalogs', 'add') && (
+            <button type="button" className="btn btn--primary" onClick={openCreate}>+ Add</button>
+          )}
         </Toolbar>
         <DataTable columns={columns} rows={rows} loading={loading} onRowClick={openEdit} />
       </section>
@@ -134,18 +144,20 @@ export function CatalogsView() {
         onClose={() => setFormOpen(false)}
         footer={
           <>
-            {editing && (
-              <button type="button" className="btn btn--danger" onClick={() => void handleDelete()}>Delete</button>
+            {editing && can('catalogs', 'delete') && (
+              <button type="button" className="btn btn--danger" onClick={handleDelete}>Delete</button>
             )}
             <button type="button" className="btn btn--secondary" onClick={() => setFormOpen(false)}>Cancel</button>
-            <button
-              type="button"
-              className="btn btn--primary"
-              disabled={saving || !draft[def.nameField]?.trim()}
-              onClick={() => void handleSave()}
-            >
-              {saving ? 'Saving…' : 'Save'}
-            </button>
+            {(editing ? can('catalogs', 'edit') : can('catalogs', 'add')) && (
+              <button
+                type="button"
+                className="btn btn--primary"
+                disabled={!draft[def.nameField]?.trim()}
+                onClick={handleSave}
+              >
+                Save
+              </button>
+            )}
           </>
         }
       >

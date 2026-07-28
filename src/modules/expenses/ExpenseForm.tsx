@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import { useCatalog, type CatalogOption } from '../../hooks/useCatalog';
 import { createDocument, deleteDocument, updateDocument } from '../../services/firestore';
 import { COLLECTIONS, type Expense } from '../../types/models';
@@ -15,6 +16,7 @@ interface ExpenseFormProps {
 }
 
 export function ExpenseForm({ open, initial, purchaseOrderOptions, onClose }: ExpenseFormProps) {
+  const { can } = useAuth();
   const suppliers = useCatalog(COLLECTIONS.SUPPLIERS, 'NAME_SUPPLIERS');
   const categories = useCatalog(COLLECTIONS.CATEGORY_BILL, 'NAME');
 
@@ -28,7 +30,6 @@ export function ExpenseForm({ open, initial, purchaseOrderOptions, onClose }: Ex
   const [checkNumber, setCheckNumber] = useState('');
   const [photoCheck, setPhotoCheck] = useState('');
   const [note, setNote] = useState('');
-  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -44,10 +45,9 @@ export function ExpenseForm({ open, initial, purchaseOrderOptions, onClose }: Ex
     setNote(initial?.NOTE ?? '');
   }, [open, initial]);
 
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      const amountValue = round2(toNumber(amount));
+  /** Cierre inmediato: la escritura corre en segundo plano (local-first). */
+  const handleSave = () => {
+    const amountValue = round2(toNumber(amount));
       const payAmount = initial?.PAY_AMOUNT ?? 0;
       const payload: Omit<Expense, 'id'> = {
         ID_PURCHASEORDER: purchaseOrderId,
@@ -63,22 +63,24 @@ export function ExpenseForm({ open, initial, purchaseOrderOptions, onClose }: Ex
         CHECK_NUMBER: checkNumber.trim(),
         NOTE: note.trim(),
       };
-      if (initial) {
-        await updateDocument<Expense>(COLLECTIONS.EXPENSES, initial.id, payload);
-      } else {
-        await createDocument<Expense>(COLLECTIONS.EXPENSES, payload);
-      }
+      const editingId = initial?.id ?? null;
       onClose();
-    } finally {
-      setSaving(false);
-    }
+      const persist = editingId
+        ? updateDocument<Expense>(COLLECTIONS.EXPENSES, editingId, payload)
+        : createDocument<Expense>(COLLECTIONS.EXPENSES, payload);
+      persist.catch((error: unknown) =>
+        alert(`Failed to save expense: ${(error as Error).message ?? 'Unknown error'}`),
+      );
   };
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!initial) return;
     if (!window.confirm(`Delete expense ${initial.INVOICE_NUMBER || ''}?`)) return;
-    await deleteDocument(COLLECTIONS.EXPENSES, initial.id);
+    const expenseId = initial.id;
     onClose();
+    deleteDocument(COLLECTIONS.EXPENSES, expenseId).catch((error: unknown) =>
+      alert(`Failed to delete expense: ${(error as Error).message ?? 'Unknown error'}`),
+    );
   };
 
   return (
@@ -88,18 +90,20 @@ export function ExpenseForm({ open, initial, purchaseOrderOptions, onClose }: Ex
       onClose={onClose}
       footer={
         <>
-          {initial && (
-            <button type="button" className="btn btn--danger" onClick={() => void handleDelete()}>Delete</button>
+          {initial && can('expenses', 'delete') && (
+            <button type="button" className="btn btn--danger" onClick={handleDelete}>Delete</button>
           )}
           <button type="button" className="btn btn--secondary" onClick={onClose}>Cancel</button>
-          <button
-            type="button"
-            className="btn btn--primary"
-            disabled={saving || toNumber(amount) <= 0}
-            onClick={() => void handleSave()}
-          >
-            {saving ? 'Saving…' : 'Save'}
-          </button>
+          {(initial ? can('expenses', 'edit') : can('expenses', 'add')) && (
+            <button
+              type="button"
+              className="btn btn--primary"
+              disabled={toNumber(amount) <= 0}
+              onClick={handleSave}
+            >
+              Save
+            </button>
+          )}
         </>
       }
     >

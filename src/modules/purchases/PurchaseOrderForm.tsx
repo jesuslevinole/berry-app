@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import { where } from 'firebase/firestore';
 import { useCatalog } from '../../hooks/useCatalog';
 import { createDocument, listDocuments, replaceChildren, updateDocument, deleteDocument } from '../../services/firestore';
@@ -22,6 +23,7 @@ interface PurchaseOrderFormProps {
 }
 
 export function PurchaseOrderForm({ open, initial, onClose }: PurchaseOrderFormProps) {
+  const { can } = useAuth();
   const growers = useCatalog(COLLECTIONS.GROWER, 'NAME_GROWER');
   const customers = useCatalog(COLLECTIONS.CUSTOMER, 'NAME_CUSTOMER');
   const users = useCatalog(COLLECTIONS.USERS, 'EMAIL_USERS');
@@ -40,7 +42,6 @@ export function PurchaseOrderForm({ open, initial, onClose }: PurchaseOrderFormP
   const [commissionPercent, setCommissionPercent] = useState('0');
   const [note, setNote] = useState('');
   const [lines, setLines] = useState<LineDraft[]>([]);
-  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -79,10 +80,9 @@ export function PurchaseOrderForm({ open, initial, onClose }: PurchaseOrderFormP
   );
   const total = useMemo(() => round2(subtotal + commissionAmount), [subtotal, commissionAmount]);
 
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      const amountPaid = initial?.AMOUNT_PAID ?? 0;
+  /** Cierre inmediato: encabezado + detalle se guardan en segundo plano (local-first). */
+  const handleSave = () => {
+    const amountPaid = initial?.AMOUNT_PAID ?? 0;
       const payload: Omit<PurchaseOrder, 'id'> = {
         LOT_NUMBER: lotNumber.trim(),
         ID_GROWER: growerId,
@@ -103,34 +103,39 @@ export function PurchaseOrderForm({ open, initial, onClose }: PurchaseOrderFormP
         BALANCE: round2(total - amountPaid),
         QUANTITY: quantity,
       };
-      const orderId = initial
-        ? (await updateDocument<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER, initial.id, payload), initial.id)
-        : await createDocument<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER, payload);
-
-      await replaceChildren(
-        COLLECTIONS.PURCHASE_DETAILS,
-        'ID_PURCHASEORDER',
-        orderId,
-        lines.map((line) => ({
-          id: line.id,
-          ID_COMMODITIES: line.ID_COMMODITIES,
-          QUANTITY: line.QUANTITY,
-          PRICE: line.PRICE,
-          TOTAL: lineTotal(line),
-        })),
-      );
+      const detailRows = lines.map((line) => ({
+        id: line.id,
+        ID_COMMODITIES: line.ID_COMMODITIES,
+        QUANTITY: line.QUANTITY,
+        PRICE: line.PRICE,
+        TOTAL: lineTotal(line),
+      }));
+      const editingId = initial?.id ?? null;
       onClose();
-    } finally {
-      setSaving(false);
-    }
+
+      const persist = async () => {
+        const orderId = editingId
+          ? (await updateDocument<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER, editingId, payload), editingId)
+          : await createDocument<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER, payload);
+        await replaceChildren(COLLECTIONS.PURCHASE_DETAILS, 'ID_PURCHASEORDER', orderId, detailRows);
+      };
+      persist().catch((error: unknown) =>
+        alert(`Failed to save purchase order: ${(error as Error).message ?? 'Unknown error'}`),
+      );
   };
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!initial) return;
     if (!window.confirm(`Delete purchase order ${initial.LOT_NUMBER || initial.REF_NUMBER}?`)) return;
-    await replaceChildren(COLLECTIONS.PURCHASE_DETAILS, 'ID_PURCHASEORDER', initial.id, []);
-    await deleteDocument(COLLECTIONS.PURCHASE_ORDER, initial.id);
+    const orderId = initial.id;
     onClose();
+    const persist = async () => {
+      await replaceChildren(COLLECTIONS.PURCHASE_DETAILS, 'ID_PURCHASEORDER', orderId, []);
+      await deleteDocument(COLLECTIONS.PURCHASE_ORDER, orderId);
+    };
+    persist().catch((error: unknown) =>
+      alert(`Failed to delete purchase order: ${(error as Error).message ?? 'Unknown error'}`),
+    );
   };
 
   return (
@@ -141,13 +146,13 @@ export function PurchaseOrderForm({ open, initial, onClose }: PurchaseOrderFormP
       wide
       footer={
         <>
-          {initial && (
-            <button type="button" className="btn btn--danger" onClick={() => void handleDelete()}>Delete</button>
+          {initial && can('purchases', 'delete') && (
+            <button type="button" className="btn btn--danger" onClick={handleDelete}>Delete</button>
           )}
           <button type="button" className="btn btn--secondary" onClick={onClose}>Cancel</button>
-          <button type="button" className="btn btn--primary" disabled={saving} onClick={() => void handleSave()}>
-            {saving ? 'Saving…' : 'Save'}
-          </button>
+          {(initial ? can('purchases', 'edit') : can('purchases', 'add')) && (
+            <button type="button" className="btn btn--primary" onClick={handleSave}>Save</button>
+          )}
         </>
       }
     >

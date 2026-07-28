@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import { where } from 'firebase/firestore';
 import { useCatalog, type CatalogOption } from '../../hooks/useCatalog';
 import { createDocument, deleteDocument, listDocuments, replaceChildren, updateDocument } from '../../services/firestore';
@@ -17,6 +18,7 @@ interface SalesOrderFormProps {
 }
 
 export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }: SalesOrderFormProps) {
+  const { can } = useAuth();
   const customers = useCatalog(COLLECTIONS.CUSTOMER, 'NAME_CUSTOMER');
   const users = useCatalog(COLLECTIONS.USERS, 'EMAIL_USERS');
   const suppliers = useCatalog(COLLECTIONS.SUPPLIERS, 'NAME_SUPPLIERS');
@@ -46,7 +48,6 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
   const [description, setDescription] = useState('');
   const [odDay, setOdDay] = useState('0');
   const [lines, setLines] = useState<LineDraft[]>([]);
-  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -91,10 +92,9 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
 
   const total = useMemo(() => sumLineTotals(lines), [lines]);
 
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      const incomes = initial?.INCOMES ?? 0;
+  /** Cierre inmediato: encabezado + detalle se guardan en segundo plano (local-first). */
+  const handleSave = () => {
+    const incomes = initial?.INCOMES ?? 0;
       const payload: Omit<SalesOrder, 'id'> = {
         ID_CUSTOMER: customerId,
         BUYER: buyer.trim(),
@@ -120,36 +120,41 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
         OD_DAY: toNumber(odDay),
         SENT: sent,
       };
-      const orderId = initial
-        ? (await updateDocument<SalesOrder>(COLLECTIONS.SALES_ORDER, initial.id, payload), initial.id)
-        : await createDocument<SalesOrder>(COLLECTIONS.SALES_ORDER, payload);
-
-      await replaceChildren(
-        COLLECTIONS.SALES_ORDER_DETAIL,
-        'ID_SALESORDER',
-        orderId,
-        lines.map((line) => ({
-          id: line.id,
-          ID_PURCHASEORDER: line.ID_PURCHASEORDER ?? '',
-          ID_COMMODITIES: line.ID_COMMODITIES,
-          DESCRIPTION: line.DESCRIPTION ?? '',
-          QUANTITY: line.QUANTITY,
-          PRICE: line.PRICE,
-          TOTAL: lineTotal(line),
-        })),
-      );
+      const detailRows = lines.map((line) => ({
+        id: line.id,
+        ID_PURCHASEORDER: line.ID_PURCHASEORDER ?? '',
+        ID_COMMODITIES: line.ID_COMMODITIES,
+        DESCRIPTION: line.DESCRIPTION ?? '',
+        QUANTITY: line.QUANTITY,
+        PRICE: line.PRICE,
+        TOTAL: lineTotal(line),
+      }));
+      const editingId = initial?.id ?? null;
       onClose();
-    } finally {
-      setSaving(false);
-    }
+
+      const persist = async () => {
+        const orderId = editingId
+          ? (await updateDocument<SalesOrder>(COLLECTIONS.SALES_ORDER, editingId, payload), editingId)
+          : await createDocument<SalesOrder>(COLLECTIONS.SALES_ORDER, payload);
+        await replaceChildren(COLLECTIONS.SALES_ORDER_DETAIL, 'ID_SALESORDER', orderId, detailRows);
+      };
+      persist().catch((error: unknown) =>
+        alert(`Failed to save sales order: ${(error as Error).message ?? 'Unknown error'}`),
+      );
   };
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!initial) return;
     if (!window.confirm(`Delete sales order ${initial.SALES_ORDER_NUMBER}?`)) return;
-    await replaceChildren(COLLECTIONS.SALES_ORDER_DETAIL, 'ID_SALESORDER', initial.id, []);
-    await deleteDocument(COLLECTIONS.SALES_ORDER, initial.id);
+    const orderId = initial.id;
     onClose();
+    const persist = async () => {
+      await replaceChildren(COLLECTIONS.SALES_ORDER_DETAIL, 'ID_SALESORDER', orderId, []);
+      await deleteDocument(COLLECTIONS.SALES_ORDER, orderId);
+    };
+    persist().catch((error: unknown) =>
+      alert(`Failed to delete sales order: ${(error as Error).message ?? 'Unknown error'}`),
+    );
   };
 
   return (
@@ -160,13 +165,13 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
       wide
       footer={
         <>
-          {initial && (
-            <button type="button" className="btn btn--danger" onClick={() => void handleDelete()}>Delete</button>
+          {initial && can('sales', 'delete') && (
+            <button type="button" className="btn btn--danger" onClick={handleDelete}>Delete</button>
           )}
           <button type="button" className="btn btn--secondary" onClick={onClose}>Cancel</button>
-          <button type="button" className="btn btn--primary" disabled={saving} onClick={() => void handleSave()}>
-            {saving ? 'Saving…' : 'Save'}
-          </button>
+          {(initial ? can('sales', 'edit') : can('sales', 'add')) && (
+            <button type="button" className="btn btn--primary" onClick={handleSave}>Save</button>
+          )}
         </>
       }
     >

@@ -144,3 +144,12 @@
   .content { padding: 14px; }
   .topbar__user-name { display: none; }
 }
+
+.topbar__logout {
+  color: var(--muted);
+  margin-left: 4px;
+}
+
+.topbar__logout:hover {
+  color: var(--bad);
+}

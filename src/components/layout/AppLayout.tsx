@@ -1,7 +1,8 @@
 import { useState, type ReactNode } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import './AppLayout.css';
 
-export type ViewKey = 'dashboard' | 'purchases' | 'sales' | 'expenses' | 'catalogs';
+export type ViewKey = 'dashboard' | 'purchases' | 'sales' | 'expenses' | 'catalogs' | 'users' | 'roles';
 
 export const VIEW_TITLES: Record<ViewKey, string> = {
   dashboard: 'Dashboard',
@@ -9,6 +10,8 @@ export const VIEW_TITLES: Record<ViewKey, string> = {
   sales: 'Sales Desk',
   expenses: 'Additional expenses',
   catalogs: 'Catalogs',
+  users: 'System Users',
+  roles: 'Roles & Permissions',
 };
 
 const NAV_ITEMS: Array<{ key: ViewKey; label: string; icon: ReactNode }> = [
@@ -58,6 +61,25 @@ const NAV_ITEMS: Array<{ key: ViewKey; label: string; icon: ReactNode }> = [
       </svg>
     ),
   },
+  {
+    key: 'users',
+    label: 'System Users',
+    icon: (
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <circle cx="9" cy="8" r="3.2" /><path d="M3.5 20c.6-3.4 2.8-5 5.5-5s4.9 1.6 5.5 5" />
+        <circle cx="17" cy="9" r="2.4" /><path d="M15.5 14.6c2.4.2 4.4 1.6 5 5" />
+      </svg>
+    ),
+  },
+  {
+    key: 'roles',
+    label: 'Roles',
+    icon: (
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <path d="M12 3l7 3v5c0 4.4-2.9 8.2-7 10-4.1-1.8-7-5.6-7-10V6l7-3z" /><path d="M9 12l2 2 4-4" />
+      </svg>
+    ),
+  },
 ];
 
 interface AppLayoutProps {
@@ -69,6 +91,19 @@ interface AppLayoutProps {
 export function AppLayout({ view, onNavigate, children }: AppLayoutProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { can, profile, firebaseUser, logout } = useAuth();
+
+  const visibleItems = NAV_ITEMS.filter((item) => can(item.key, 'view'));
+
+  const displayName = profile
+    ? `${profile.firstName ?? ''} ${profile.lastName ?? ''}`.trim() || profile.email
+    : firebaseUser?.email ?? '';
+  const initials = displayName
+    .split(/[\s@.]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('') || 'U';
 
   const handleNavigate = (key: ViewKey) => {
     onNavigate(key);
@@ -87,7 +122,7 @@ export function AppLayout({ view, onNavigate, children }: AppLayoutProps) {
         </div>
 
         <nav className="sidebar__nav" aria-label="Main navigation">
-          {NAV_ITEMS.map((item) => (
+          {visibleItems.map((item) => (
             <button
               key={item.key}
               type="button"
@@ -130,8 +165,19 @@ export function AppLayout({ view, onNavigate, children }: AppLayoutProps) {
           </button>
           <h1 className="topbar__title">{VIEW_TITLES[view]}</h1>
           <div className="topbar__user">
-            <span className="topbar__avatar">CM</span>
-            <span className="topbar__user-name">C. Maldonado</span>
+            <span className="topbar__avatar">{initials}</span>
+            <span className="topbar__user-name">{displayName}</span>
+            <button
+              type="button"
+              className="btn btn--icon topbar__logout"
+              onClick={() => void logout()}
+              title="Sign out"
+              aria-label="Sign out"
+            >
+              <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.9">
+                <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" />
+              </svg>
+            </button>
           </div>
         </header>
         <main className="content">{children}</main>

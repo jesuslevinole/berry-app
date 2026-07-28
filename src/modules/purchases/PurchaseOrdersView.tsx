@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import { useCollection } from '../../hooks/useCollection';
 import { useCatalog } from '../../hooks/useCatalog';
 import { COLLECTIONS, type PurchaseOrder } from '../../types/models';
@@ -11,6 +12,7 @@ import { PurchaseOrderForm } from './PurchaseOrderForm';
 import './PurchaseOrdersView.css';
 
 export function PurchaseOrdersView() {
+  const { can } = useAuth();
   const { data, loading } = useCollection<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER);
   const growers = useCatalog(COLLECTIONS.GROWER, 'NAME_GROWER');
   const customers = useCatalog(COLLECTIONS.CUSTOMER, 'NAME_CUSTOMER');
@@ -67,17 +69,19 @@ export function PurchaseOrdersView() {
         searchValue={search}
         onSearchChange={setSearch}
       >
-        <DataPortButtons schemas={PURCHASES_SCHEMAS} fileName="purchase-orders" />
-        <button
-          type="button"
-          className="btn btn--primary"
-          onClick={() => {
-            setEditing(null);
-            setFormOpen(true);
-          }}
-        >
-          + Add
-        </button>
+        {can('purchases', 'documents') && <DataPortButtons schemas={PURCHASES_SCHEMAS} fileName="purchase-orders" />}
+        {can('purchases', 'add') && (
+          <button
+            type="button"
+            className="btn btn--primary"
+            onClick={() => {
+              setEditing(null);
+              setFormOpen(true);
+            }}
+          >
+            + Add
+          </button>
+        )}
       </Toolbar>
 
       <DataTable

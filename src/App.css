@@ -3,3 +3,43 @@
   margin: 0 auto;
   min-width: 0;
 }
+
+/* ---- Pantallas de acceso (cargando sesion / sin permisos) ---- */
+.app-gate {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background-color: var(--canvas);
+  padding: 24px;
+  text-align: center;
+}
+
+.app-gate__spinner {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 3px solid var(--green-100);
+  border-top-color: var(--green-600);
+  animation: app-gate-spin 0.9s linear infinite;
+}
+
+@keyframes app-gate-spin {
+  to { transform: rotate(360deg); }
+}
+
+.app-gate__title {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1.4rem;
+}
+
+.app-gate__text {
+  margin: 0;
+  color: var(--muted);
+  max-width: 380px;
+  line-height: 1.5;
+}

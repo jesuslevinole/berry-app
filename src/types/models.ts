@@ -32,6 +32,8 @@ export const COLLECTIONS = {
   SHIPVIA: 'CAT_SHIPVIA',
   TERMSHIPPING: 'CAT_TERMSHIPPING',
   PAYMENT_METHOD: 'CAT_PAYMENTMETHOD',
+  SYSTEM_USERS: 'system_users',
+  ROLES: 'settings_roles',
 } as const;
 
 export type CollectionName = (typeof COLLECTIONS)[keyof typeof COLLECTIONS];
@@ -147,4 +149,35 @@ export interface AppUser extends BaseDoc {
   EMAIL_USERS: string;
   USER_LEVEL_USERS: string;
   STATUS_USERS: string;
+}
+
+/* ---------- Seguridad: usuarios del sistema y roles ---------- */
+export type SystemUserStatus = 'Pending Invite' | 'Active' | 'Inactive';
+
+export interface SystemUser extends BaseDoc {
+  firstName: string;
+  lastName: string;
+  email: string;
+  roleId: ID;
+  status: SystemUserStatus;
+  inviteSent?: boolean;
+  inviteSentAt?: string;
+}
+
+export type PermissionAction = 'view' | 'add' | 'edit' | 'delete' | 'documents';
+
+export interface ModulePermission {
+  module: string;
+  canView: boolean;
+  canAdd: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
+  /** Acceso a documentos: exportar Excel, plantillas e importar CSV. */
+  canDocuments: boolean;
+}
+
+export interface AppRole extends BaseDoc {
+  name: string;
+  description: string;
+  permissions: ModulePermission[];
 }

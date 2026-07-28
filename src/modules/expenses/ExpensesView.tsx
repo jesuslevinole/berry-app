@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import { useCollection } from '../../hooks/useCollection';
 import { useCatalog, type CatalogOption } from '../../hooks/useCatalog';
 import { updateDocument } from '../../services/firestore';
@@ -14,6 +15,7 @@ import { ExpenseForm } from './ExpenseForm';
 import './ExpensesView.css';
 
 export function ExpensesView() {
+  const { can } = useAuth();
   const { data, loading } = useCollection<Expense>(COLLECTIONS.EXPENSES);
   const { data: purchaseOrders } = useCollection<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER);
   const suppliers = useCatalog(COLLECTIONS.SUPPLIERS, 'NAME_SUPPLIERS');
@@ -104,17 +106,19 @@ export function ExpensesView() {
         searchValue={search}
         onSearchChange={setSearch}
       >
-        <DataPortButtons schemas={EXPENSES_SCHEMAS} fileName="expenses" />
-        <button
-          type="button"
-          className="btn btn--primary"
-          onClick={() => {
-            setEditing(null);
-            setFormOpen(true);
-          }}
-        >
-          + Add
-        </button>
+        {can('expenses', 'documents') && <DataPortButtons schemas={EXPENSES_SCHEMAS} fileName="expenses" />}
+        {can('expenses', 'add') && (
+          <button
+            type="button"
+            className="btn btn--primary"
+            onClick={() => {
+              setEditing(null);
+              setFormOpen(true);
+            }}
+          >
+            + Add
+          </button>
+        )}
       </Toolbar>
 
       <DataTable
