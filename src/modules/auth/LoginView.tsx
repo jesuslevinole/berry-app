@@ -97,6 +97,10 @@ export function LoginView() {
           >
             {busy ? 'Signing in…' : 'Sign In'}
           </button>
+
+          <button type="button" className="login__bypass" onClick={enterAsGuest}>
+            Enter without signing in (dev)
+          </button>
         </section>
 
         <section className="login__brand-panel">
