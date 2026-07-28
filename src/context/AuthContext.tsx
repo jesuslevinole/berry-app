@@ -17,6 +17,7 @@ import {
   where,
 } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
+import { resendPasswordReset } from '../services/userAuthService';
 import { COLLECTIONS, type AppRole, type PermissionAction, type SystemUser } from '../types/models';
 
 interface AuthContextValue {
