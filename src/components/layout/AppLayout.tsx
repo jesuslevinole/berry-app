@@ -97,7 +97,7 @@ export function AppLayout({ view, onNavigate, children }: AppLayoutProps) {
 
   const displayName = profile
     ? `${profile.firstName ?? ''} ${profile.lastName ?? ''}`.trim() || profile.email
-    : firebaseUser?.email ?? '';
+    : firebaseUser?.email ?? (bypass ? 'Dev bypass' : '');
   const initials = displayName
     .split(/[\s@.]+/)
     .filter(Boolean)

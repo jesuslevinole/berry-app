@@ -1,7 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   onAuthStateChanged,
-  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signOut,
   type User,
@@ -29,6 +28,9 @@ interface AuthContextValue {
   loading: boolean;
   /** Sin usuarios registrados en el sistema: el primero en entrar administra todo. */
   isBootstrapAdmin: boolean;
+  /** Modo bypass de DESARROLLO: sesion local sin Firebase Auth, acceso total. */
+  bypass: boolean;
+  enterAsGuest: () => void;
   can: (moduleId: string, action: PermissionAction) => boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -120,6 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<AuthContextValue>(() => {
     const can = (moduleId: string, action: PermissionAction): boolean => {
+      if (bypass) return true;
       if (!firebaseUser) return false;
       if (isBootstrapAdmin) return true;
       if (!profile || profile.status === 'Inactive') return false;
@@ -144,17 +147,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       firebaseUser,
       profile,
       role,
-      loading,
+      loading: bypass ? false : loading,
       isBootstrapAdmin,
+      bypass,
+      enterAsGuest: () => {
+        sessionStorage.setItem('berry-dev-bypass', '1');
+        setBypass(true);
+      },
       can,
       login: async (email, password) => {
         await signInWithEmailAndPassword(auth, email.trim(), password);
       },
       logout: async () => {
+        sessionStorage.removeItem('berry-dev-bypass');
+        setBypass(false);
         await signOut(auth);
       },
       resetPassword: async (email) => {
-        await sendPasswordResetEmail(auth, email.trim());
+        await resendPasswordReset(email.trim());
       },
     };
   }, [firebaseUser, profile, role, loading, isBootstrapAdmin, bypass]);
