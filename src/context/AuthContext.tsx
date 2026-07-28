@@ -44,6 +44,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<AppRole | null>(null);
   const [roleReady, setRoleReady] = useState(true);
   const [isBootstrapAdmin, setIsBootstrapAdmin] = useState(false);
+  const [bypass, setBypass] = useState<boolean>(
+    () => sessionStorage.getItem('berry-dev-bypass') === '1',
+  );
 
   /* Sesion de Firebase Auth */
   useEffect(() => {
@@ -153,7 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await sendPasswordResetEmail(auth, email.trim());
       },
     };
-  }, [firebaseUser, profile, role, loading, isBootstrapAdmin]);
+  }, [firebaseUser, profile, role, loading, isBootstrapAdmin, bypass]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

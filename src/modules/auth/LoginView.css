@@ -216,3 +216,23 @@
     padding: 36px 28px 44px;
   }
 }
+
+/* ---- Bypass de desarrollo ---- */
+.login__bypass {
+  align-self: center;
+  margin-top: 14px;
+  background: none;
+  border: 1px dashed var(--line-strong);
+  color: var(--muted);
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.login__bypass:hover {
+  color: var(--green-600);
+  border-color: var(--green-400);
+}

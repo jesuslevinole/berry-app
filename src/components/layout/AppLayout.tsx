@@ -91,7 +91,7 @@ interface AppLayoutProps {
 export function AppLayout({ view, onNavigate, children }: AppLayoutProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { can, profile, firebaseUser, logout } = useAuth();
+  const { can, profile, firebaseUser, bypass, logout } = useAuth();
 
   const visibleItems = NAV_ITEMS.filter((item) => can(item.key, 'view'));
 
