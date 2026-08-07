@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { CatalogSelect } from '../../components/ui/CatalogSelect';
 import { where } from 'firebase/firestore';
 import { useCollection } from '../../hooks/useCollection';
 import { useCatalog } from '../../hooks/useCatalog';
@@ -143,12 +144,14 @@ export function PaymentsPanel({
             <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           </FormField>
           <FormField label="Payment method">
-            <select className="input" value={methodId} onChange={(e) => setMethodId(e.target.value)}>
-              <option value="">Select…</option>
-              {paymentMethods.options.map((m) => (
-                <option key={m.id} value={m.id}>{m.name}</option>
-              ))}
-            </select>
+            <CatalogSelect
+              value={methodId}
+              onChange={setMethodId}
+              options={paymentMethods.options}
+              collection={COLLECTIONS.PAYMENT_METHOD}
+              nameField="NAME"
+              catalogLabel="payment method"
+            />
           </FormField>
           <FormField label="Amount">
             <input

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { createDocumentLocalFirst } from '../../services/firestore';
 import type { CatalogOption } from '../../hooks/useCatalog';
+import { SearchableSelect } from './SearchableSelect';
 import './CatalogSelect.css';
 
 interface CatalogSelectProps {
@@ -48,12 +49,9 @@ export function CatalogSelect({
 
   return (
     <div className="catsel">
-      <select className="input catsel__select" value={value} onChange={(e) => onChange(e.target.value)}>
-        <option value="">Select…</option>
-        {options.map((o) => (
-          <option key={o.id} value={o.id}>{o.name}</option>
-        ))}
-      </select>
+      <div className="catsel__select">
+        <SearchableSelect value={value} onChange={onChange} options={options} />
+      </div>
 
       {can('catalogs', 'add') && (
         <button

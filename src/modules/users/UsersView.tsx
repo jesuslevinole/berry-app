@@ -6,6 +6,7 @@ import { useCollection } from '../../hooks/useCollection';
 import { COLLECTIONS, type AppRole, type SystemUser, type SystemUserStatus } from '../../types/models';
 import { createUserWithResetEmail, resendPasswordReset } from '../../services/userAuthService';
 import { Toolbar } from '../../components/ui/Toolbar';
+import { SearchableSelect } from '../../components/ui/SearchableSelect';
 import './UsersView.css';
 
 /** Doc ID deterministico basado en email para usuarios aun sin cuenta de Auth. */
@@ -328,22 +329,25 @@ export function UsersView() {
               <div className="users__form-row">
                 <div>
                   <label className="users__label" htmlFor="user-role">Role</label>
-                  <select id="user-role" className="users__input users__select" value={draft.roleId}
-                    onChange={(e) => setDraft((d) => d && { ...d, roleId: e.target.value })}>
-                    <option value="">Select a role…</option>
-                    {roles.map((role) => (
-                      <option key={role.id} value={role.id}>{role.name}</option>
-                    ))}
-                  </select>
+                  <SearchableSelect
+                    value={draft.roleId}
+                    onChange={(id) => setDraft((d) => d && { ...d, roleId: id })}
+                    options={roles.map((role) => ({ id: role.id, name: role.name }))}
+                    placeholder="Select a role…"
+                  />
                 </div>
                 <div>
                   <label className="users__label" htmlFor="user-status">Status</label>
-                  <select id="user-status" className="users__input users__select" value={draft.status}
-                    onChange={(e) => setDraft((d) => d && { ...d, status: e.target.value as SystemUserStatus })}>
-                    <option value="Pending Invite">Pending invite</option>
-                    <option value="Active">Active</option>
-                    <option value="Inactive">Inactive (blocks access)</option>
-                  </select>
+                  <SearchableSelect
+                    value={draft.status}
+                    onChange={(id) => setDraft((d) => d && { ...d, status: (id || 'Pending Invite') as SystemUserStatus })}
+                    options={[
+                      { id: 'Pending Invite', name: 'Pending invite' },
+                      { id: 'Active', name: 'Active' },
+                      { id: 'Inactive', name: 'Inactive (blocks access)' },
+                    ]}
+                    placeholder="Status…"
+                  />
                 </div>
               </div>
               {roles.length === 0 && (

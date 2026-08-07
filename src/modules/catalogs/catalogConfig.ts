@@ -20,7 +20,7 @@ export interface CatalogDef {
  * una sola vista generica (CatalogsView) administra todas estas colecciones.
  */
 export const CATALOG_DEFS: CatalogDef[] = [
-  { collection: COLLECTIONS.GROWER, label: 'Growers', idField: 'ID_GROWER', nameField: 'NAME_GROWER', nameLabel: 'Name', extraFields: [] },
+  { collection: COLLECTIONS.GROWER, label: 'Growers', idField: 'ID_GROWER', nameField: 'NAME_GROWER', nameLabel: 'Name', extraFields: [{ key: 'PREFIX_GROWER', label: 'Prefix' }] },
   {
     collection: COLLECTIONS.CUSTOMER,
     label: 'Customers',

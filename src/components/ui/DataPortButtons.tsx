@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { SearchableSelect } from './SearchableSelect';
 import type { EntitySchema } from '../../config/entitySchemas';
 import { downloadTemplate, importCsvFile, type ImportResult } from '../../services/dataPort';
 import { Modal } from './Modal';
@@ -109,21 +110,16 @@ export function DataPortButtons({ schemas, fileName }: DataPortButtonsProps) {
 
           {schemas.length > 1 && (
             <FormField label="Target collection">
-              <select
-                className="input"
+              <SearchableSelect
                 value={targetCollection}
-                onChange={(e) => {
-                  setTargetCollection(e.target.value);
+                onChange={(id) => {
+                  setTargetCollection(id);
                   setResult(null);
                   setError(null);
                 }}
-              >
-                {schemas.map((schema) => (
-                  <option key={schema.collection} value={schema.collection}>
-                    {schema.label} — {schema.collection}
-                  </option>
-                ))}
-              </select>
+                options={schemas.map((schema) => ({ id: schema.collection, name: `${schema.label} — ${schema.collection}` }))}
+                placeholder="Target collection…"
+              />
             </FormField>
           )}
 

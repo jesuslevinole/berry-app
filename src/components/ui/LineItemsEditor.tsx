@@ -1,5 +1,6 @@
 import type { CatalogOption } from '../../hooks/useCatalog';
 import { CatalogSelect } from './CatalogSelect';
+import { SearchableSelect } from './SearchableSelect';
 import { COLLECTIONS } from '../../types/models';
 import { fmtMoney, round2, toNumber } from '../../utils/format';
 import './LineItemsEditor.css';
@@ -55,16 +56,14 @@ export function LineItemsEditor({
       {lines.map((line, index) => (
         <div className="line-editor__row" key={line.id ?? `new-${index}`}>
           {purchaseOrders && (
-            <select
-              className="input line-editor__po"
-              value={line.ID_PURCHASEORDER ?? ''}
-              onChange={(e) => patch(index, { ID_PURCHASEORDER: e.target.value })}
-            >
-              <option value="">Lot # (PO)…</option>
-              {purchaseOrders.map((po) => (
-                <option key={po.id} value={po.id}>{po.name}</option>
-              ))}
-            </select>
+            <div className="line-editor__po">
+              <SearchableSelect
+                value={line.ID_PURCHASEORDER ?? ''}
+                onChange={(id) => patch(index, { ID_PURCHASEORDER: id })}
+                options={purchaseOrders}
+                placeholder="Lot # (PO)…"
+              />
+            </div>
           )}
           <div className="line-editor__commodity">
             <CatalogSelect

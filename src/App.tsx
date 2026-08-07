@@ -7,11 +7,12 @@ import { PurchaseOrdersView } from './modules/purchases/PurchaseOrdersView';
 import { SalesDeskView } from './modules/sales/SalesDeskView';
 import { ExpensesView } from './modules/expenses/ExpensesView';
 import { CatalogsView } from './modules/catalogs/CatalogsView';
+import { LotActivityView } from './modules/lots/LotActivityView';
 import { UsersView } from './modules/users/UsersView';
 import { RolesView } from './modules/roles/RolesView';
 import './App.css';
 
-const VIEW_ORDER: ViewKey[] = ['dashboard', 'purchases', 'sales', 'expenses', 'catalogs', 'users', 'roles'];
+const VIEW_ORDER: ViewKey[] = ['dashboard', 'purchases', 'sales', 'expenses', 'catalogs', 'lots', 'users', 'roles'];
 
 function Shell() {
   const { firebaseUser, bypass, loading, can, logout } = useAuth();
@@ -58,6 +59,7 @@ function Shell() {
         {view === 'sales' && <SalesDeskView />}
         {view === 'expenses' && <ExpensesView />}
         {view === 'catalogs' && <CatalogsView />}
+        {view === 'lots' && <LotActivityView />}
         {view === 'users' && <UsersView />}
         {view === 'roles' && <RolesView />}
       </div>

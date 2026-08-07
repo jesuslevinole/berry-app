@@ -8,6 +8,7 @@ import { fmtMoney, round2, todayISO, toNumber } from '../../utils/format';
 import { Modal } from '../../components/ui/Modal';
 import { FormField, FormGrid } from '../../components/ui/FormField';
 import { CatalogSelect } from '../../components/ui/CatalogSelect';
+import { SearchableSelect } from '../../components/ui/SearchableSelect';
 import { LineItemsEditor, lineTotal, sumLineTotals, type LineDraft } from '../../components/ui/LineItemsEditor';
 import './SalesOrderForm.css';
 
@@ -183,9 +184,12 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
             <input className="input mono" placeholder="46102" value={salesOrderNumber} onChange={(e) => setSalesOrderNumber(e.target.value)} />
           </FormField>
           <FormField label="Status">
-            <select className="input" value={status} onChange={(e) => setStatus(e.target.value as SalesStatus)}>
-              {SALES_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
+            <SearchableSelect
+              value={status}
+              onChange={(id) => setStatus((id || 'Draft') as SalesStatus)}
+              options={SALES_STATUSES.map((s) => ({ id: s, name: s }))}
+              placeholder="Status…"
+            />
           </FormField>
           <FormField label="Date">
             <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
@@ -207,10 +211,7 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
             <input className="input" placeholder="W. Bentley" value={buyer} onChange={(e) => setBuyer(e.target.value)} />
           </FormField>
           <FormField label="Salesperson">
-            <select className="input" value={userId} onChange={(e) => setUserId(e.target.value)}>
-              <option value="">Select…</option>
-              {users.options.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-            </select>
+            <SearchableSelect value={userId} onChange={setUserId} options={users.options} placeholder="Select buyer…" />
           </FormField>
           <FormField label="Supplier">
             <CatalogSelect

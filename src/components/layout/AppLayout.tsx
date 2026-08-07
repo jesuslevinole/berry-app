@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import './AppLayout.css';
 
-export type ViewKey = 'dashboard' | 'purchases' | 'sales' | 'expenses' | 'catalogs' | 'users' | 'roles';
+export type ViewKey = 'dashboard' | 'purchases' | 'sales' | 'expenses' | 'catalogs' | 'lots' | 'users' | 'roles';
 
 export const VIEW_TITLES: Record<ViewKey, string> = {
   dashboard: 'Dashboard',
@@ -10,6 +10,7 @@ export const VIEW_TITLES: Record<ViewKey, string> = {
   sales: 'Sales Desk',
   expenses: 'Additional expenses',
   catalogs: 'Catalogs',
+  lots: 'Lot Activity',
   users: 'System Users',
   roles: 'Roles & Permissions',
 };
@@ -58,6 +59,15 @@ const NAV_ITEMS: Array<{ key: ViewKey; label: string; icon: ReactNode }> = [
     icon: (
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8">
         <path d="M12 3l9 5-9 5-9-5 9-5z" /><path d="M3 13l9 5 9-5" />
+      </svg>
+    ),
+  },
+  {
+    key: 'lots',
+    label: 'Lot Activity',
+    icon: (
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <path d="M21 8l-9-5-9 5v8l9 5 9-5V8z" /><path d="M3.3 8.3L12 13l8.7-4.7" /><path d="M12 13v9" />
       </svg>
     ),
   },

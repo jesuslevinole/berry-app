@@ -1,0 +1,322 @@
+/* ---- Filtro ---- */
+.lot-activity__filter-card {
+  background-color: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 18px 20px;
+  display: flex;
+  align-items: flex-end;
+  gap: 28px;
+  flex-wrap: wrap;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  margin-bottom: 20px;
+}
+
+.lot-activity__filter-field {
+  flex: 0 1 340px;
+  min-width: 240px;
+}
+
+.lot-activity__filter-label {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--green-700);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+}
+
+.lot-activity__meta {
+  display: flex;
+  gap: 28px;
+  flex-wrap: wrap;
+}
+
+.lot-activity__meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.lot-activity__meta-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.lot-activity__meta-value {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* ---- Estado vacio ---- */
+.lot-activity__empty-state {
+  background-color: var(--surface);
+  border: 1px dashed var(--line-strong);
+  border-radius: 14px;
+  padding: 56px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  color: var(--green-300);
+}
+
+.lot-activity__empty-title {
+  margin: 14px 0 6px 0;
+  font-size: 1.05rem;
+  color: var(--ink);
+}
+
+.lot-activity__empty-text {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--muted);
+  max-width: 380px;
+  line-height: 1.5;
+}
+
+/* ---- KPIs ---- */
+.lot-activity__kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.lot-activity__kpi {
+  background-color: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--green-300);
+  border-radius: 12px;
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.lot-activity__kpi--ok { border-left-color: var(--ok); }
+.lot-activity__kpi--neutral { border-left-color: var(--warn); }
+.lot-activity__kpi--bad { border-left-color: var(--bad); }
+
+.lot-activity__kpi-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.lot-activity__kpi-value {
+  font-size: 1.45rem;
+  font-weight: 800;
+  color: var(--ink);
+  line-height: 1.2;
+}
+
+.lot-activity__kpi-sub {
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+/* ---- Paneles ---- */
+.lot-activity__panel {
+  background-color: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+
+.lot-activity__panel-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--line);
+  background-color: var(--canvas);
+}
+
+.lot-activity__panel-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.lot-activity__panel-badge {
+  background-color: var(--green-600);
+  color: #ffffff;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 3px 12px;
+  border-radius: 14px;
+  letter-spacing: 0.03em;
+}
+
+.lot-activity__panel-count {
+  margin-left: auto;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.lot-activity__panel-empty {
+  margin: 0;
+  padding: 28px 20px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-style: italic;
+}
+
+/* ---- Tablas ---- */
+.lot-activity__table-wrap {
+  overflow-x: auto;
+}
+
+.lot-activity__table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 560px;
+}
+
+.lot-activity__th {
+  padding: 10px 20px;
+  text-align: left;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.lot-activity__th--num {
+  text-align: right;
+}
+
+.lot-activity__td {
+  padding: 11px 20px;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.9rem;
+  color: var(--ink);
+}
+
+.lot-activity__td--num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.lot-activity__td--strong {
+  font-weight: 600;
+}
+
+.lot-activity__td--muted {
+  color: var(--muted);
+}
+
+.lot-activity__tf {
+  padding: 11px 20px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--ink);
+  background-color: var(--green-50);
+}
+
+.lot-activity__tf--num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.lot-activity__empty-row {
+  text-align: center;
+  padding: 28px;
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* ---- Grupos de ventas ---- */
+.lot-activity__sale-group {
+  border-top: 1px solid var(--line);
+}
+
+.lot-activity__sale-group:first-of-type {
+  border-top: none;
+}
+
+.lot-activity__sale-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 20px;
+  background-color: var(--green-50);
+}
+
+.lot-activity__sale-id {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.lot-activity__sale-number {
+  font-weight: 800;
+  color: var(--green-700);
+  font-size: 0.95rem;
+}
+
+.lot-activity__sale-customer {
+  font-weight: 600;
+  color: var(--ink);
+  font-size: 0.9rem;
+}
+
+.lot-activity__sale-side {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.lot-activity__sale-date {
+  font-size: 0.85rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.lot-activity__status {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.lot-activity__status--draft { background-color: var(--line); color: var(--muted); }
+.lot-activity__status--loaded { background-color: var(--info-bg); color: var(--info); }
+.lot-activity__status--delivered { background-color: var(--warn-bg); color: var(--warn); }
+.lot-activity__status--paid { background-color: var(--ok-bg); color: var(--ok); }
+.lot-activity__status--cancelled { background-color: var(--bad-bg); color: var(--bad); }
+
+@media (max-width: 640px) {
+  .lot-activity__filter-card {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .lot-activity__kpi-value {
+    font-size: 1.2rem;
+  }
+}

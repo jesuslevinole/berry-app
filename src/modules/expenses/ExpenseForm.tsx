@@ -7,6 +7,7 @@ import { round2, todayISO, toNumber } from '../../utils/format';
 import { Modal } from '../../components/ui/Modal';
 import { FormField, FormGrid } from '../../components/ui/FormField';
 import { CatalogSelect } from '../../components/ui/CatalogSelect';
+import { SearchableSelect } from '../../components/ui/SearchableSelect';
 import './ExpenseForm.css';
 
 interface ExpenseFormProps {
@@ -111,10 +112,7 @@ export function ExpenseForm({ open, initial, purchaseOrderOptions, onClose }: Ex
       <div className="expense-form">
         <FormGrid>
           <FormField label="# Lot (purchase order)">
-            <select className="input" value={purchaseOrderId} onChange={(e) => setPurchaseOrderId(e.target.value)}>
-              <option value="">Select…</option>
-              {purchaseOrderOptions.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-            </select>
+            <SearchableSelect value={purchaseOrderId} onChange={setPurchaseOrderId} options={purchaseOrderOptions} placeholder="Select lot…" />
           </FormField>
           <FormField label="Supplier">
             <CatalogSelect

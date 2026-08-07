@@ -2,12 +2,15 @@ import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { where } from 'firebase/firestore';
 import { useCatalog } from '../../hooks/useCatalog';
+import { useCollection } from '../../hooks/useCollection';
+import { isAutoLot, nextLotForGrower } from '../../services/lotNumberService';
 import { createDocument, listDocuments, replaceChildren, updateDocument, deleteDocument } from '../../services/firestore';
 import { COLLECTIONS, type PurchaseDetail, type PurchaseOrder } from '../../types/models';
 import { fmtMoney, round2, todayISO, toNumber } from '../../utils/format';
 import { Modal } from '../../components/ui/Modal';
 import { FormField, FormGrid } from '../../components/ui/FormField';
 import { CatalogSelect } from '../../components/ui/CatalogSelect';
+import { SearchableSelect } from '../../components/ui/SearchableSelect';
 import {
   LineItemsEditor,
   lineTotal,
@@ -26,6 +29,7 @@ interface PurchaseOrderFormProps {
 export function PurchaseOrderForm({ open, initial, onClose }: PurchaseOrderFormProps) {
   const { can } = useAuth();
   const growers = useCatalog(COLLECTIONS.GROWER, 'NAME_GROWER');
+  const { data: growerDocs } = useCollection<{ id: string; PREFIX_GROWER?: string }>(COLLECTIONS.GROWER);
   const customers = useCatalog(COLLECTIONS.CUSTOMER, 'NAME_CUSTOMER');
   const users = useCatalog(COLLECTIONS.USERS, 'EMAIL_USERS');
   const carriers = useCatalog(COLLECTIONS.CARRIER, 'NAME_CARRIER');
@@ -33,6 +37,8 @@ export function PurchaseOrderForm({ open, initial, onClose }: PurchaseOrderFormP
   const commodities = useCatalog(COLLECTIONS.COMMODITIES, 'NAME_COMMODITIES');
 
   const [lotNumber, setLotNumber] = useState('');
+  /** true mientras el Lot # es autogenerado (se recalcula al guardar); false si el usuario lo edito a mano. */
+  const [lotAuto, setLotAuto] = useState(false);
   const [refNumber, setRefNumber] = useState('');
   const [arrivalDate, setArrivalDate] = useState(todayISO());
   const [growerId, setGrowerId] = useState('');
@@ -44,9 +50,28 @@ export function PurchaseOrderForm({ open, initial, onClose }: PurchaseOrderFormP
   const [note, setNote] = useState('');
   const [lines, setLines] = useState<LineDraft[]>([]);
 
+  /* Sugerir Lot # = PREFIX del grower + consecutivo (solo al crear). */
+  useEffect(() => {
+    if (!open || initial) return;
+    const prefix = (growerDocs.find((g) => g.id === growerId)?.PREFIX_GROWER ?? '').trim();
+    if (!growerId || !prefix) return;
+    let cancelled = false;
+    void nextLotForGrower(growerId, prefix).then((suggested) => {
+      if (!cancelled) {
+        setLotNumber(suggested);
+        setLotAuto(true);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initial, growerId, growerDocs]);
+
   useEffect(() => {
     if (!open) return;
     setLotNumber(initial?.LOT_NUMBER ?? '');
+    setLotAuto(false);
     setRefNumber(initial?.REF_NUMBER ?? '');
     setArrivalDate(initial?.ARRIVAL_DATE ?? todayISO());
     setGrowerId(initial?.ID_GROWER ?? '');
@@ -114,7 +139,14 @@ export function PurchaseOrderForm({ open, initial, onClose }: PurchaseOrderFormP
       const editingId = initial?.id ?? null;
       onClose();
 
+      const growerPrefix = (growerDocs.find((g) => g.id === payload.ID_GROWER)?.PREFIX_GROWER ?? '').trim();
+      const confirmLot = lotAuto && !editingId && !!growerPrefix;
       const persist = async () => {
+        /* Confirmacion final del consecutivo: re-consultar el maximo por si otra PO
+           se creo despues de la sugerencia (no repetir ni saltar numeros). */
+        if (confirmLot && isAutoLot(payload.LOT_NUMBER, growerPrefix)) {
+          payload.LOT_NUMBER = await nextLotForGrower(payload.ID_GROWER, growerPrefix);
+        }
         const orderId = editingId
           ? (await updateDocument<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER, editingId, payload), editingId)
           : await createDocument<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER, payload);
@@ -160,7 +192,15 @@ export function PurchaseOrderForm({ open, initial, onClose }: PurchaseOrderFormP
       <div className="po-form">
         <FormGrid>
           <FormField label="Lot #">
-            <input className="input mono" placeholder="PO00062" value={lotNumber} onChange={(e) => setLotNumber(e.target.value)} />
+            <input
+              className="input mono"
+              placeholder="Select a grower…"
+              value={lotNumber}
+              onChange={(e) => {
+                setLotNumber(e.target.value);
+                setLotAuto(false);
+              }}
+            />
           </FormField>
           <FormField label="# Ref">
             <input className="input" value={refNumber} onChange={(e) => setRefNumber(e.target.value)} />
@@ -189,10 +229,7 @@ export function PurchaseOrderForm({ open, initial, onClose }: PurchaseOrderFormP
             />
           </FormField>
           <FormField label="Buyer">
-            <select className="input" value={userId} onChange={(e) => setUserId(e.target.value)}>
-              <option value="">Select…</option>
-              {users.options.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-            </select>
+            <SearchableSelect value={userId} onChange={setUserId} options={users.options} placeholder="Select buyer…" />
           </FormField>
           <FormField label="Carrier">
             <CatalogSelect
