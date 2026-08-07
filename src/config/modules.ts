@@ -18,6 +18,7 @@ export const MODULE_DEFS: ModuleDef[] = [
   { id: 'expenses', label: 'Expenses', hasDocuments: true },
   { id: 'catalogs', label: 'Catalogs', hasDocuments: true },
   { id: 'lots', label: 'Lot Activity', hasDocuments: false },
+  { id: 'reports', label: 'Reports', hasDocuments: true },
   { id: 'users', label: 'System Users', hasDocuments: false },
   { id: 'roles', label: 'Roles & Permissions', hasDocuments: false },
   { id: 'config', label: 'Configurator', hasDocuments: false },

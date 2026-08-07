@@ -9,12 +9,13 @@ import { SalesDeskView } from './modules/sales/SalesDeskView';
 import { ExpensesView } from './modules/expenses/ExpensesView';
 import { CatalogsView } from './modules/catalogs/CatalogsView';
 import { LotActivityView } from './modules/lots/LotActivityView';
+import { ReportsView } from './modules/reports/ReportsView';
 import { UsersView } from './modules/users/UsersView';
 import { RolesView } from './modules/roles/RolesView';
 import { ConfigView } from './modules/config/ConfigView';
 import './App.css';
 
-const VIEW_ORDER: ViewKey[] = ['dashboard', 'purchases', 'sales', 'expenses', 'catalogs', 'lots', 'users', 'roles', 'config'];
+const VIEW_ORDER: ViewKey[] = ['dashboard', 'purchases', 'sales', 'expenses', 'catalogs', 'lots', 'reports', 'users', 'roles', 'config'];
 
 function Shell() {
   const { firebaseUser, bypass, loading, can, logout } = useAuth();
@@ -62,6 +63,7 @@ function Shell() {
         {view === 'expenses' && <ExpensesView />}
         {view === 'catalogs' && <CatalogsView />}
         {view === 'lots' && <LotActivityView />}
+        {view === 'reports' && <ReportsView />}
         {view === 'users' && <UsersView />}
         {view === 'roles' && <RolesView />}
         {view === 'config' && <ConfigView />}
