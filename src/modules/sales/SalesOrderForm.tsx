@@ -22,7 +22,14 @@ interface SalesOrderFormProps {
 export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }: SalesOrderFormProps) {
   const { can } = useAuth();
   const customers = useCatalog(COLLECTIONS.CUSTOMER, 'NAME_CUSTOMER');
-  const users = useCatalog(COLLECTIONS.USERS, 'EMAIL_USERS');
+  const { data: systemUsers } = useCollection<SystemUser>(COLLECTIONS.SYSTEM_USERS);
+  const buyerOptions = useMemo(
+    () =>
+      [...systemUsers]
+        .map((u) => ({ id: u.id, name: `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [systemUsers],
+  );
   const suppliers = useCatalog(COLLECTIONS.SUPPLIERS, 'NAME_SUPPLIERS');
   const carriers = useCatalog(COLLECTIONS.CARRIER, 'NAME_CARRIER');
   const shipVia = useCatalog(COLLECTIONS.SHIPVIA, 'NAME_SHIPVIA');
@@ -211,7 +218,7 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
             <input className="input" placeholder="W. Bentley" value={buyer} onChange={(e) => setBuyer(e.target.value)} />
           </FormField>
           <FormField label="Salesperson">
-            <SearchableSelect value={userId} onChange={setUserId} options={users.options} placeholder="Select buyer…" />
+            <SearchableSelect value={userId} onChange={setUserId} options={buyerOptions} placeholder="Select buyer…" />
           </FormField>
           <FormField label="Supplier">
             <CatalogSelect

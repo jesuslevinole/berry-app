@@ -3,7 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useCollection } from '../../hooks/useCollection';
 import { useCatalog, type CatalogOption } from '../../hooks/useCatalog';
 import { updateDocument } from '../../services/firestore';
-import { COLLECTIONS, type PurchaseOrder, type SalesOrder } from '../../types/models';
+import { COLLECTIONS, type PurchaseOrder, type SalesOrder, type SystemUser } from '../../types/models';
 import { fmtDate, fmtMoney, round2 } from '../../utils/format';
 import { DataTable, type Column } from '../../components/ui/DataTable';
 import { Toolbar } from '../../components/ui/Toolbar';
@@ -20,7 +20,15 @@ export function SalesDeskView() {
   const { data, loading } = useCollection<SalesOrder>(COLLECTIONS.SALES_ORDER);
   const { data: purchaseOrders } = useCollection<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER);
   const customers = useCatalog(COLLECTIONS.CUSTOMER, 'NAME_CUSTOMER');
-  const users = useCatalog(COLLECTIONS.USERS, 'EMAIL_USERS');
+  const legacyUsers = useCatalog(COLLECTIONS.USERS, 'EMAIL_USERS');
+  const { data: systemUsers } = useCollection<SystemUser>(COLLECTIONS.SYSTEM_USERS);
+  /** Resuelve buyer: usuarios del sistema primero, catalogo legado para registros viejos. */
+  const buyerName = useMemo(() => {
+    const map = new Map(
+      systemUsers.map((u) => [u.id, `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email]),
+    );
+    return (id?: string): string => (id ? (map.get(id) ?? legacyUsers.nameOf(id)) : '—');
+  }, [systemUsers, legacyUsers]);
 
   const [search, setSearch] = useState('');
   const [formOpen, setFormOpen] = useState(false);
@@ -40,7 +48,7 @@ export function SalesDeskView() {
     const term = search.trim().toLowerCase();
     if (!term) return sorted;
     return sorted.filter((so) =>
-      [so.SALES_ORDER_NUMBER, so.REF, so.BUYER, so.STATUS, customers.nameOf(so.ID_CUSTOMER), users.nameOf(so.ID_USERS)]
+      [so.SALES_ORDER_NUMBER, so.REF, so.BUYER, so.STATUS, customers.nameOf(so.ID_CUSTOMER), buyerName(so.ID_USERS)]
         .join(' ')
         .toLowerCase()
         .includes(term),
@@ -60,7 +68,7 @@ export function SalesDeskView() {
       header: 'Sent',
       render: (so) => <span className={so.SENT ? 'text-ok' : 'muted'}>{so.SENT ? 'Yes' : 'No'}</span>,
     },
-    { key: 'ID_USERS', header: 'Salesperson', render: (so) => users.nameOf(so.ID_USERS) },
+    { key: 'ID_USERS', header: 'Salesperson', render: (so) => buyerName(so.ID_USERS) },
     { key: 'BUYER', header: 'Buyer', render: (so) => so.BUYER || '—' },
     {
       key: 'payments',

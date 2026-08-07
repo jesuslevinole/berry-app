@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useCollection } from '../../hooks/useCollection';
 import { useCatalog } from '../../hooks/useCatalog';
-import { COLLECTIONS, type PurchaseOrder } from '../../types/models';
+import { COLLECTIONS, type PurchaseOrder, type SystemUser } from '../../types/models';
 import { fmtDate, fmtMoney } from '../../utils/format';
 import { DataTable, type Column } from '../../components/ui/DataTable';
 import { Toolbar } from '../../components/ui/Toolbar';
@@ -16,7 +16,15 @@ export function PurchaseOrdersView() {
   const { data, loading } = useCollection<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER);
   const growers = useCatalog(COLLECTIONS.GROWER, 'NAME_GROWER');
   const customers = useCatalog(COLLECTIONS.CUSTOMER, 'NAME_CUSTOMER');
-  const users = useCatalog(COLLECTIONS.USERS, 'EMAIL_USERS');
+  const legacyUsers = useCatalog(COLLECTIONS.USERS, 'EMAIL_USERS');
+  const { data: systemUsers } = useCollection<SystemUser>(COLLECTIONS.SYSTEM_USERS);
+  /** Resuelve buyer: usuarios del sistema primero, catalogo legado para registros viejos. */
+  const buyerName = useMemo(() => {
+    const map = new Map(
+      systemUsers.map((u) => [u.id, `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email]),
+    );
+    return (id?: string): string => (id ? (map.get(id) ?? legacyUsers.nameOf(id)) : '—');
+  }, [systemUsers, legacyUsers]);
 
   const [search, setSearch] = useState('');
   const [formOpen, setFormOpen] = useState(false);
@@ -32,7 +40,7 @@ export function PurchaseOrdersView() {
         po.REF_NUMBER,
         growers.nameOf(po.ID_GROWER),
         customers.nameOf(po.ID_CUSTOMER),
-        users.nameOf(po.ID_USERS),
+        buyerName(po.ID_USERS),
       ]
         .join(' ')
         .toLowerCase()
@@ -43,7 +51,7 @@ export function PurchaseOrdersView() {
   const columns: Array<Column<PurchaseOrder>> = [
     { key: 'ID_GROWER', header: 'Grower', render: (po) => growers.nameOf(po.ID_GROWER) },
     { key: 'ID_CUSTOMER', header: 'Vendor', render: (po) => customers.nameOf(po.ID_CUSTOMER) },
-    { key: 'ID_USERS', header: 'Buyer', render: (po) => users.nameOf(po.ID_USERS) },
+    { key: 'ID_USERS', header: 'Buyer', render: (po) => buyerName(po.ID_USERS) },
     { key: 'ARRIVAL_DATE', header: 'Arrival Date', render: (po) => fmtDate(po.ARRIVAL_DATE) },
     { key: 'LOT_NUMBER', header: 'Lot #', render: (po) => <span className="mono">{po.LOT_NUMBER || '—'}</span> },
     { key: 'REF_NUMBER', header: '# Ref', render: (po) => po.REF_NUMBER || '—' },

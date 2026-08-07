@@ -4,6 +4,7 @@ import { where } from 'firebase/firestore';
 import { useCatalog } from '../../hooks/useCatalog';
 import { useCollection } from '../../hooks/useCollection';
 import { isAutoLot, nextLotForGrower } from '../../services/lotNumberService';
+import type { SystemUser } from '../../types/models';
 import { createDocument, listDocuments, replaceChildren, updateDocument, deleteDocument } from '../../services/firestore';
 import { COLLECTIONS, type PurchaseDetail, type PurchaseOrder } from '../../types/models';
 import { fmtMoney, round2, todayISO, toNumber } from '../../utils/format';
@@ -31,7 +32,7 @@ export function PurchaseOrderForm({ open, initial, onClose }: PurchaseOrderFormP
   const growers = useCatalog(COLLECTIONS.GROWER, 'NAME_GROWER');
   const { data: growerDocs } = useCollection<{ id: string; PREFIX_GROWER?: string }>(COLLECTIONS.GROWER);
   const customers = useCatalog(COLLECTIONS.CUSTOMER, 'NAME_CUSTOMER');
-  const users = useCatalog(COLLECTIONS.USERS, 'EMAIL_USERS');
+  const { data: systemUsers } = useCollection<SystemUser>(COLLECTIONS.SYSTEM_USERS);
   const carriers = useCatalog(COLLECTIONS.CARRIER, 'NAME_CARRIER');
   const locations = useCatalog(COLLECTIONS.LOCATIONS, 'NAME_LOCATIONS');
   const commodities = useCatalog(COLLECTIONS.COMMODITIES, 'NAME_COMMODITIES');
@@ -97,6 +98,15 @@ export function PurchaseOrderForm({ open, initial, onClose }: PurchaseOrderFormP
       );
     }
   }, [open, initial]);
+
+  /** Buyer: usuarios del sistema (system_users), no el catalogo legado. */
+  const buyerOptions = useMemo(
+    () =>
+      [...systemUsers]
+        .map((u) => ({ id: u.id, name: `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [systemUsers],
+  );
 
   const subtotal = useMemo(() => sumLineTotals(lines), [lines]);
   const quantity = useMemo(() => sumLineQuantities(lines), [lines]);
@@ -194,19 +204,14 @@ export function PurchaseOrderForm({ open, initial, onClose }: PurchaseOrderFormP
           <FormField label="Lot #">
             <input
               className="input mono"
-              placeholder="Select a grower…"
+              placeholder={growerId ? 'Auto…' : 'Select a grower first…'}
               value={lotNumber}
+              disabled={!growerId}
               onChange={(e) => {
                 setLotNumber(e.target.value);
                 setLotAuto(false);
               }}
             />
-          </FormField>
-          <FormField label="# Ref">
-            <input className="input" value={refNumber} onChange={(e) => setRefNumber(e.target.value)} />
-          </FormField>
-          <FormField label="Arrival date">
-            <input className="input" type="date" value={arrivalDate} onChange={(e) => setArrivalDate(e.target.value)} />
           </FormField>
           <FormField label="Grower / Origin">
             <CatalogSelect
@@ -228,19 +233,6 @@ export function PurchaseOrderForm({ open, initial, onClose }: PurchaseOrderFormP
               catalogLabel="vendor"
             />
           </FormField>
-          <FormField label="Buyer">
-            <SearchableSelect value={userId} onChange={setUserId} options={users.options} placeholder="Select buyer…" />
-          </FormField>
-          <FormField label="Carrier">
-            <CatalogSelect
-              value={carrierId}
-              onChange={setCarrierId}
-              options={carriers.options}
-              collection={COLLECTIONS.CARRIER}
-              nameField="NAME_CARRIER"
-              catalogLabel="carrier"
-            />
-          </FormField>
           <FormField label="Ship to">
             <CatalogSelect
               value={shipTo}
@@ -250,6 +242,12 @@ export function PurchaseOrderForm({ open, initial, onClose }: PurchaseOrderFormP
               nameField="NAME_LOCATIONS"
               catalogLabel="location"
             />
+          </FormField>
+          <FormField label="Buyer">
+            <SearchableSelect value={userId} onChange={setUserId} options={buyerOptions} placeholder="Select buyer…" />
+          </FormField>
+          <FormField label="Note">
+            <textarea className="input" value={note} onChange={(e) => setNote(e.target.value)} />
           </FormField>
           <FormField label="Commission %">
             <input
@@ -261,18 +259,35 @@ export function PurchaseOrderForm({ open, initial, onClose }: PurchaseOrderFormP
               onChange={(e) => setCommissionPercent(e.target.value)}
             />
           </FormField>
-          <FormField label="Note" span2>
-            <textarea className="input" value={note} onChange={(e) => setNote(e.target.value)} />
+          <FormField label="# Ref">
+            <input className="input" value={refNumber} onChange={(e) => setRefNumber(e.target.value)} />
+          </FormField>
+          <FormField label="Carrier">
+            <CatalogSelect
+              value={carrierId}
+              onChange={setCarrierId}
+              options={carriers.options}
+              collection={COLLECTIONS.CARRIER}
+              nameField="NAME_CARRIER"
+              catalogLabel="carrier"
+            />
+          </FormField>
+          <FormField label="Arrival date">
+            <input className="input" type="date" value={arrivalDate} onChange={(e) => setArrivalDate(e.target.value)} />
           </FormField>
         </FormGrid>
 
         <LineItemsEditor lines={lines} onChange={setLines} commodities={commodities.options} />
 
         <div className="po-form__summary">
-          <span>Quantity <b className="num">{quantity}</b></span>
-          <span>Merchandise subtotal <b className="num">{fmtMoney(subtotal)}</b></span>
+          <span>Subtotal <b className="num">{fmtMoney(subtotal)}</b></span>
           <span>Commission <b className="num">{fmtMoney(commissionAmount)}</b></span>
-          <span className="po-form__summary-total">Order total <b className="num">{fmtMoney(total)}</b></span>
+          <span>Expenses <b className="num">{fmtMoney(initial?.EXPENSES ?? 0)}</b></span>
+          <span>Total expenses <b className="num">{fmtMoney(initial?.TOTAL_EXPENSES ?? 0)}</b></span>
+          <span>Total <b className="num">{fmtMoney(total)}</b></span>
+          <span>Amount paid <b className="num">{fmtMoney(initial?.AMOUNT_PAID ?? 0)}</b></span>
+          <span className="po-form__summary-total">Balance <b className="num">{fmtMoney(round2(total - (initial?.AMOUNT_PAID ?? 0)))}</b></span>
+          <span>Quantity <b className="num">{quantity}</b></span>
         </div>
       </div>
     </Modal>
