@@ -3,7 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useAppConfig } from '../../context/AppConfigContext';
 import { useCollection } from '../../hooks/useCollection';
 import { MODULE_DEFS } from '../../config/modules';
-import { COLLECTIONS, type FormFieldConfig, type SystemUser } from '../../types/models';
+import { COLLECTIONS, type CheckSettings, type FormFieldConfig, type SystemUser } from '../../types/models';
 import { SearchableSelect } from '../../components/ui/SearchableSelect';
 import { Toolbar } from '../../components/ui/Toolbar';
 import './ConfigView.css';
@@ -31,7 +31,7 @@ type Section = 'nav' | 'viewas' | string;
 
 export function ConfigView() {
   const { canAdmin, viewAsProfile, setViewAs } = useAuth();
-  const { sortNav, saveNavOrder, fieldsFor, saveFormFields } = useAppConfig();
+  const { sortNav, saveNavOrder, fieldsFor, saveFormFields, checkSettings, saveCheckSettings } = useAppConfig();
   const { data: systemUsers } = useCollection<SystemUser>(COLLECTIONS.SYSTEM_USERS);
 
   const canNav = canAdmin('navOrder');
@@ -39,15 +39,17 @@ export function ConfigView() {
   const canOrder = canAdmin('formOrder');
   const canRequired = canAdmin('requiredFields');
   const canViewAs = canAdmin('viewAs');
+  const canChecks = canAdmin('checkDesign');
   const canForms = canLabels || canOrder || canRequired;
 
   const sections = useMemo(() => {
     const list: { id: Section; label: string }[] = [];
     if (canNav) list.push({ id: 'nav', label: 'Navigation menu' });
     if (canForms) for (const form of FORM_DEFS) list.push({ id: form.id, label: form.label });
+    if (canChecks) list.push({ id: 'checks-design', label: 'Check customization' });
     if (canViewAs) list.push({ id: 'viewas', label: 'View as user' });
     return list;
-  }, [canNav, canForms, canViewAs]);
+  }, [canNav, canForms, canViewAs, canChecks]);
 
   const [section, setSection] = useState<Section>(sections[0]?.id ?? 'nav');
   useEffect(() => {
@@ -99,6 +101,10 @@ export function ConfigView() {
     [systemUsers],
   );
   const [viewAsDraft, setViewAsDraft] = useState('');
+
+  /* ---- Personalizacion de cheques ---- */
+  const [checksDraft, setChecksDraft] = useState<CheckSettings>({});
+  useEffect(() => setChecksDraft({ ...checkSettings }), [checkSettings]);
 
   if (sections.length === 0) {
     return (
@@ -207,6 +213,63 @@ export function ConfigView() {
                   onClick={() => saveFormFields(formDef.id, fieldsDraft.map((f) => ({ ...f, label: f.label.trim() || f.key })))}
                 >
                   Save fields
+                </button>
+              </div>
+            </div>
+          )}
+
+          {section === 'checks-design' && canChecks && (
+            <div className="config__card">
+              <h3 className="config__card-title">Check customization</h3>
+              <p className="config__hint">
+                Controls how printed checks look and where the numbering starts. Company data and
+                bank accounts come from the Company Info module.
+              </p>
+              <div className="config__checks-grid">
+                <div>
+                  <span className="config__field-label-title">Starting check number</span>
+                  <input
+                    className="input mono"
+                    type="number"
+                    min="1"
+                    value={checksDraft.startNumber ?? ''}
+                    placeholder="e.g. 12043"
+                    onChange={(e) =>
+                      setChecksDraft((d) => ({ ...d, startNumber: e.target.value ? parseInt(e.target.value, 10) : undefined }))
+                    }
+                  />
+                  <p className="config__field-default">New checks continue from the highest of this number or the last check saved.</p>
+                </div>
+                <div>
+                  <span className="config__field-label-title">Signature line text</span>
+                  <input
+                    className="input"
+                    value={checksDraft.signatureText ?? ''}
+                    placeholder="Authorized signature"
+                    onChange={(e) => setChecksDraft((d) => ({ ...d, signatureText: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div className="config__toggles">
+                <label className="config__required">
+                  <input type="checkbox" className="config__checkbox" checked={checksDraft.showLogo !== false}
+                    onChange={(e) => setChecksDraft((d) => ({ ...d, showLogo: e.target.checked }))} />
+                  Show company logo
+                </label>
+                <label className="config__required">
+                  <input type="checkbox" className="config__checkbox" checked={checksDraft.showAddress !== false}
+                    onChange={(e) => setChecksDraft((d) => ({ ...d, showAddress: e.target.checked }))} />
+                  Show company address
+                </label>
+                <label className="config__required">
+                  <input type="checkbox" className="config__checkbox" checked={checksDraft.showBankInfo !== false}
+                    onChange={(e) => setChecksDraft((d) => ({ ...d, showBankInfo: e.target.checked }))} />
+                  Show bank info and routing line
+                </label>
+              </div>
+              <div className="config__actions">
+                <button type="button" className="btn btn--primary" onClick={() => saveCheckSettings(checksDraft)}>
+                  Save check settings
                 </button>
               </div>
             </div>

@@ -230,3 +230,33 @@
     flex-wrap: wrap;
   }
 }
+
+
+.config__checks-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-bottom: 16px;
+}
+
+.config__field-label-title {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--green-700);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+}
+
+.config__toggles {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+@media (max-width: 640px) {
+  .config__checks-grid {
+    grid-template-columns: 1fr;
+  }
+}

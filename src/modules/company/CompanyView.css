@@ -1,0 +1,144 @@
+.company__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+.company__card {
+  background-color: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 22px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.company__card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.company__card-title {
+  margin: 0 0 12px 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.company__card-header .company__card-title {
+  margin-bottom: 0;
+}
+
+.company__logo-row {
+  display: flex;
+  gap: 18px;
+  align-items: flex-start;
+  margin-bottom: 18px;
+}
+
+.company__logo-box {
+  width: 120px;
+  height: 120px;
+  flex-shrink: 0;
+  border: 1px dashed var(--line-strong);
+  border-radius: 12px;
+  background-color: var(--canvas);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.company__logo {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.company__logo-placeholder {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.company__logo-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.company__upload {
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.company__file {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.company__hint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.company__label {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--green-700);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 14px 0 6px 0;
+}
+
+.company__row2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.company__empty {
+  margin: 0;
+  padding: 20px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-style: italic;
+}
+
+.company__bank {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 4px 16px 14px;
+  margin-bottom: 12px;
+  background-color: var(--canvas);
+}
+
+.company__bank-remove {
+  margin-top: 12px;
+  background: none;
+  border: none;
+  color: var(--bad);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.company__bank-remove:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 900px) {
+  .company__grid {
+    grid-template-columns: 1fr;
+  }
+}

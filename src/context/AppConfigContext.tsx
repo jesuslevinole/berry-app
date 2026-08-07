@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
-import { COLLECTIONS, type AppConfigDoc, type FormFieldConfig } from '../types/models';
+import { COLLECTIONS, type AppConfigDoc, type CheckSettings, type FormFieldConfig } from '../types/models';
 
 const CONFIG_DOC_ID = 'config';
 
@@ -19,6 +19,9 @@ interface AppConfigValue {
   saveFormFields: (formId: string, fields: FormFieldConfig[]) => void;
   /** Devuelve las etiquetas (custom) de los campos obligatorios sin valor. */
   missingRequired: (formId: string, values: Record<string, unknown>) => string[];
+  /** Personalizacion de cheques. */
+  checkSettings: CheckSettings;
+  saveCheckSettings: (settings: CheckSettings) => void;
 }
 
 const AppConfigContext = createContext<AppConfigValue | null>(null);
@@ -68,6 +71,8 @@ export function AppConfigProvider({ children }: { children: ReactNode }) {
       },
       saveNavOrder: (order) => persist({ navOrder: order }),
       fieldsFor,
+      checkSettings: config?.checks ?? {},
+      saveCheckSettings: (settings) => persist({ checks: settings }),
       saveFormFields: (formId, fields) =>
         persist({ forms: { ...(config?.forms ?? {}), [formId]: fields } }),
       missingRequired: (formId, values) => {

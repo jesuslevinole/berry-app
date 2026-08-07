@@ -35,6 +35,8 @@ export const COLLECTIONS = {
   SYSTEM_USERS: 'system_users',
   ROLES: 'settings_roles',
   APP_SETTINGS: 'settings_app',
+  CHECKS: 'BD_CHECKS',
+  COMPANY: 'settings_company',
 } as const;
 
 export type CollectionName = (typeof COLLECTIONS)[keyof typeof COLLECTIONS];
@@ -198,6 +200,8 @@ export interface AppConfigDoc extends BaseDoc {
   navOrder?: string[];
   /** Config de campos por formulario (orden del arreglo = orden visual). */
   forms?: Record<string, FormFieldConfig[]>;
+  /** Personalizacion de cheques. */
+  checks?: CheckSettings;
 }
 
 /** Capacidades administrativas granulares (punto 7: gobernadas desde Roles). */
@@ -207,8 +211,51 @@ export const ADMIN_CAPABILITIES = [
   { id: 'formOrder', label: 'Reorder form fields' },
   { id: 'requiredFields', label: 'Set required fields' },
   { id: 'viewAs', label: 'View as other users' },
+  { id: 'checkDesign', label: 'Customize checks' },
 ] as const;
 
 export type AdminCapability = (typeof ADMIN_CAPABILITIES)[number]['id'];
 
 export type AdminPerms = Partial<Record<AdminCapability, boolean>>;
+
+/* ---------- Empresa (logo, datos y bancos) ---------- */
+export interface CompanyBank {
+  id: string;
+  bankName: string;
+  address: string;
+  routing: string;
+  account: string;
+}
+
+export interface CompanyInfo extends BaseDoc {
+  name: string;
+  address: string;
+  cityStateZip: string;
+  phone: string;
+  email: string;
+  /** Logo en data URL base64 (png/jpg pequeño). */
+  logo: string;
+  banks: CompanyBank[];
+}
+
+/* ---------- Cheques ---------- */
+export interface Check extends BaseDoc {
+  CHECK_NUMBER: number;
+  DATE: string;
+  /** Cuenta emisora (nombre de la empresa). */
+  ACCOUNT: string;
+  ID_BANK: string;
+  ID_CUSTOMER: ID;
+  MEMO: string;
+  REF: string;
+  AMOUNT: number;
+}
+
+/** Personalizacion de la impresion de cheques (Configurator). */
+export interface CheckSettings {
+  startNumber?: number;
+  showLogo?: boolean;
+  showAddress?: boolean;
+  showBankInfo?: boolean;
+  signatureText?: string;
+}

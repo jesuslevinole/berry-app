@@ -3,7 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useAppConfig } from '../../context/AppConfigContext';
 import './AppLayout.css';
 
-export type ViewKey = 'dashboard' | 'purchases' | 'sales' | 'expenses' | 'catalogs' | 'lots' | 'reports' | 'users' | 'roles' | 'config';
+export type ViewKey = 'dashboard' | 'purchases' | 'sales' | 'expenses' | 'catalogs' | 'lots' | 'reports' | 'checks' | 'company' | 'users' | 'roles' | 'config';
 
 export const VIEW_TITLES: Record<ViewKey, string> = {
   dashboard: 'Dashboard',
@@ -13,6 +13,8 @@ export const VIEW_TITLES: Record<ViewKey, string> = {
   catalogs: 'Catalogs',
   lots: 'Lot Activity',
   reports: 'Reports',
+  checks: 'Checkbook',
+  company: 'Company Info',
   users: 'System Users',
   roles: 'Roles & Permissions',
   config: 'Configurator',
@@ -80,6 +82,24 @@ const NAV_ITEMS: Array<{ key: ViewKey; label: string; icon: ReactNode }> = [
     icon: (
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8">
         <path d="M3 3v18h18" /><path d="M7 15l4-5 3 3 5-7" />
+      </svg>
+    ),
+  },
+  {
+    key: 'checks',
+    label: 'Checkbook',
+    icon: (
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <rect x="2" y="6" width="20" height="12" rx="2" /><path d="M6 10h6M6 13h4M15 13.5h3.5" />
+      </svg>
+    ),
+  },
+  {
+    key: 'company',
+    label: 'Company Info',
+    icon: (
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <path d="M3 21h18M5 21V7l7-4 7 4v14" /><path d="M9 9h1.5M13.5 9H15M9 13h1.5M13.5 13H15M9 17h1.5M13.5 17H15" />
       </svg>
     ),
   },
