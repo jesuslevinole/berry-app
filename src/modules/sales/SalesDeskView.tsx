@@ -53,7 +53,7 @@ export function SalesDeskView() {
         .toLowerCase()
         .includes(term),
     );
-  }, [data, search, customers, users]);
+  }, [data, search, customers, buyerName]);
 
   const columns: Array<Column<SalesOrder>> = [
     { key: 'DATE', header: 'Date', render: (so) => fmtDate(so.DATE) },

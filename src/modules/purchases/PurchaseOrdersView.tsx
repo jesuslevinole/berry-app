@@ -46,7 +46,7 @@ export function PurchaseOrdersView() {
         .toLowerCase()
         .includes(term),
     );
-  }, [data, search, growers, customers, users]);
+  }, [data, search, growers, customers, buyerName]);
 
   const columns: Array<Column<PurchaseOrder>> = [
     { key: 'ID_GROWER', header: 'Grower', render: (po) => growers.nameOf(po.ID_GROWER) },
