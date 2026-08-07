@@ -153,3 +153,35 @@
 .topbar__logout:hover {
   color: var(--bad);
 }
+
+/* ---- Banner de "View as" ---- */
+.layout__viewas-banner {
+  position: sticky;
+  top: 0;
+  z-index: 10100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 9px 16px;
+  background-color: var(--warn);
+  color: #ffffff;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.layout__viewas-exit {
+  background-color: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  color: #ffffff;
+  padding: 4px 14px;
+  border-radius: 14px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.layout__viewas-exit:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+}

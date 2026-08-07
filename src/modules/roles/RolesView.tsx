@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useCollection } from '../../hooks/useCollection';
 import { createDocument, deleteDocument, updateDocument } from '../../services/firestore';
-import { COLLECTIONS, type AppRole, type ModulePermission, type SystemUser } from '../../types/models';
+import { ADMIN_CAPABILITIES, COLLECTIONS, type AdminCapability, type AdminPerms, type AppRole, type ModulePermission, type SystemUser } from '../../types/models';
 import { MODULE_DEFS, buildEmptyPermissions, mergePermissions } from '../../config/modules';
 import { Toolbar } from '../../components/ui/Toolbar';
 import './RolesView.css';
@@ -12,6 +12,7 @@ interface RoleDraft {
   name: string;
   description: string;
   permissions: ModulePermission[];
+  adminPerms: AdminPerms;
 }
 
 const EMPTY_DRAFT = (): RoleDraft => ({
@@ -19,6 +20,7 @@ const EMPTY_DRAFT = (): RoleDraft => ({
   name: '',
   description: '',
   permissions: buildEmptyPermissions(),
+  adminPerms: {},
 });
 
 export function RolesView() {
@@ -50,6 +52,7 @@ export function RolesView() {
       name: role.name ?? '',
       description: role.description ?? '',
       permissions: mergePermissions(role.permissions),
+      adminPerms: { ...(role.adminPerms ?? {}) },
     });
     setModalOpen(true);
   };
@@ -99,6 +102,7 @@ export function RolesView() {
       name,
       description: draft.description.trim(),
       permissions: draft.permissions,
+      adminPerms: draft.adminPerms,
     };
     const editingId = draft.id;
     setModalOpen(false);
@@ -272,6 +276,34 @@ export function RolesView() {
                     })}
                   </tbody>
                 </table>
+              </div>
+
+              <div className="roles__matrix-header roles__admin-header">
+                <h4 className="roles__section-title">Configurator capabilities</h4>
+              </div>
+              <p className="roles__matrix-hint">
+                Control who can customize the app: menu order, form fields and impersonation.
+              </p>
+              <div className="roles__admin-grid">
+                {ADMIN_CAPABILITIES.map((cap) => (
+                  <label
+                    key={cap.id}
+                    className={`roles__admin-option${draft.adminPerms[cap.id] ? ' roles__admin-option--checked' : ''}`}
+                  >
+                    <input
+                      type="checkbox"
+                      className="roles__checkbox"
+                      checked={!!draft.adminPerms[cap.id]}
+                      onChange={(e) =>
+                        setDraft((d) => ({
+                          ...d,
+                          adminPerms: { ...d.adminPerms, [cap.id as AdminCapability]: e.target.checked },
+                        }))
+                      }
+                    />
+                    <span className="roles__admin-label">{cap.label}</span>
+                  </label>
+                ))}
               </div>
             </div>
 

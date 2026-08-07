@@ -1,8 +1,9 @@
 import { useState, type ReactNode } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useAppConfig } from '../../context/AppConfigContext';
 import './AppLayout.css';
 
-export type ViewKey = 'dashboard' | 'purchases' | 'sales' | 'expenses' | 'catalogs' | 'lots' | 'users' | 'roles';
+export type ViewKey = 'dashboard' | 'purchases' | 'sales' | 'expenses' | 'catalogs' | 'lots' | 'users' | 'roles' | 'config';
 
 export const VIEW_TITLES: Record<ViewKey, string> = {
   dashboard: 'Dashboard',
@@ -13,6 +14,7 @@ export const VIEW_TITLES: Record<ViewKey, string> = {
   lots: 'Lot Activity',
   users: 'System Users',
   roles: 'Roles & Permissions',
+  config: 'Configurator',
 };
 
 const NAV_ITEMS: Array<{ key: ViewKey; label: string; icon: ReactNode }> = [
@@ -90,6 +92,15 @@ const NAV_ITEMS: Array<{ key: ViewKey; label: string; icon: ReactNode }> = [
       </svg>
     ),
   },
+  {
+    key: 'config',
+    label: 'Configurator',
+    icon: (
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <circle cx="12" cy="12" r="3" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1" />
+      </svg>
+    ),
+  },
 ];
 
 interface AppLayoutProps {
@@ -101,9 +112,10 @@ interface AppLayoutProps {
 export function AppLayout({ view, onNavigate, children }: AppLayoutProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { can, profile, firebaseUser, bypass, logout } = useAuth();
+  const { can, profile, firebaseUser, bypass, logout, viewAsProfile, setViewAs } = useAuth();
 
-  const visibleItems = NAV_ITEMS.filter((item) => can(item.key, 'view'));
+  const { sortNav } = useAppConfig();
+  const visibleItems = sortNav(NAV_ITEMS.filter((item) => can(item.key, 'view')));
 
   const displayName = profile
     ? `${profile.firstName ?? ''} ${profile.lastName ?? ''}`.trim() || profile.email
@@ -121,6 +133,15 @@ export function AppLayout({ view, onNavigate, children }: AppLayoutProps) {
   };
 
   return (
+    <>
+      {viewAsProfile && (
+        <div className="layout__viewas-banner">
+          <span>
+            Viewing as <strong>{`${viewAsProfile.firstName ?? ''} ${viewAsProfile.lastName ?? ''}`.trim() || viewAsProfile.email}</strong> — you see exactly what they see
+          </span>
+          <button type="button" className="layout__viewas-exit" onClick={() => setViewAs(null)}>Exit view</button>
+        </div>
+      )}
     <div className={`layout${collapsed ? ' layout--collapsed' : ''}`}>
       <aside className={`sidebar${mobileOpen ? ' sidebar--open' : ''}`}>
         <div className="sidebar__brand">
@@ -193,5 +214,6 @@ export function AppLayout({ view, onNavigate, children }: AppLayoutProps) {
         <main className="content">{children}</main>
       </div>
     </div>
+    </>
   );
 }

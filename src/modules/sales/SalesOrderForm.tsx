@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useAppConfig } from '../../context/AppConfigContext';
 import { where } from 'firebase/firestore';
 import { useCatalog, type CatalogOption } from '../../hooks/useCatalog';
 import { useCollection } from '../../hooks/useCollection';
@@ -7,7 +8,7 @@ import { createDocument, deleteDocument, listDocuments, replaceChildren, updateD
 import { COLLECTIONS, SALES_STATUSES, type SalesOrder, type SalesOrderDetail, type SalesStatus, type SystemUser } from '../../types/models';
 import { fmtMoney, round2, todayISO, toNumber } from '../../utils/format';
 import { Modal } from '../../components/ui/Modal';
-import { FormField, FormGrid } from '../../components/ui/FormField';
+import { ConfigurableGrid, FormField } from '../../components/ui/FormField';
 import { CatalogSelect } from '../../components/ui/CatalogSelect';
 import { SearchableSelect } from '../../components/ui/SearchableSelect';
 import { LineItemsEditor, lineTotal, sumLineTotals, type LineDraft } from '../../components/ui/LineItemsEditor';
@@ -22,6 +23,7 @@ interface SalesOrderFormProps {
 
 export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }: SalesOrderFormProps) {
   const { can } = useAuth();
+  const { missingRequired } = useAppConfig();
   const customers = useCatalog(COLLECTIONS.CUSTOMER, 'NAME_CUSTOMER');
   const { data: systemUsers } = useCollection<SystemUser>(COLLECTIONS.SYSTEM_USERS);
   const buyerOptions = useMemo(
@@ -104,6 +106,11 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
 
   /** Cierre inmediato: encabezado + detalle se guardan en segundo plano (local-first). */
   const handleSave = () => {
+    const missing = missingRequired('sales', { '# Sales order': salesOrderNumber, 'Status': status, 'Date': date, 'Due date': dueDate, 'Customer': customerId, 'Buyer': buyer, 'Salesperson': userId, 'Supplier': supplierId, 'Ref': ref, 'Ref pickup': refPickup, 'Pick up #': pickUpNumber, 'OD day': odDay, 'Address': address, 'City / State / ZIP': cityStateZip, 'Carrier': carrierId, 'Ship via': shipViaId, 'Shipping terms': termShippingId, 'Temp log': tempLog, 'Description': description, 'Sent': sent ? 'yes' : '' });
+    if (missing.length > 0) {
+      alert(`Required fields missing: ${missing.join(', ')}`);
+      return;
+    }
     const incomes = initial?.INCOMES ?? 0;
       const payload: Omit<SalesOrder, 'id'> = {
         ID_CUSTOMER: customerId,
@@ -187,7 +194,7 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
     >
       <div className="so-form">
         <h4 className="so-form__section">General information</h4>
-        <FormGrid>
+        <ConfigurableGrid formId="sales">
           <FormField label="# Sales order">
             <input className="input mono" placeholder="46102" value={salesOrderNumber} onChange={(e) => setSalesOrderNumber(e.target.value)} />
           </FormField>
@@ -243,10 +250,10 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
           <FormField label="OD day">
             <input className="input" type="number" min="0" step="1" value={odDay} onChange={(e) => setOdDay(e.target.value)} />
           </FormField>
-        </FormGrid>
+        </ConfigurableGrid>
 
         <h4 className="so-form__section">Shipping</h4>
-        <FormGrid>
+        <ConfigurableGrid formId="sales">
           <FormField label="Address" span2>
             <input className="input" value={address} onChange={(e) => setAddress(e.target.value)} />
           </FormField>
@@ -295,7 +302,7 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
               Order sent to customer
             </span>
           </FormField>
-        </FormGrid>
+        </ConfigurableGrid>
 
         <LineItemsEditor
           lines={lines}

@@ -20,6 +20,7 @@ export const MODULE_DEFS: ModuleDef[] = [
   { id: 'lots', label: 'Lot Activity', hasDocuments: false },
   { id: 'users', label: 'System Users', hasDocuments: false },
   { id: 'roles', label: 'Roles & Permissions', hasDocuments: false },
+  { id: 'config', label: 'Configurator', hasDocuments: false },
 ];
 
 export const buildEmptyPermissions = (): ModulePermission[] =>

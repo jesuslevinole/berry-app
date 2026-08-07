@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useAppConfig } from '../../context/AppConfigContext';
 import { where } from 'firebase/firestore';
 import { useCatalog } from '../../hooks/useCatalog';
 import { useCollection } from '../../hooks/useCollection';
@@ -9,7 +10,7 @@ import { createDocument, listDocuments, replaceChildren, updateDocument, deleteD
 import { COLLECTIONS, type PurchaseDetail, type PurchaseOrder } from '../../types/models';
 import { fmtMoney, round2, todayISO, toNumber } from '../../utils/format';
 import { Modal } from '../../components/ui/Modal';
-import { FormField, FormGrid } from '../../components/ui/FormField';
+import { ConfigurableGrid, FormField } from '../../components/ui/FormField';
 import { CatalogSelect } from '../../components/ui/CatalogSelect';
 import { SearchableSelect } from '../../components/ui/SearchableSelect';
 import {
@@ -29,6 +30,7 @@ interface PurchaseOrderFormProps {
 
 export function PurchaseOrderForm({ open, initial, onClose }: PurchaseOrderFormProps) {
   const { can } = useAuth();
+  const { missingRequired } = useAppConfig();
   const growers = useCatalog(COLLECTIONS.GROWER, 'NAME_GROWER');
   const { data: growerDocs } = useCollection<{ id: string; PREFIX_GROWER?: string }>(COLLECTIONS.GROWER);
   const customers = useCatalog(COLLECTIONS.CUSTOMER, 'NAME_CUSTOMER');
@@ -118,6 +120,11 @@ export function PurchaseOrderForm({ open, initial, onClose }: PurchaseOrderFormP
 
   /** Cierre inmediato: encabezado + detalle se guardan en segundo plano (local-first). */
   const handleSave = () => {
+    const missing = missingRequired('purchases', { 'Lot #': lotNumber, 'Grower / Origin': growerId, 'Vendor': customerId, 'Ship to': shipTo, 'Buyer': userId, 'Note': note, 'Commission %': commissionPercent, '# Ref': refNumber, 'Carrier': carrierId, 'Arrival date': arrivalDate });
+    if (missing.length > 0) {
+      alert(`Required fields missing: ${missing.join(', ')}`);
+      return;
+    }
     const amountPaid = initial?.AMOUNT_PAID ?? 0;
       const payload: Omit<PurchaseOrder, 'id'> = {
         LOT_NUMBER: lotNumber.trim(),
@@ -200,7 +207,7 @@ export function PurchaseOrderForm({ open, initial, onClose }: PurchaseOrderFormP
       }
     >
       <div className="po-form">
-        <FormGrid>
+        <ConfigurableGrid formId="purchases">
           <FormField label="Lot #">
             <input
               className="input mono"
@@ -275,7 +282,7 @@ export function PurchaseOrderForm({ open, initial, onClose }: PurchaseOrderFormP
           <FormField label="Arrival date">
             <input className="input" type="date" value={arrivalDate} onChange={(e) => setArrivalDate(e.target.value)} />
           </FormField>
-        </FormGrid>
+        </ConfigurableGrid>
 
         <LineItemsEditor lines={lines} onChange={setLines} commodities={commodities.options} />
 

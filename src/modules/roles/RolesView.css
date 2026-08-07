@@ -248,3 +248,38 @@
 .roles__na {
   color: var(--line-strong);
 }
+
+
+.roles__admin-header {
+  margin-top: 26px;
+}
+
+.roles__admin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 10px;
+}
+
+.roles__admin-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background-color: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.roles__admin-option--checked {
+  border-color: var(--green-500);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  background-color: var(--green-50);
+}
+
+.roles__admin-label {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--ink);
+}

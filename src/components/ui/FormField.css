@@ -16,3 +16,9 @@
 @media (max-width: 560px) {
   .form-grid { grid-template-columns: 1fr; }
 }
+
+.form-field__required {
+  color: var(--bad);
+  margin-left: 3px;
+  font-weight: 800;
+}

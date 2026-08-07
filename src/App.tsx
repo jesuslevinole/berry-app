@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { AppConfigProvider } from './context/AppConfigContext';
 import { AppLayout, type ViewKey } from './components/layout/AppLayout';
 import { LoginView } from './modules/auth/LoginView';
 import { DashboardView } from './modules/dashboard/DashboardView';
@@ -10,9 +11,10 @@ import { CatalogsView } from './modules/catalogs/CatalogsView';
 import { LotActivityView } from './modules/lots/LotActivityView';
 import { UsersView } from './modules/users/UsersView';
 import { RolesView } from './modules/roles/RolesView';
+import { ConfigView } from './modules/config/ConfigView';
 import './App.css';
 
-const VIEW_ORDER: ViewKey[] = ['dashboard', 'purchases', 'sales', 'expenses', 'catalogs', 'lots', 'users', 'roles'];
+const VIEW_ORDER: ViewKey[] = ['dashboard', 'purchases', 'sales', 'expenses', 'catalogs', 'lots', 'users', 'roles', 'config'];
 
 function Shell() {
   const { firebaseUser, bypass, loading, can, logout } = useAuth();
@@ -62,6 +64,7 @@ function Shell() {
         {view === 'lots' && <LotActivityView />}
         {view === 'users' && <UsersView />}
         {view === 'roles' && <RolesView />}
+        {view === 'config' && <ConfigView />}
       </div>
     </AppLayout>
   );
@@ -70,7 +73,9 @@ function Shell() {
 export default function App() {
   return (
     <AuthProvider>
-      <Shell />
+      <AppConfigProvider>
+        <Shell />
+      </AppConfigProvider>
     </AuthProvider>
   );
 }

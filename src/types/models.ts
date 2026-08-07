@@ -34,6 +34,7 @@ export const COLLECTIONS = {
   PAYMENT_METHOD: 'CAT_PAYMENTMETHOD',
   SYSTEM_USERS: 'system_users',
   ROLES: 'settings_roles',
+  APP_SETTINGS: 'settings_app',
 } as const;
 
 export type CollectionName = (typeof COLLECTIONS)[keyof typeof COLLECTIONS];
@@ -180,4 +181,34 @@ export interface AppRole extends BaseDoc {
   name: string;
   description: string;
   permissions: ModulePermission[];
+  /** Capacidades del configurador (nav, formularios, ver como). */
+  adminPerms?: AdminPerms;
 }
+
+/* ---------- Configurador de la app ---------- */
+/** Config de un campo de formulario. `key` es la etiqueta por defecto (estable). */
+export interface FormFieldConfig {
+  key: string;
+  label: string;
+  required: boolean;
+}
+
+export interface AppConfigDoc extends BaseDoc {
+  /** Orden del menu de navegacion (ViewKeys). */
+  navOrder?: string[];
+  /** Config de campos por formulario (orden del arreglo = orden visual). */
+  forms?: Record<string, FormFieldConfig[]>;
+}
+
+/** Capacidades administrativas granulares (punto 7: gobernadas desde Roles). */
+export const ADMIN_CAPABILITIES = [
+  { id: 'navOrder', label: 'Reorder navigation menu' },
+  { id: 'formLabels', label: 'Rename form fields' },
+  { id: 'formOrder', label: 'Reorder form fields' },
+  { id: 'requiredFields', label: 'Set required fields' },
+  { id: 'viewAs', label: 'View as other users' },
+] as const;
+
+export type AdminCapability = (typeof ADMIN_CAPABILITIES)[number]['id'];
+
+export type AdminPerms = Partial<Record<AdminCapability, boolean>>;

@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useAppConfig } from '../../context/AppConfigContext';
 import { useCatalog, type CatalogOption } from '../../hooks/useCatalog';
 import { createDocument, deleteDocument, updateDocument } from '../../services/firestore';
 import { COLLECTIONS, type Expense } from '../../types/models';
 import { round2, todayISO, toNumber } from '../../utils/format';
 import { Modal } from '../../components/ui/Modal';
-import { FormField, FormGrid } from '../../components/ui/FormField';
+import { ConfigurableGrid, FormField } from '../../components/ui/FormField';
 import { CatalogSelect } from '../../components/ui/CatalogSelect';
 import { SearchableSelect } from '../../components/ui/SearchableSelect';
 import './ExpenseForm.css';
@@ -19,6 +20,7 @@ interface ExpenseFormProps {
 
 export function ExpenseForm({ open, initial, purchaseOrderOptions, onClose }: ExpenseFormProps) {
   const { can } = useAuth();
+  const { missingRequired } = useAppConfig();
   const suppliers = useCatalog(COLLECTIONS.SUPPLIERS, 'NAME_SUPPLIERS');
   const categories = useCatalog(COLLECTIONS.CATEGORY_BILL, 'NAME');
 
@@ -49,6 +51,11 @@ export function ExpenseForm({ open, initial, purchaseOrderOptions, onClose }: Ex
 
   /** Cierre inmediato: la escritura corre en segundo plano (local-first). */
   const handleSave = () => {
+    const missing = missingRequired('expenses', { '# Lot (purchase order)': purchaseOrderId, 'Supplier': supplierId, 'Category': categoryId, 'Invoice #': invoiceNumber, 'Date': date, 'Amount': amount, 'Check #': checkNumber, 'Photo check (URL)': photoCheck, 'Deduct': deduct ? 'yes' : '', 'Note': note });
+    if (missing.length > 0) {
+      alert(`Required fields missing: ${missing.join(', ')}`);
+      return;
+    }
     const amountValue = round2(toNumber(amount));
       const payAmount = initial?.PAY_AMOUNT ?? 0;
       const payload: Omit<Expense, 'id'> = {
@@ -110,7 +117,7 @@ export function ExpenseForm({ open, initial, purchaseOrderOptions, onClose }: Ex
       }
     >
       <div className="expense-form">
-        <FormGrid>
+        <ConfigurableGrid formId="expenses">
           <FormField label="# Lot (purchase order)">
             <SearchableSelect value={purchaseOrderId} onChange={setPurchaseOrderId} options={purchaseOrderOptions} placeholder="Select lot…" />
           </FormField>
@@ -158,7 +165,7 @@ export function ExpenseForm({ open, initial, purchaseOrderOptions, onClose }: Ex
           <FormField label="Note" span2>
             <textarea className="input" value={note} onChange={(e) => setNote(e.target.value)} />
           </FormField>
-        </FormGrid>
+        </ConfigurableGrid>
       </div>
     </Modal>
   );

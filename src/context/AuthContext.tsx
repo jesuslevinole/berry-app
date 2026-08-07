@@ -17,7 +17,7 @@ import {
 } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
 import { resendPasswordReset } from '../services/userAuthService';
-import { COLLECTIONS, type AppRole, type PermissionAction, type SystemUser } from '../types/models';
+import { COLLECTIONS, type AdminCapability, type AppRole, type PermissionAction, type SystemUser } from '../types/models';
 
 interface AuthContextValue {
   firebaseUser: User | null;
@@ -32,6 +32,11 @@ interface AuthContextValue {
   bypass: boolean;
   enterAsGuest: () => void;
   can: (moduleId: string, action: PermissionAction) => boolean;
+  /** Capacidades del configurador, evaluadas SIEMPRE sobre el usuario real. */
+  canAdmin: (cap: AdminCapability) => boolean;
+  /** Perfil que se esta suplantando con "View as" (null = ninguno). */
+  viewAsProfile: SystemUser | null;
+  setViewAs: (userId: string | null) => void;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
@@ -47,6 +52,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<AppRole | null>(null);
   const [roleReady, setRoleReady] = useState(true);
   const [isBootstrapAdmin, setIsBootstrapAdmin] = useState(false);
+  const [viewAsUserId, setViewAsUserId] = useState<string | null>(
+    () => sessionStorage.getItem('berry-view-as') || null,
+  );
+  const [viewAsProfile, setViewAsProfile] = useState<SystemUser | null>(null);
+  const [viewAsRole, setViewAsRole] = useState<AppRole | null>(null);
   const [bypass, setBypass] = useState<boolean>(
     () => sessionStorage.getItem('berry-dev-bypass') === '1',
   );
@@ -118,10 +128,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return unsubscribe;
   }, [profile?.roleId]);
 
+  /* "View as": perfil del usuario suplantado (tiempo real) */
+  useEffect(() => {
+    setViewAsProfile(null);
+    if (!viewAsUserId) return;
+    return onSnapshot(
+      doc(db, COLLECTIONS.SYSTEM_USERS, viewAsUserId),
+      (snap) => setViewAsProfile(snap.exists() ? ({ id: snap.id, ...snap.data() } as SystemUser) : null),
+      () => setViewAsProfile(null),
+    );
+  }, [viewAsUserId]);
+
+  /* "View as": rol del usuario suplantado */
+  useEffect(() => {
+    setViewAsRole(null);
+    if (!viewAsProfile?.roleId) return;
+    return onSnapshot(
+      doc(db, COLLECTIONS.ROLES, viewAsProfile.roleId),
+      (snap) => setViewAsRole(snap.exists() ? ({ id: snap.id, ...snap.data() } as AppRole) : null),
+      () => setViewAsRole(null),
+    );
+  }, [viewAsProfile?.roleId]);
+
   const loading = !authReady || (!!firebaseUser && (!profileReady || !roleReady));
 
   const value = useMemo<AuthContextValue>(() => {
+    const viewingAs = !!viewAsUserId && !!viewAsProfile;
     const can = (moduleId: string, action: PermissionAction): boolean => {
+      /* Suplantacion activa: evaluar EXACTAMENTE lo que ve el otro usuario. */
+      if (viewingAs) {
+        if (viewAsProfile.status === 'Inactive') return false;
+        const vperm = viewAsRole?.permissions?.find((p) => p.module === moduleId);
+        if (!vperm) return false;
+        switch (action) {
+          case 'view': return !!vperm.canView;
+          case 'add': return !!vperm.canAdd;
+          case 'edit': return !!vperm.canEdit;
+          case 'delete': return !!vperm.canDelete;
+          case 'documents': return !!vperm.canDocuments;
+          default: return false;
+        }
+      }
       if (bypass) return true;
       if (!firebaseUser) return false;
       if (isBootstrapAdmin) return true;
@@ -155,11 +202,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setBypass(true);
       },
       can,
+      canAdmin: (cap) => {
+        if (bypass || isBootstrapAdmin) return true;
+        if (!firebaseUser || !profile || profile.status === 'Inactive') return false;
+        return !!role?.adminPerms?.[cap];
+      },
+      viewAsProfile: viewingAs ? viewAsProfile : null,
+      setViewAs: (userId) => {
+        if (userId) sessionStorage.setItem('berry-view-as', userId);
+        else sessionStorage.removeItem('berry-view-as');
+        setViewAsUserId(userId);
+      },
       login: async (email, password) => {
         await signInWithEmailAndPassword(auth, email.trim(), password);
       },
       logout: async () => {
         sessionStorage.removeItem('berry-dev-bypass');
+        sessionStorage.removeItem('berry-view-as');
+        setViewAsUserId(null);
         setBypass(false);
         await signOut(auth);
       },
@@ -167,7 +227,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await resendPasswordReset(email.trim());
       },
     };
-  }, [firebaseUser, profile, role, loading, isBootstrapAdmin, bypass]);
+  }, [firebaseUser, profile, role, loading, isBootstrapAdmin, bypass, viewAsUserId, viewAsProfile, viewAsRole]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
