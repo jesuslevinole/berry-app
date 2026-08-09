@@ -3,7 +3,8 @@ import { useAuth } from '../../context/AuthContext';
 import { useCollection } from '../../hooks/useCollection';
 import { useCatalog } from '../../hooks/useCatalog';
 import { COLLECTIONS, type PurchaseOrder, type SystemUser } from '../../types/models';
-import { fmtDate, fmtMoney } from '../../utils/format';
+import { byNewest, fmtDate, fmtMoney } from '../../utils/format';
+import { deleteDocument, replaceChildren } from '../../services/firestore';
 import { DataTable, type Column } from '../../components/ui/DataTable';
 import { Toolbar } from '../../components/ui/Toolbar';
 import { DataPortButtons } from '../../components/ui/DataPortButtons';
@@ -23,7 +24,7 @@ export function PurchaseOrdersView() {
     const map = new Map(
       systemUsers.map((u) => [u.id, `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email]),
     );
-    return (id?: string): string => (id ? (map.get(id) ?? legacyUsers.nameOf(id)) : '—');
+  return (id?: string): string => (id ? (map.get(id) ?? legacyUsers.nameOf(id)) : '—');
   }, [systemUsers, legacyUsers]);
 
   const [search, setSearch] = useState('');
@@ -31,7 +32,7 @@ export function PurchaseOrdersView() {
   const [editing, setEditing] = useState<PurchaseOrder | null>(null);
 
   const rows = useMemo(() => {
-    const sorted = [...data].sort((a, b) => (b.ARRIVAL_DATE ?? '').localeCompare(a.ARRIVAL_DATE ?? ''));
+    const sorted = [...data].sort(byNewest);
     const term = search.trim().toLowerCase();
     if (!term) return sorted;
     return sorted.filter((po) =>
@@ -69,6 +70,18 @@ export function PurchaseOrdersView() {
     },
   ];
 
+  /** Borrado desde la tabla: detalle + encabezado, en segundo plano. */
+  const handleDeleteRow = (po: PurchaseOrder) => {
+    if (!window.confirm(`Delete purchase order ${po.LOT_NUMBER || po.REF_NUMBER || ''}?`)) return;
+    const persist = async () => {
+      await replaceChildren(COLLECTIONS.PURCHASE_DETAILS, 'ID_PURCHASEORDER', po.id, []);
+      await deleteDocument(COLLECTIONS.PURCHASE_ORDER, po.id);
+    };
+    persist().catch((error: unknown) =>
+      alert(`Failed to delete: ${(error as Error).message ?? 'Unknown error'}`),
+    );
+  };
+
   return (
     <div className="purchase-orders">
       <Toolbar
@@ -101,6 +114,8 @@ export function PurchaseOrdersView() {
           setEditing(po);
           setFormOpen(true);
         }}
+        onEdit={can('purchases', 'edit') ? (po) => { setEditing(po); setFormOpen(true); } : undefined}
+        onDelete={can('purchases', 'delete') ? handleDeleteRow : undefined}
       />
 
       <PurchaseOrderForm open={formOpen} initial={editing} onClose={() => setFormOpen(false)} />

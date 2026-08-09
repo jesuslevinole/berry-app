@@ -149,6 +149,14 @@ export function ChecksView() {
     printCheck(check, customers.nameOf(check.ID_CUSTOMER), company, bank, checkSettings);
   };
 
+  /** Borrado directo desde la tabla (en segundo plano). */
+  const handleDeleteRow = (check: Check) => {
+    if (!window.confirm(`Delete check #${check.CHECK_NUMBER}?`)) return;
+    deleteDocument(COLLECTIONS.CHECKS, check.id).catch((error: unknown) =>
+      alert(`Failed to delete check: ${(error as Error).message ?? 'Unknown error'}`),
+    );
+  };
+
   return (
     <div className="checks">
       <Toolbar title="Checkbook" subtitle={`${rows.length} checks · ${fmtMoney(total)}`} searchValue={search} onSearchChange={setSearch}>
@@ -211,6 +219,20 @@ export function ChecksView() {
                         <path d="M6 9V3h12v6M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2" /><path d="M6 14h12v7H6z" />
                       </svg>
                     </button>
+                  )}
+                  {can('checks', 'edit') && (
+                    <button
+                      type="button"
+                      className="checks__action checks__action--edit"
+                      onClick={(e) => { e.stopPropagation(); openEdit(check); }}
+                    >Edit</button>
+                  )}
+                  {can('checks', 'delete') && (
+                    <button
+                      type="button"
+                      className="checks__action checks__action--delete"
+                      onClick={(e) => { e.stopPropagation(); handleDeleteRow(check); }}
+                    >Delete</button>
                   )}
                 </td>
               </tr>

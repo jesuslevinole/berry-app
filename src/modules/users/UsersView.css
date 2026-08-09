@@ -257,3 +257,7 @@
     grid-template-columns: 1fr;
   }
 }
+
+.users__icon-btn--delete { color: var(--bad); }
+
+.users__icon-btn--delete:hover { background-color: var(--bad-bg); }

@@ -2,9 +2,9 @@ import { useMemo, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useCollection } from '../../hooks/useCollection';
 import { useCatalog, type CatalogOption } from '../../hooks/useCatalog';
-import { updateDocument } from '../../services/firestore';
+import { deleteDocument, replaceChildren, updateDocument } from '../../services/firestore';
 import { COLLECTIONS, type PurchaseOrder, type SalesOrder, type SystemUser } from '../../types/models';
-import { fmtDate, fmtMoney, round2 } from '../../utils/format';
+import { byNewest, fmtDate, fmtMoney, round2 } from '../../utils/format';
 import { DataTable, type Column } from '../../components/ui/DataTable';
 import { Toolbar } from '../../components/ui/Toolbar';
 import { DataPortButtons } from '../../components/ui/DataPortButtons';
@@ -27,7 +27,7 @@ export function SalesDeskView() {
     const map = new Map(
       systemUsers.map((u) => [u.id, `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email]),
     );
-    return (id?: string): string => (id ? (map.get(id) ?? legacyUsers.nameOf(id)) : '—');
+  return (id?: string): string => (id ? (map.get(id) ?? legacyUsers.nameOf(id)) : '—');
   }, [systemUsers, legacyUsers]);
 
   const [search, setSearch] = useState('');
@@ -44,7 +44,7 @@ export function SalesDeskView() {
   );
 
   const rows = useMemo(() => {
-    const sorted = [...data].sort((a, b) => (b.DATE ?? '').localeCompare(a.DATE ?? ''));
+    const sorted = [...data].sort(byNewest);
     const term = search.trim().toLowerCase();
     if (!term) return sorted;
     return sorted.filter((so) =>
@@ -101,6 +101,19 @@ export function SalesDeskView() {
     });
   };
 
+  /** Borrado desde la tabla: detalle + pagos + encabezado, en segundo plano. */
+  const handleDeleteRow = (so: SalesOrder) => {
+    if (!window.confirm(`Delete sales order ${so.SALES_ORDER_NUMBER || ''}?`)) return;
+    const persist = async () => {
+      await replaceChildren(COLLECTIONS.SALES_ORDER_DETAIL, 'ID_SALESORDER', so.id, []);
+      await replaceChildren(COLLECTIONS.PAYMENT_SALES, 'ID_SALESORDER', so.id, []);
+      await deleteDocument(COLLECTIONS.SALES_ORDER, so.id);
+    };
+    persist().catch((error: unknown) =>
+      alert(`Failed to delete: ${(error as Error).message ?? 'Unknown error'}`),
+    );
+  };
+
   return (
     <div className="sales-desk">
       <Toolbar title="Sales Desk" subtitle={`${rows.length} orders`} searchValue={search} onSearchChange={setSearch}>
@@ -128,6 +141,8 @@ export function SalesDeskView() {
           setEditing(so);
           setFormOpen(true);
         }}
+        onEdit={can('sales', 'edit') ? (so) => { setEditing(so); setFormOpen(true); } : undefined}
+        onDelete={can('sales', 'delete') ? handleDeleteRow : undefined}
       />
 
       <SalesOrderForm
@@ -145,6 +160,7 @@ export function SalesDeskView() {
           wide
         >
           <PaymentsPanel
+            moduleId="sales"
             collectionName={COLLECTIONS.PAYMENT_SALES}
             parentField="ID_SALESORDER"
             parentId={paymentsFor.id}

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { byNewest } from '../../utils/format';
 import { useAuth } from '../../context/AuthContext';
 import { useCollection } from '../../hooks/useCollection';
 import { createDocument, deleteDocument, updateDocument } from '../../services/firestore';
@@ -26,9 +27,7 @@ export function CatalogsView() {
 
   const rows = useMemo(() => {
     const term = search.trim().toLowerCase();
-    const sorted = [...data].sort((a, b) =>
-      String(a[def.nameField] ?? '').localeCompare(String(b[def.nameField] ?? '')),
-    );
+    const sorted = [...data].sort(byNewest);
     if (!term) return sorted;
     return sorted.filter((row) =>
       [def.nameField, ...def.extraFields.map((f) => f.key)].some((key) =>
@@ -103,6 +102,14 @@ export function CatalogsView() {
     })),
   ];
 
+  /** Borrado directo desde la tabla (en segundo plano). */
+  const handleDeleteRow = (row: CatalogDoc) => {
+    if (!window.confirm(`Delete "${String(row[def.nameField] ?? '')}"?`)) return;
+    deleteDocument(def.collection, row.id).catch((error: unknown) =>
+      alert(`Failed to delete: ${(error as Error).message ?? 'Unknown error'}`),
+    );
+  };
+
   return (
     <div className="catalogs">
       <nav className="catalogs__menu" aria-label="Catalogs">
@@ -135,7 +142,14 @@ export function CatalogsView() {
             <button type="button" className="btn btn--primary" onClick={openCreate}>+ Add</button>
           )}
         </Toolbar>
-        <DataTable columns={columns} rows={rows} loading={loading} onRowClick={openEdit} />
+        <DataTable
+          columns={columns}
+          rows={rows}
+          loading={loading}
+          onRowClick={openEdit}
+          onEdit={can('catalogs', 'edit') ? openEdit : undefined}
+          onDelete={can('catalogs', 'delete') ? handleDeleteRow : undefined}
+        />
       </section>
 
       <Modal

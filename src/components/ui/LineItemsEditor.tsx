@@ -28,6 +28,8 @@ interface LineItemsEditorProps {
   /** Si se pasa, cada linea muestra el select de orden de compra de origen (modo ventas). */
   purchaseOrders?: CatalogOption[];
   showDescription?: boolean;
+  /** Descripcion del commodity en el catalogo: se autollena al seleccionarlo. */
+  descriptionOf?: (commodityId: string) => string;
 }
 
 export function LineItemsEditor({
@@ -36,6 +38,7 @@ export function LineItemsEditor({
   commodities,
   purchaseOrders,
   showDescription = false,
+  descriptionOf,
 }: LineItemsEditorProps) {
   const patch = (index: number, changes: Partial<LineDraft>) => {
     onChange(lines.map((line, i) => (i === index ? { ...line, ...changes } : line)));
@@ -68,7 +71,7 @@ export function LineItemsEditor({
           <div className="line-editor__commodity">
             <CatalogSelect
               value={line.ID_COMMODITIES}
-              onChange={(id) => patch(index, { ID_COMMODITIES: id })}
+              onChange={(id) => patch(index, { ID_COMMODITIES: id, DESCRIPTION: descriptionOf ? descriptionOf(id) : line.DESCRIPTION })}
               options={commodities}
               collection={COLLECTIONS.COMMODITIES}
               nameField="NAME_COMMODITIES"

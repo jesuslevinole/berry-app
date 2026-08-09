@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { byNewest } from '../../utils/format';
 import { useAuth } from '../../context/AuthContext';
 import { useCollection } from '../../hooks/useCollection';
 import { createDocument, deleteDocument, updateDocument } from '../../services/firestore';
@@ -31,7 +32,7 @@ export function RolesView() {
   const [draft, setDraft] = useState<RoleDraft>(EMPTY_DRAFT());
 
   const rows = useMemo(
-    () => [...roles].sort((a, b) => (a.name ?? '').localeCompare(b.name ?? '')),
+    () => [...roles].sort(byNewest),
     [roles],
   );
 
@@ -132,6 +133,19 @@ export function RolesView() {
   const countGranted = (role: AppRole): number =>
     (role.permissions ?? []).filter((p) => p.canView).length;
 
+  /** Borrado directo desde la tabla (bloquea roles en uso). */
+  const handleDeleteRow = (role: AppRole) => {
+    const inUse = usersPerRole.get(role.id) ?? 0;
+    if (inUse > 0) {
+      alert(`This role is assigned to ${inUse} user(s). Reassign them before deleting.`);
+      return;
+    }
+    if (!window.confirm(`Delete role "${role.name}"?`)) return;
+    deleteDocument(COLLECTIONS.ROLES, role.id).catch((error: unknown) =>
+      alert(`Failed to delete role: ${(error as Error).message ?? 'Unknown error'}`),
+    );
+  };
+
   return (
     <div className="roles">
       <Toolbar title="Roles & Permissions" subtitle={`${rows.length} roles`}>
@@ -148,14 +162,15 @@ export function RolesView() {
               <th className="roles__th">Description</th>
               <th className="roles__th roles__th--center">Modules visible</th>
               <th className="roles__th roles__th--center">Users</th>
+              <th className="roles__th roles__th--right">Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading && (
-              <tr><td className="roles__empty" colSpan={4}>Loading…</td></tr>
+              <tr><td className="roles__empty" colSpan={5}>Loading…</td></tr>
             )}
             {!loading && rows.length === 0 && (
-              <tr><td className="roles__empty" colSpan={4}>No roles yet. Create the first one.</td></tr>
+              <tr><td className="roles__empty" colSpan={5}>No roles yet. Create the first one.</td></tr>
             )}
             {!loading && rows.map((role) => (
               <tr
@@ -167,6 +182,14 @@ export function RolesView() {
                 <td className="roles__td roles__td--muted">{role.description || '—'}</td>
                 <td className="roles__td roles__td--center">{countGranted(role)} / {MODULE_DEFS.length}</td>
                 <td className="roles__td roles__td--center">{usersPerRole.get(role.id) ?? 0}</td>
+                <td className="roles__td roles__td--right">
+                  {can('roles', 'edit') && (
+                    <button type="button" className="roles__action roles__action--edit" onClick={(e) => { e.stopPropagation(); openEdit(role); }}>Edit</button>
+                  )}
+                  {can('roles', 'delete') && (
+                    <button type="button" className="roles__action roles__action--delete" onClick={(e) => { e.stopPropagation(); handleDeleteRow(role); }}>Delete</button>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>

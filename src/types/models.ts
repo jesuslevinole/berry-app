@@ -67,6 +67,7 @@ export interface PurchaseOrder extends BaseDoc {
 export interface PurchaseDetail extends BaseDoc {
   ID_PURCHASEORDER: ID;
   ID_COMMODITIES: ID;
+  DESCRIPTION: string;
   QUANTITY: number;
   PRICE: number;
   TOTAL: number;

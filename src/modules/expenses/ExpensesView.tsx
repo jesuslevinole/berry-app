@@ -2,9 +2,9 @@ import { useMemo, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useCollection } from '../../hooks/useCollection';
 import { useCatalog, type CatalogOption } from '../../hooks/useCatalog';
-import { updateDocument } from '../../services/firestore';
+import { deleteDocument, replaceChildren, updateDocument } from '../../services/firestore';
 import { COLLECTIONS, type Expense, type PurchaseOrder } from '../../types/models';
-import { fmtDate, fmtMoney, round2 } from '../../utils/format';
+import { byNewest, fmtDate, fmtMoney, round2 } from '../../utils/format';
 import { DataTable, type Column } from '../../components/ui/DataTable';
 import { Toolbar } from '../../components/ui/Toolbar';
 import { DataPortButtons } from '../../components/ui/DataPortButtons';
@@ -40,7 +40,7 @@ export function ExpensesView() {
   );
 
   const rows = useMemo(() => {
-    const sorted = [...data].sort((a, b) => (b.DATE ?? '').localeCompare(a.DATE ?? ''));
+    const sorted = [...data].sort(byNewest);
     const term = search.trim().toLowerCase();
     if (!term) return sorted;
     return sorted.filter((exp) =>
@@ -98,6 +98,18 @@ export function ExpensesView() {
     });
   };
 
+  /** Borrado desde la tabla: pagos + gasto, en segundo plano. */
+  const handleDeleteRow = (expense: Expense) => {
+    if (!window.confirm(`Delete expense ${expense.INVOICE_NUMBER || ''}?`)) return;
+    const persist = async () => {
+      await replaceChildren(COLLECTIONS.PAYMENT_BILL, 'ID_EXPENSES', expense.id, []);
+      await deleteDocument(COLLECTIONS.EXPENSES, expense.id);
+    };
+    persist().catch((error: unknown) =>
+      alert(`Failed to delete: ${(error as Error).message ?? 'Unknown error'}`),
+    );
+  };
+
   return (
     <div className="expenses">
       <Toolbar
@@ -130,6 +142,8 @@ export function ExpensesView() {
           setEditing(exp);
           setFormOpen(true);
         }}
+        onEdit={can('expenses', 'edit') ? (expense) => { setEditing(expense); setFormOpen(true); } : undefined}
+        onDelete={can('expenses', 'delete') ? handleDeleteRow : undefined}
       />
 
       <ExpenseForm
@@ -147,6 +161,7 @@ export function ExpensesView() {
           wide
         >
           <PaymentsPanel
+            moduleId="expenses"
             collectionName={COLLECTIONS.PAYMENT_BILL}
             parentField="ID_EXPENSES"
             parentId={paymentsFor.id}

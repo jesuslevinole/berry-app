@@ -38,3 +38,53 @@
 @media (max-width: 900px) {
   .data-table__th, .data-table__td { padding: 9px 10px; font-size: 12.5px; }
 }
+
+/* ---- Botones de accion (Edit / Delete) ---- */
+.data-table__actions-th {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.data-table__actions {
+  white-space: nowrap;
+}
+
+.data-table__action {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid;
+  border-radius: 7px;
+  padding: 5px 11px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+  background-color: var(--surface);
+}
+
+.data-table__action + .data-table__action {
+  margin-left: 6px;
+}
+
+.data-table__action--edit {
+  color: var(--green-600);
+  border-color: var(--green-100);
+}
+
+.data-table__action--edit:hover {
+  background-color: var(--green-600);
+  border-color: var(--green-600);
+  color: #ffffff;
+}
+
+.data-table__action--delete {
+  color: var(--bad);
+  border-color: var(--bad-bg);
+}
+
+.data-table__action--delete:hover {
+  background-color: var(--bad);
+  border-color: var(--bad);
+  color: #ffffff;
+}

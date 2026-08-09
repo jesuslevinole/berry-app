@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { byNewest } from '../../utils/format';
 import { doc, deleteDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
@@ -41,9 +42,7 @@ export function UsersView() {
 
   const rows = useMemo(() => {
     const term = search.trim().toLowerCase();
-    const sorted = [...users].sort((a, b) =>
-      `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`),
-    );
+    const sorted = [...users].sort(byNewest);
     if (!term) return sorted;
     return sorted.filter((u) =>
       [`${u.firstName} ${u.lastName}`, u.email, rolesById.get(u.roleId)?.name ?? '']
@@ -209,6 +208,18 @@ export function UsersView() {
     }
   };
 
+  /** Borrado directo desde la tabla (con autoproteccion). */
+  const handleDeleteRow = (user: SystemUser) => {
+    if (firebaseUser?.email && (user.email ?? '') === firebaseUser.email.toLowerCase()) {
+      alert('You cannot delete your own user.');
+      return;
+    }
+    if (!window.confirm(`Delete ${user.firstName} ${user.lastName}?\n\nIf they were invited, also remove their account in Firebase Console > Authentication to fully revoke access.`)) return;
+    deleteDoc(doc(db, COLLECTIONS.SYSTEM_USERS, user.id)).catch((error: unknown) =>
+      alert(`Failed to delete user: ${(error as Error).message ?? 'Unknown error'}`),
+    );
+  };
+
   return (
     <div className="users">
       <Toolbar
@@ -278,6 +289,18 @@ export function UsersView() {
                         >
                           <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.8">
                             <path d="M17 3l4 4L8 20H4v-4L17 3z" />
+                          </svg>
+                        </button>
+                      )}
+                      {can('users', 'delete') && (
+                        <button
+                          type="button"
+                          className="users__icon-btn users__icon-btn--delete"
+                          title="Delete"
+                          onClick={() => handleDeleteRow(user)}
+                        >
+                          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.8">
+                            <path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6M10 11v6M14 11v6" />
                           </svg>
                         </button>
                       )}

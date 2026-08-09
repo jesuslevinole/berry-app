@@ -18,3 +18,17 @@ export const toNumber = (v: string): number => {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
 };
+
+/** Milisegundos de un createdAt de Firestore (Timestamp, string ISO o vacio). */
+const createdMillis = (value: unknown): number => {
+  if (!value) return 0;
+  if (typeof value === 'string') return new Date(value).getTime() || 0;
+  const t = value as { seconds?: number; toMillis?: () => number };
+  if (typeof t.toMillis === 'function') return t.toMillis();
+  if (typeof t.seconds === 'number') return t.seconds * 1000;
+  return 0;
+};
+
+/** Comparador: registro mas reciente primero (por createdAt). */
+export const byNewest = <T extends { createdAt?: unknown }>(a: T, b: T): number =>
+  createdMillis(b.createdAt) - createdMillis(a.createdAt);

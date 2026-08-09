@@ -26,6 +26,9 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
   const { missingRequired } = useAppConfig();
   const customers = useCatalog(COLLECTIONS.CUSTOMER, 'NAME_CUSTOMER');
   const { data: systemUsers } = useCollection<SystemUser>(COLLECTIONS.SYSTEM_USERS);
+  const { data: commodityDocs } = useCollection<{ id: string; DESCRIPTION_COMMODITIES?: string }>(COLLECTIONS.COMMODITIES);
+  const descriptionOf = (id: string): string =>
+    (commodityDocs.find((c) => c.id === id)?.DESCRIPTION_COMMODITIES ?? '').trim();
   const buyerOptions = useMemo(
     () =>
       [...systemUsers]
@@ -310,6 +313,7 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
           commodities={commodities.options}
           purchaseOrders={purchaseOrderOptions}
           showDescription
+          descriptionOf={descriptionOf}
         />
 
         <div className="so-form__summary">

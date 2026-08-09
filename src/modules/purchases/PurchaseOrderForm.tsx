@@ -33,6 +33,9 @@ export function PurchaseOrderForm({ open, initial, onClose }: PurchaseOrderFormP
   const { missingRequired } = useAppConfig();
   const growers = useCatalog(COLLECTIONS.GROWER, 'NAME_GROWER');
   const { data: growerDocs } = useCollection<{ id: string; PREFIX_GROWER?: string }>(COLLECTIONS.GROWER);
+  const { data: commodityDocs } = useCollection<{ id: string; DESCRIPTION_COMMODITIES?: string }>(COLLECTIONS.COMMODITIES);
+  const descriptionOf = (id: string): string =>
+    (commodityDocs.find((c) => c.id === id)?.DESCRIPTION_COMMODITIES ?? '').trim();
   const customers = useCatalog(COLLECTIONS.CUSTOMER, 'NAME_CUSTOMER');
   const { data: systemUsers } = useCollection<SystemUser>(COLLECTIONS.SYSTEM_USERS);
   const carriers = useCatalog(COLLECTIONS.CARRIER, 'NAME_CARRIER');
@@ -93,6 +96,7 @@ export function PurchaseOrderForm({ open, initial, onClose }: PurchaseOrderFormP
           details.map((d) => ({
             id: d.id,
             ID_COMMODITIES: d.ID_COMMODITIES,
+            DESCRIPTION: d.DESCRIPTION ?? '',
             QUANTITY: d.QUANTITY,
             PRICE: d.PRICE,
           })),
@@ -149,6 +153,7 @@ export function PurchaseOrderForm({ open, initial, onClose }: PurchaseOrderFormP
       const detailRows = lines.map((line) => ({
         id: line.id,
         ID_COMMODITIES: line.ID_COMMODITIES,
+        DESCRIPTION: line.DESCRIPTION ?? '',
         QUANTITY: line.QUANTITY,
         PRICE: line.PRICE,
         TOTAL: lineTotal(line),
@@ -284,7 +289,13 @@ export function PurchaseOrderForm({ open, initial, onClose }: PurchaseOrderFormP
           </FormField>
         </ConfigurableGrid>
 
-        <LineItemsEditor lines={lines} onChange={setLines} commodities={commodities.options} />
+        <LineItemsEditor
+          lines={lines}
+          onChange={setLines}
+          commodities={commodities.options}
+          showDescription
+          descriptionOf={descriptionOf}
+        />
 
         <div className="po-form__summary">
           <span>Subtotal <b className="num">{fmtMoney(subtotal)}</b></span>

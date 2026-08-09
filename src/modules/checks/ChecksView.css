@@ -83,3 +83,14 @@
 .checks__print:hover {
   background-color: var(--green-100);
 }
+
+
+.checks__action { border: 1px solid; border-radius: 7px; padding: 5px 11px; font-size: 0.78rem; font-weight: 700; cursor: pointer; background-color: var(--surface); margin-left: 6px; }
+
+.checks__action--edit { color: var(--green-600); border-color: var(--green-100); }
+
+.checks__action--edit:hover { background-color: var(--green-600); border-color: var(--green-600); color: #ffffff; }
+
+.checks__action--delete { color: var(--bad); border-color: var(--bad-bg); }
+
+.checks__action--delete:hover { background-color: var(--bad); border-color: var(--bad); color: #ffffff; }
