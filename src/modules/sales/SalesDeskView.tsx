@@ -16,6 +16,7 @@ import { SalesOrderForm } from './SalesOrderForm';
 import { SalesOrderDetailPanel } from './SalesOrderDetailPanel';
 import { printSalesInvoice, printPickTicket, printSalesOrderDoc, printBillOfLading, type SalesDocContext } from '../../services/salesDocumentsService';
 import { useCompany } from '../../hooks/useCompany';
+import { DocumentPicker } from '../../components/ui/DocumentPicker';
 import './SalesDeskView.css';
 
 export function SalesDeskView() {
@@ -33,7 +34,7 @@ export function SalesDeskView() {
   const { data: customerDocs } = useCollection<{ id: string; ADDRESS_CUSTOMER?: string; CITY_CUSTOMER?: string }>(COLLECTIONS.CUSTOMER);
   const { data: supplierDocs } = useCollection<{ id: string; ADDRESS_SUPPLIERS?: string; PHONE_SUPPLIERS?: string }>(COLLECTIONS.SUPPLIERS);
   const { company } = useCompany();
-  const [docsMenuFor, setDocsMenuFor] = useState<string | null>(null);
+  const [docsFor, setDocsFor] = useState<SalesOrder | null>(null);
   /** Resuelve buyer: usuarios del sistema primero, catalogo legado para registros viejos. */
   const buyerName = useMemo(() => {
     const map = new Map(
@@ -76,42 +77,19 @@ export function SalesDeskView() {
           width: '48px',
           align: 'center' as const,
           render: (so: SalesOrder) => (
-            <span className="so-docs">
-              <button
-                type="button"
-                className="so-docs__btn"
-                title="Documents"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setDocsMenuFor(docsMenuFor === so.id ? null : so.id);
-                }}
-              >
-                <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.9">
-                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" /><path d="M14 2v6h6M12 18v-6M9 15l3 3 3-3" />
-                </svg>
-              </button>
-              {docsMenuFor === so.id && (
-                <>
-                  <span className="so-docs__backdrop" onClick={(e) => { e.stopPropagation(); setDocsMenuFor(null); }} />
-                  <span className="so-docs__menu">
-                    {SALES_DOCS.map((docDef) => (
-                      <button
-                        key={docDef.id}
-                        type="button"
-                        className="so-docs__item"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDocsMenuFor(null);
-                          void docDef.run(so, docContext(so));
-                        }}
-                      >
-                        {docDef.label}
-                      </button>
-                    ))}
-                  </span>
-                </>
-              )}
-            </span>
+            <button
+              type="button"
+              className="so-docs__btn"
+              title="Documents"
+              onClick={(e) => {
+                e.stopPropagation();
+                setDocsFor(so);
+              }}
+            >
+              <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.9">
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" /><path d="M14 2v6h6M12 18v-6M9 15l3 3 3-3" />
+              </svg>
+            </button>
           ),
         }]
       : []),
@@ -182,11 +160,11 @@ export function SalesDeskView() {
     };
   };
 
-  const SALES_DOCS: { id: string; label: string; run: (so: SalesOrder, ctx: SalesDocContext) => Promise<void> }[] = [
-    { id: 'invoice', label: 'Invoice', run: printSalesInvoice },
-    { id: 'pick', label: 'Pick Ticket', run: printPickTicket },
-    { id: 'so', label: 'Sales Order', run: printSalesOrderDoc },
-    { id: 'bol', label: 'Bill of Lading', run: printBillOfLading },
+  const SALES_DOCS: { id: string; label: string; description: string; run: (so: SalesOrder, ctx: SalesDocContext) => Promise<void> }[] = [
+    { id: 'invoice', label: 'Invoice', description: 'Customer invoice with PACA terms', run: printSalesInvoice },
+    { id: 'pick', label: 'Pick Ticket', description: 'Warehouse picking list with lots and temp', run: printPickTicket },
+    { id: 'so', label: 'Sales Order', description: 'Order confirmation with pick up info', run: printSalesOrderDoc },
+    { id: 'bol', label: 'Bill of Lading', description: 'Straight BOL with carrier contract terms', run: printBillOfLading },
   ];
   /** Borrado desde la tabla: detalle + pagos + encabezado, en segundo plano. */
   const handleDeleteRow = (so: SalesOrder) => {
@@ -228,6 +206,21 @@ export function SalesDeskView() {
         onEdit={can('sales', 'edit') ? (so) => { setEditing(so); setFormOpen(true); } : undefined}
         onDelete={can('sales', 'delete') ? handleDeleteRow : undefined}
       />
+
+      {docsFor && (
+        <DocumentPicker
+          title="Generate document"
+          subtitle={`Sales order ${docsFor.SALES_ORDER_NUMBER || ''} — ${customers.nameOf(docsFor.ID_CUSTOMER)}`}
+          options={SALES_DOCS.map((d) => ({ id: d.id, label: d.label, description: d.description }))}
+          onClose={() => setDocsFor(null)}
+          onSelect={(id) => {
+            const docDef = SALES_DOCS.find((d) => d.id === id);
+            const target = docsFor;
+            setDocsFor(null);
+            if (docDef && target) void docDef.run(target, docContext(target));
+          }}
+        />
+      )}
 
       {viewing && (
         <SalesOrderDetailPanel

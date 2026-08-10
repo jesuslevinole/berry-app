@@ -1,0 +1,123 @@
+.doc-picker__overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(11, 31, 24, 0.55);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 20px;
+}
+
+.doc-picker {
+  background-color: var(--surface);
+  width: 100%;
+  max-width: 430px;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
+}
+
+.doc-picker__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 22px 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.doc-picker__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.doc-picker__subtitle {
+  margin: 3px 0 0 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.doc-picker__close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--muted);
+  padding: 5px;
+  border-radius: 8px;
+}
+
+.doc-picker__close:hover {
+  color: var(--ink);
+  background-color: var(--green-50);
+}
+
+.doc-picker__list {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.doc-picker__option {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  text-align: left;
+  background-color: var(--canvas);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 13px 16px;
+  cursor: pointer;
+  transition: border-color 0.15s, background-color 0.15s, transform 0.1s;
+}
+
+.doc-picker__option:hover {
+  border-color: var(--green-500);
+  background-color: var(--green-50);
+}
+
+.doc-picker__option:active {
+  transform: scale(0.99);
+}
+
+.doc-picker__icon {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--green-100);
+  color: var(--green-700);
+  border-radius: 10px;
+}
+
+.doc-picker__texts {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.doc-picker__label {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.doc-picker__description {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.doc-picker__chevron {
+  color: var(--muted);
+  flex-shrink: 0;
+  display: flex;
+}

@@ -14,6 +14,7 @@ import { PurchaseOrderDetailPanel } from './PurchaseOrderDetailPanel';
 import { printPurchaseOrderPdf } from '../../services/purchaseOrderPdfService';
 import { printLiquidationReport } from '../../services/liquidationReportService';
 import { useCompany } from '../../hooks/useCompany';
+import { DocumentPicker } from '../../components/ui/DocumentPicker';
 import './PurchaseOrdersView.css';
 
 export function PurchaseOrdersView() {
@@ -40,6 +41,7 @@ export function PurchaseOrdersView() {
   const [search, setSearch] = useState('');
   const [formOpen, setFormOpen] = useState(false);
   const [viewing, setViewing] = useState<PurchaseOrder | null>(null);
+  const [docsFor, setDocsFor] = useState<PurchaseOrder | null>(null);
   const [editing, setEditing] = useState<PurchaseOrder | null>(null);
 
   const rows = useMemo(() => {
@@ -65,37 +67,22 @@ export function PurchaseOrdersView() {
       ? [{
           key: 'pdf',
           header: '',
-          width: '76px',
+          width: '48px',
           align: 'center' as const,
           render: (po: PurchaseOrder) => (
-            <span className="po-doc-actions">
-              <button
-                type="button"
-                className="po-pdf-btn"
-                title="Purchase order document"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handlePdf(po);
-                }}
-              >
-                <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.9">
-                  <path d="M12 3v11M7 10l5 5 5-5" /><path d="M4 19h16" />
-                </svg>
-              </button>
-              <button
-                type="button"
-                className="po-pdf-btn po-pdf-btn--report"
-                title="Liquidation report"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleLiquidation(po);
-                }}
-              >
-                <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.9">
-                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" /><path d="M14 2v6h6M9 15h6M9 11h2" />
-                </svg>
-              </button>
-            </span>
+            <button
+              type="button"
+              className="po-pdf-btn"
+              title="Documents"
+              onClick={(e) => {
+                e.stopPropagation();
+                setDocsFor(po);
+              }}
+            >
+              <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.9">
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" /><path d="M14 2v6h6M12 18v-6M9 15l3 3 3-3" />
+              </svg>
+            </button>
           ),
         }]
       : []),
@@ -189,6 +176,25 @@ export function PurchaseOrdersView() {
         onEdit={can('purchases', 'edit') ? (po) => { setEditing(po); setFormOpen(true); } : undefined}
         onDelete={can('purchases', 'delete') ? handleDeleteRow : undefined}
       />
+
+      {docsFor && (
+        <DocumentPicker
+          title="Generate document"
+          subtitle={`Purchase order ${docsFor.LOT_NUMBER || docsFor.REF_NUMBER || ''} — ${growers.nameOf(docsFor.ID_GROWER)}`}
+          options={[
+            { id: 'po', label: 'Purchase Order', description: 'PO document with terms and line items' },
+            { id: 'liq', label: 'Liquidation Report', description: 'Lot sales, commission, expenses and balance' },
+          ]}
+          onClose={() => setDocsFor(null)}
+          onSelect={(id) => {
+            const target = docsFor;
+            setDocsFor(null);
+            if (!target) return;
+            if (id === 'po') handlePdf(target);
+            else handleLiquidation(target);
+          }}
+        />
+      )}
 
       {viewing && (
         <PurchaseOrderDetailPanel
