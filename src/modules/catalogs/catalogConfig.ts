@@ -36,7 +36,7 @@ export const CATALOG_DEFS: CatalogDef[] = [
       { key: 'PHONE_TWO_CUSTOMER', label: 'Phone 2' },
     ],
   },
-  { collection: COLLECTIONS.SUPPLIERS, label: 'Suppliers', idField: 'ID_SUPPLIERS', nameField: 'NAME_SUPPLIERS', nameLabel: 'Name', extraFields: [] },
+  { collection: COLLECTIONS.SUPPLIERS, label: 'Suppliers', idField: 'ID_SUPPLIERS', nameField: 'NAME_SUPPLIERS', nameLabel: 'Name', extraFields: [{ key: 'ADDRESS_SUPPLIERS', label: 'Address' }, { key: 'PHONE_SUPPLIERS', label: 'Phone' }] },
   { collection: COLLECTIONS.CARRIER, label: 'Carriers', idField: 'ID_CARRIER', nameField: 'NAME_CARRIER', nameLabel: 'Name', extraFields: [] },
   {
     collection: COLLECTIONS.LOCATIONS,

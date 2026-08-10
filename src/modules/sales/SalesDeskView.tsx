@@ -14,6 +14,8 @@ import { StatusBadge } from '../../components/ui/StatusBadge';
 import { PaymentsPanel } from '../payments/PaymentsPanel';
 import { SalesOrderForm } from './SalesOrderForm';
 import { SalesOrderDetailPanel } from './SalesOrderDetailPanel';
+import { printSalesInvoice, printPickTicket, printSalesOrderDoc, printBillOfLading, type SalesDocContext } from '../../services/salesDocumentsService';
+import { useCompany } from '../../hooks/useCompany';
 import './SalesDeskView.css';
 
 export function SalesDeskView() {
@@ -23,6 +25,15 @@ export function SalesDeskView() {
   const customers = useCatalog(COLLECTIONS.CUSTOMER, 'NAME_CUSTOMER');
   const legacyUsers = useCatalog(COLLECTIONS.USERS, 'EMAIL_USERS');
   const { data: systemUsers } = useCollection<SystemUser>(COLLECTIONS.SYSTEM_USERS);
+  const suppliers = useCatalog(COLLECTIONS.SUPPLIERS, 'NAME_SUPPLIERS');
+  const carriers = useCatalog(COLLECTIONS.CARRIER, 'NAME_CARRIER');
+  const shipVia = useCatalog(COLLECTIONS.SHIPVIA, 'NAME_SHIPVIA');
+  const termShipping = useCatalog(COLLECTIONS.TERMSHIPPING, 'NAME_TERMSHIPPING');
+  const commodities = useCatalog(COLLECTIONS.COMMODITIES, 'NAME_COMMODITIES');
+  const { data: customerDocs } = useCollection<{ id: string; ADDRESS_CUSTOMER?: string; CITY_CUSTOMER?: string }>(COLLECTIONS.CUSTOMER);
+  const { data: supplierDocs } = useCollection<{ id: string; ADDRESS_SUPPLIERS?: string; PHONE_SUPPLIERS?: string }>(COLLECTIONS.SUPPLIERS);
+  const { company } = useCompany();
+  const [docsMenuFor, setDocsMenuFor] = useState<string | null>(null);
   /** Resuelve buyer: usuarios del sistema primero, catalogo legado para registros viejos. */
   const buyerName = useMemo(() => {
     const map = new Map(
@@ -58,6 +69,52 @@ export function SalesDeskView() {
   }, [data, search, customers, buyerName]);
 
   const columns: Array<Column<SalesOrder>> = [
+    ...(can('sales', 'documents')
+      ? [{
+          key: 'docs',
+          header: '',
+          width: '48px',
+          align: 'center' as const,
+          render: (so: SalesOrder) => (
+            <span className="so-docs">
+              <button
+                type="button"
+                className="so-docs__btn"
+                title="Documents"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDocsMenuFor(docsMenuFor === so.id ? null : so.id);
+                }}
+              >
+                <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.9">
+                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" /><path d="M14 2v6h6M12 18v-6M9 15l3 3 3-3" />
+                </svg>
+              </button>
+              {docsMenuFor === so.id && (
+                <>
+                  <span className="so-docs__backdrop" onClick={(e) => { e.stopPropagation(); setDocsMenuFor(null); }} />
+                  <span className="so-docs__menu">
+                    {SALES_DOCS.map((docDef) => (
+                      <button
+                        key={docDef.id}
+                        type="button"
+                        className="so-docs__item"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDocsMenuFor(null);
+                          void docDef.run(so, docContext(so));
+                        }}
+                      >
+                        {docDef.label}
+                      </button>
+                    ))}
+                  </span>
+                </>
+              )}
+            </span>
+          ),
+        }]
+      : []),
     { key: 'DATE', header: 'Date', render: (so) => fmtDate(so.DATE) },
     { key: 'SALES_ORDER_NUMBER', header: '# Sales Order', render: (so) => <span className="mono">{so.SALES_ORDER_NUMBER || '—'}</span> },
     { key: 'ID_CUSTOMER', header: 'Customer', render: (so) => customers.nameOf(so.ID_CUSTOMER) },
@@ -103,6 +160,34 @@ export function SalesDeskView() {
     });
   };
 
+  /** Contexto compartido de los 4 documentos imprimibles de la orden. */
+  const docContext = (so: SalesOrder): SalesDocContext => {
+    const customerDoc = customerDocs.find((c) => c.id === so.ID_CUSTOMER);
+    const supplierDoc = supplierDocs.find((s) => s.id === so.ID_SUPPLIERS);
+    const lotMap = new Map(purchaseOrders.map((po) => [po.id, po.LOT_NUMBER ?? '']));
+    return {
+      company,
+      customerName: customers.nameOf(so.ID_CUSTOMER),
+      customerAddress: customerDoc?.ADDRESS_CUSTOMER ?? '',
+      customerCity: customerDoc?.CITY_CUSTOMER ?? '',
+      salesPerson: buyerName(so.ID_USERS),
+      carrierName: carriers.nameOf(so.ID_CARRIER),
+      shipViaName: shipVia.nameOf(so.ID_SHIPVIA),
+      shippingTermsName: termShipping.nameOf(so.ID_TERMSHIPPING),
+      supplierName: suppliers.nameOf(so.ID_SUPPLIERS),
+      supplierAddress: supplierDoc?.ADDRESS_SUPPLIERS ?? '',
+      supplierPhone: supplierDoc?.PHONE_SUPPLIERS ?? '',
+      lotOf: (id) => lotMap.get(id) ?? '',
+      commodityName: (id) => commodities.nameOf(id),
+    };
+  };
+
+  const SALES_DOCS: { id: string; label: string; run: (so: SalesOrder, ctx: SalesDocContext) => Promise<void> }[] = [
+    { id: 'invoice', label: 'Invoice', run: printSalesInvoice },
+    { id: 'pick', label: 'Pick Ticket', run: printPickTicket },
+    { id: 'so', label: 'Sales Order', run: printSalesOrderDoc },
+    { id: 'bol', label: 'Bill of Lading', run: printBillOfLading },
+  ];
   /** Borrado desde la tabla: detalle + pagos + encabezado, en segundo plano. */
   const handleDeleteRow = (so: SalesOrder) => {
     if (!window.confirm(`Delete sales order ${so.SALES_ORDER_NUMBER || ''}?`)) return;

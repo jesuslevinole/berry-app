@@ -1,3 +1,63 @@
 .sales-desk { display: flex; flex-direction: column; min-width: 0; }
 .sales-desk__pay-btn { color: var(--green-600); }
 .sales-desk__pay-btn:hover { color: var(--green-800); }
+
+
+/* ---- Menu de documentos de la orden (primera columna) ---- */
+.so-docs {
+  position: relative;
+  display: inline-flex;
+}
+
+.so-docs__btn {
+  background: none;
+  border: none;
+  color: var(--green-600);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  display: inline-flex;
+}
+
+.so-docs__btn:hover {
+  background-color: var(--green-100);
+}
+
+.so-docs__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+}
+
+.so-docs__menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 401;
+  background-color: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  min-width: 150px;
+  padding: 5px;
+}
+
+.so-docs__item {
+  background: none;
+  border: none;
+  text-align: left;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+  border-radius: 7px;
+  white-space: nowrap;
+}
+
+.so-docs__item:hover {
+  background-color: var(--green-50);
+  color: var(--green-700);
+}
