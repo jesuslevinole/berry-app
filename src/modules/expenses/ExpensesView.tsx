@@ -12,6 +12,7 @@ import { EXPENSES_SCHEMAS } from '../../config/entitySchemas';
 import { Modal } from '../../components/ui/Modal';
 import { PaymentsPanel } from '../payments/PaymentsPanel';
 import { ExpenseForm } from './ExpenseForm';
+import { ExpenseDetailPanel } from './ExpenseDetailPanel';
 import './ExpensesView.css';
 
 export function ExpensesView() {
@@ -23,6 +24,7 @@ export function ExpensesView() {
 
   const [search, setSearch] = useState('');
   const [formOpen, setFormOpen] = useState(false);
+  const [viewing, setViewing] = useState<Expense | null>(null);
   const [editing, setEditing] = useState<Expense | null>(null);
   const [paymentsFor, setPaymentsFor] = useState<Expense | null>(null);
 
@@ -138,13 +140,23 @@ export function ExpensesView() {
         rows={rows}
         loading={loading}
         emptyMessage="No expenses yet"
-        onRowClick={(exp) => {
-          setEditing(exp);
-          setFormOpen(true);
-        }}
+        onRowClick={setViewing}
         onEdit={can('expenses', 'edit') ? (expense) => { setEditing(expense); setFormOpen(true); } : undefined}
         onDelete={can('expenses', 'delete') ? handleDeleteRow : undefined}
       />
+
+      {viewing && (
+        <ExpenseDetailPanel
+          expense={viewing}
+          purchaseOrders={purchaseOrders}
+          onClose={() => setViewing(null)}
+          onEdit={can('expenses', 'edit') ? () => {
+            setEditing(viewing);
+            setViewing(null);
+            setFormOpen(true);
+          } : undefined}
+        />
+      )}
 
       <ExpenseForm
         open={formOpen}

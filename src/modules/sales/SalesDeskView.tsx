@@ -13,6 +13,7 @@ import { Modal } from '../../components/ui/Modal';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { PaymentsPanel } from '../payments/PaymentsPanel';
 import { SalesOrderForm } from './SalesOrderForm';
+import { SalesOrderDetailPanel } from './SalesOrderDetailPanel';
 import './SalesDeskView.css';
 
 export function SalesDeskView() {
@@ -32,6 +33,7 @@ export function SalesDeskView() {
 
   const [search, setSearch] = useState('');
   const [formOpen, setFormOpen] = useState(false);
+  const [viewing, setViewing] = useState<SalesOrder | null>(null);
   const [editing, setEditing] = useState<SalesOrder | null>(null);
   const [paymentsFor, setPaymentsFor] = useState<SalesOrder | null>(null);
 
@@ -137,13 +139,24 @@ export function SalesDeskView() {
         rows={rows}
         loading={loading}
         emptyMessage="No sales orders yet"
-        onRowClick={(so) => {
-          setEditing(so);
-          setFormOpen(true);
-        }}
+        onRowClick={setViewing}
         onEdit={can('sales', 'edit') ? (so) => { setEditing(so); setFormOpen(true); } : undefined}
         onDelete={can('sales', 'delete') ? handleDeleteRow : undefined}
       />
+
+      {viewing && (
+        <SalesOrderDetailPanel
+          order={viewing}
+          purchaseOrders={purchaseOrders}
+          buyerName={buyerName}
+          onClose={() => setViewing(null)}
+          onEdit={can('sales', 'edit') ? () => {
+            setEditing(viewing);
+            setViewing(null);
+            setFormOpen(true);
+          } : undefined}
+        />
+      )}
 
       <SalesOrderForm
         open={formOpen}

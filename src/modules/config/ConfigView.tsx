@@ -3,29 +3,12 @@ import { useAuth } from '../../context/AuthContext';
 import { useAppConfig } from '../../context/AppConfigContext';
 import { useCollection } from '../../hooks/useCollection';
 import { MODULE_DEFS } from '../../config/modules';
+import { FORM_DEFS } from '../../config/formDefs';
 import { COLLECTIONS, type CheckSettings, type FormFieldConfig, type SystemUser } from '../../types/models';
 import { SearchableSelect } from '../../components/ui/SearchableSelect';
 import { Toolbar } from '../../components/ui/Toolbar';
 import './ConfigView.css';
 
-/** Formularios configurables y sus campos por defecto (clave = etiqueta en codigo). */
-const FORM_DEFS: { id: string; label: string; fields: string[] }[] = [
-  {
-    id: 'purchases',
-    label: 'Purchase order form',
-    fields: ['Lot #', 'Grower / Origin', 'Vendor', 'Ship to', 'Buyer', 'Note', 'Commission %', '# Ref', 'Carrier', 'Arrival date'],
-  },
-  {
-    id: 'sales',
-    label: 'Sales order form',
-    fields: ['# Sales order', 'Status', 'Date', 'Due date', 'Customer', 'Buyer', 'Salesperson', 'Supplier', 'Ref', 'Ref pickup', 'Pick up #', 'OD day', 'Address', 'City / State / ZIP', 'Carrier', 'Ship via', 'Shipping terms', 'Temp log', 'Description', 'Sent'],
-  },
-  {
-    id: 'expenses',
-    label: 'Expense form',
-    fields: ['# Lot (purchase order)', 'Supplier', 'Category', 'Invoice #', 'Date', 'Amount', 'Check #', 'Photo check (URL)', 'Deduct', 'Note'],
-  },
-];
 
 type Section = 'nav' | 'viewas' | string;
 
