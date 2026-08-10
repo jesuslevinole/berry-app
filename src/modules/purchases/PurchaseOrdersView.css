@@ -15,3 +15,17 @@
 .po-pdf-btn:hover {
   background-color: var(--green-100);
 }
+
+
+.po-doc-actions {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.po-pdf-btn--report {
+  color: var(--warn);
+}
+
+.po-pdf-btn--report:hover {
+  background-color: var(--warn-bg);
+}

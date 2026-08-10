@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useCollection } from '../../hooks/useCollection';
 import { useCatalog } from '../../hooks/useCatalog';
-import { COLLECTIONS, type PurchaseOrder, type SystemUser } from '../../types/models';
+import { COLLECTIONS, type PurchaseOrder, type SystemUser, type SalesOrder } from '../../types/models';
 import { byNewest, fmtDate, fmtMoney } from '../../utils/format';
 import { deleteDocument, replaceChildren } from '../../services/firestore';
 import { DataTable, type Column } from '../../components/ui/DataTable';
@@ -12,6 +12,7 @@ import { PURCHASES_SCHEMAS } from '../../config/entitySchemas';
 import { PurchaseOrderForm } from './PurchaseOrderForm';
 import { PurchaseOrderDetailPanel } from './PurchaseOrderDetailPanel';
 import { printPurchaseOrderPdf } from '../../services/purchaseOrderPdfService';
+import { printLiquidationReport } from '../../services/liquidationReportService';
 import { useCompany } from '../../hooks/useCompany';
 import './PurchaseOrdersView.css';
 
@@ -27,6 +28,7 @@ export function PurchaseOrdersView() {
   const commodities = useCatalog(COLLECTIONS.COMMODITIES, 'NAME_COMMODITIES');
   const { data: customerDocs } = useCollection<{ id: string; ADDRESS_CUSTOMER?: string; CITY_CUSTOMER?: string }>(COLLECTIONS.CUSTOMER);
   const { company } = useCompany();
+  const { data: salesOrders } = useCollection<SalesOrder>(COLLECTIONS.SALES_ORDER);
   /** Resuelve buyer: usuarios del sistema primero, catalogo legado para registros viejos. */
   const buyerName = useMemo(() => {
     const map = new Map(
@@ -63,22 +65,37 @@ export function PurchaseOrdersView() {
       ? [{
           key: 'pdf',
           header: '',
-          width: '44px',
+          width: '76px',
           align: 'center' as const,
           render: (po: PurchaseOrder) => (
-            <button
-              type="button"
-              className="po-pdf-btn"
-              title="Download purchase order"
-              onClick={(e) => {
-                e.stopPropagation();
-                handlePdf(po);
-              }}
-            >
-              <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.9">
-                <path d="M12 3v11M7 10l5 5 5-5" /><path d="M4 19h16" />
-              </svg>
-            </button>
+            <span className="po-doc-actions">
+              <button
+                type="button"
+                className="po-pdf-btn"
+                title="Purchase order document"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handlePdf(po);
+                }}
+              >
+                <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.9">
+                  <path d="M12 3v11M7 10l5 5 5-5" /><path d="M4 19h16" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                className="po-pdf-btn po-pdf-btn--report"
+                title="Liquidation report"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleLiquidation(po);
+                }}
+              >
+                <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.9">
+                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" /><path d="M14 2v6h6M9 15h6M9 11h2" />
+                </svg>
+              </button>
+            </span>
           ),
         }]
       : []),
@@ -113,6 +130,17 @@ export function PurchaseOrdersView() {
       shipToName: locations.nameOf(po.SHIPTO),
       carrierName: carriers.nameOf(po.ID_CARRIER),
       salesPerson: buyerName(po.ID_USERS),
+      commodityName: (id) => commodities.nameOf(id),
+    });
+  };
+
+  /** Genera el LIQUIDATION REPORT del lote (ventas, comision, gastos, balance). */
+  const handleLiquidation = (po: PurchaseOrder) => {
+    const soNumber = new Map(salesOrders.map((so) => [so.id, so.SALES_ORDER_NUMBER ?? '']));
+    void printLiquidationReport(po, {
+      company,
+      growerName: growers.nameOf(po.ID_GROWER),
+      soNumberOf: (id) => soNumber.get(id) ?? '',
       commodityName: (id) => commodities.nameOf(id),
     });
   };
