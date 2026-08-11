@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { createDocumentLocalFirst } from '../../services/firestore';
 import type { CatalogOption } from '../../hooks/useCatalog';
+import { CATALOG_DEFS } from '../../modules/catalogs/catalogConfig';
 import { SearchableSelect } from './SearchableSelect';
 import './CatalogSelect.css';
 
@@ -33,17 +34,25 @@ export function CatalogSelect({
   const { can } = useAuth();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
+  const [extras, setExtras] = useState<Record<string, string>>({});
+  /** Campos obligatorios del catalogo (ej. Prefix del grower, Description del commodity). */
+  const requiredExtras = CATALOG_DEFS.find((d) => d.collection === collection)?.extraFields.filter((f) => f.required) ?? [];
+
+  const canCreate = !!name.trim() && requiredExtras.every((f) => (extras[f.key] ?? '').trim());
 
   const handleCreate = () => {
     const trimmed = name.trim();
-    if (!trimmed) return;
+    if (!canCreate || !trimmed) return;
+    const payload: Record<string, string> = { [nameField]: trimmed };
+    for (const field of requiredExtras) payload[field.key] = (extras[field.key] ?? '').trim();
     const newId = createDocumentLocalFirst(
       collection,
-      { [nameField]: trimmed },
+      payload,
       (error) => alert(`Failed to create ${catalogLabel}: ${error.message}`),
     );
     onChange(newId);
     setName('');
+    setExtras({});
     setOpen(false);
   };
 
@@ -61,6 +70,7 @@ export function CatalogSelect({
           aria-label={`New ${catalogLabel}`}
           onClick={() => {
             setName('');
+            setExtras({});
             setOpen(true);
           }}
         >
@@ -85,12 +95,25 @@ export function CatalogSelect({
                 if (e.key === 'Escape') setOpen(false);
               }}
             />
+            {requiredExtras.map((field) => (
+              <input
+                key={field.key}
+                className="input catsel__input catsel__input--extra"
+                placeholder={field.label}
+                value={extras[field.key] ?? ''}
+                onChange={(e) => setExtras((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleCreate();
+                  if (e.key === 'Escape') setOpen(false);
+                }}
+              />
+            ))}
             <p className="catsel__hint">
               It is created and selected instantly. You can complete its details later in Catalogs.
             </p>
             <div className="catsel__actions">
               <button type="button" className="btn btn--secondary" onClick={() => setOpen(false)}>Cancel</button>
-              <button type="button" className="btn btn--primary" disabled={!name.trim()} onClick={handleCreate}>
+              <button type="button" className="btn btn--primary" disabled={!canCreate} onClick={handleCreate}>
                 Create
               </button>
             </div>

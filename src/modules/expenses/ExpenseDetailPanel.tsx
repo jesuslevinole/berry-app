@@ -18,9 +18,11 @@ interface Props {
   purchaseOrders: PurchaseOrder[];
   onClose: () => void;
   onEdit?: () => void;
+  /** Abre el registro de pagos del gasto (gatear con can('expenses','edit')). */
+  onAddPayment?: () => void;
 }
 
-export function ExpenseDetailPanel({ expense, purchaseOrders, onClose, onEdit }: Props) {
+export function ExpenseDetailPanel({ expense, purchaseOrders, onClose, onEdit, onAddPayment }: Props) {
   const { fieldsFor } = useAppConfig();
   const { data: payments } = useCollection<PaymentBill>(
     COLLECTIONS.PAYMENT_BILL,
@@ -69,7 +71,16 @@ export function ExpenseDetailPanel({ expense, purchaseOrders, onClose, onEdit }:
         </div>
       </DetailSection>
 
-      <DetailSection title={`Payments (${payments.length})`}>
+      <DetailSection
+        title={`Payments (${payments.length})`}
+        action={
+          onAddPayment && (
+            <button type="button" className="btn btn--primary" onClick={onAddPayment}>
+              + Add payment
+            </button>
+          )
+        }
+      >
         <div className="record-detail__table-wrap">
           <table className="record-detail__table">
             <thead>

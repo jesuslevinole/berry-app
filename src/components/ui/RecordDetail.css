@@ -259,3 +259,15 @@
     overflow-y: visible;
   }
 }
+
+
+.record-detail__section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.record-detail__section-head .record-detail__section-title {
+  margin-bottom: 10px;
+}

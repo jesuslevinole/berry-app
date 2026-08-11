@@ -10,6 +10,10 @@ interface AppConfigValue {
   /** Orden configurado del menu; keys ausentes van al final en su orden natural. */
   sortNav: <T extends { key: string }>(items: T[]) => T[];
   saveNavOrder: (order: string[]) => void;
+  /** Etiqueta del item del menu (personalizada o la default). */
+  navLabel: (key: string, fallback: string) => string;
+  /** Guarda orden y nombres del menu en una sola escritura. */
+  saveNavigation: (order: string[], labels: Record<string, string>) => void;
   /**
    * Config de campos de un formulario mergeada con los defaults actuales:
    * respeta orden/label/required guardados, agrega campos nuevos al final y
@@ -70,6 +74,8 @@ export function AppConfigProvider({ children }: { children: ReactNode }) {
         });
       },
       saveNavOrder: (order) => persist({ navOrder: order }),
+      navLabel: (key, fallback) => (config?.navLabels?.[key] ?? '').trim() || fallback,
+      saveNavigation: (order, labels) => persist({ navOrder: order, navLabels: labels }),
       fieldsFor,
       checkSettings: config?.checks ?? {},
       saveCheckSettings: (settings) => persist({ checks: settings }),

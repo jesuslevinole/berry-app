@@ -7,10 +7,13 @@ export interface DetailField {
 }
 
 /** Seccion titulada para la zona derecha (lineas, pagos, resumen financiero). */
-export function DetailSection({ title, children }: { title: string; children: ReactNode }) {
+export function DetailSection({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
   return (
     <section className="record-detail__section">
-      <h4 className="record-detail__section-title">{title}</h4>
+      <div className="record-detail__section-head">
+        <h4 className="record-detail__section-title">{title}</h4>
+        {action}
+      </div>
       {children}
     </section>
   );

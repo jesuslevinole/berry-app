@@ -14,7 +14,7 @@ type Section = 'nav' | 'viewas' | string;
 
 export function ConfigView() {
   const { canAdmin, viewAsProfile, setViewAs } = useAuth();
-  const { sortNav, saveNavOrder, fieldsFor, saveFormFields, checkSettings, saveCheckSettings } = useAppConfig();
+  const { sortNav, navLabel, saveNavigation, fieldsFor, saveFormFields, checkSettings, saveCheckSettings } = useAppConfig();
   const { data: systemUsers } = useCollection<SystemUser>(COLLECTIONS.SYSTEM_USERS);
 
   const canNav = canAdmin('navOrder');
@@ -41,10 +41,10 @@ export function ConfigView() {
 
   /* ---- Navegacion ---- */
   const navItems = useMemo(
-    () => sortNav(MODULE_DEFS.map((m) => ({ key: m.id, label: m.label }))),
-    [sortNav],
+    () => sortNav(MODULE_DEFS.map((m) => ({ key: m.id, label: navLabel(m.id, m.label), defaultLabel: m.label }))),
+    [sortNav, navLabel],
   );
-  const [navDraft, setNavDraft] = useState<{ key: string; label: string }[]>([]);
+  const [navDraft, setNavDraft] = useState<{ key: string; label: string; defaultLabel: string }[]>([]);
   useEffect(() => setNavDraft(navItems), [navItems]);
 
   const moveNav = (index: number, delta: number) => {
@@ -121,14 +121,26 @@ export function ConfigView() {
             <div className="config__card">
               <h3 className="config__card-title">Navigation menu order</h3>
               <p className="config__hint">
-                This is the order of the sidebar for every user. Each person still only sees the
+                Order and names of the sidebar for every user. Each person still only sees the
                 modules their role allows.
               </p>
               <ul className="config__list">
                 {navDraft.map((item, index) => (
                   <li className="config__row" key={item.key}>
                     <span className="config__row-order">{index + 1}</span>
-                    <span className="config__row-label">{item.label}</span>
+                    <span className="config__field-main">
+                      <input
+                        className="input config__field-label"
+                        value={item.label}
+                        title={`Rename (default: ${item.defaultLabel})`}
+                        onChange={(e) =>
+                          setNavDraft((prev) => prev.map((n, i) => (i === index ? { ...n, label: e.target.value } : n)))
+                        }
+                      />
+                      {item.label !== item.defaultLabel && (
+                        <span className="config__field-default">default: {item.defaultLabel}</span>
+                      )}
+                    </span>
                     <span className="config__row-actions">
                       <button type="button" className="config__arrow" disabled={index === 0} onClick={() => moveNav(index, -1)} aria-label="Move up">▲</button>
                       <button type="button" className="config__arrow" disabled={index === navDraft.length - 1} onClick={() => moveNav(index, 1)} aria-label="Move down">▼</button>
@@ -137,7 +149,18 @@ export function ConfigView() {
                 ))}
               </ul>
               <div className="config__actions">
-                <button type="button" className="btn btn--primary" onClick={() => saveNavOrder(navDraft.map((i) => i.key))}>
+                <button
+                  type="button"
+                  className="btn btn--primary"
+                  onClick={() => {
+                    const labels: Record<string, string> = {};
+                    for (const item of navDraft) {
+                      const trimmed = item.label.trim();
+                      if (trimmed && trimmed !== item.defaultLabel) labels[item.key] = trimmed;
+                    }
+                    saveNavigation(navDraft.map((i) => i.key), labels);
+                  }}
+                >
                   Save order
                 </button>
               </div>

@@ -204,6 +204,8 @@ export interface FormFieldConfig {
 export interface AppConfigDoc extends BaseDoc {
   /** Orden del menu de navegacion (ViewKeys). */
   navOrder?: string[];
+  /** Nombres personalizados de los items del menu (key -> etiqueta). */
+  navLabels?: Record<string, string>;
   /** Config de campos por formulario (orden del arreglo = orden visual). */
   forms?: Record<string, FormFieldConfig[]>;
   /** Personalizacion de cheques. */

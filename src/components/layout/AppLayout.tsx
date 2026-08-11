@@ -144,7 +144,7 @@ export function AppLayout({ view, onNavigate, children }: AppLayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { can, profile, firebaseUser, bypass, logout, viewAsProfile, setViewAs } = useAuth();
 
-  const { sortNav } = useAppConfig();
+  const { sortNav, navLabel } = useAppConfig();
   const visibleItems = sortNav(NAV_ITEMS.filter((item) => can(item.key, 'view')));
 
   const displayName = profile
@@ -189,10 +189,10 @@ export function AppLayout({ view, onNavigate, children }: AppLayoutProps) {
               type="button"
               className={`sidebar__link${view === item.key ? ' sidebar__link--active' : ''}`}
               onClick={() => handleNavigate(item.key)}
-              title={item.label}
+              title={navLabel(item.key, item.label)}
             >
               <span className="sidebar__icon">{item.icon}</span>
-              <span className="sidebar__label">{item.label}</span>
+              <span className="sidebar__label">{navLabel(item.key, item.label)}</span>
             </button>
           ))}
         </nav>
@@ -224,7 +224,7 @@ export function AppLayout({ view, onNavigate, children }: AppLayoutProps) {
               <path d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <h1 className="topbar__title">{VIEW_TITLES[view]}</h1>
+          <h1 className="topbar__title">{navLabel(view, VIEW_TITLES[view])}</h1>
           <div className="topbar__user">
             <span className="topbar__avatar">{initials}</span>
             <span className="topbar__user-name">{displayName}</span>
