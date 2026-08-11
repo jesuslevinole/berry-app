@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useCompany } from '../../hooks/useCompany';
 import { useAuth } from '../../context/AuthContext';
 import './LoginView.css';
 
@@ -12,6 +13,7 @@ const ERROR_MESSAGES: Record<string, string> = {
 };
 
 export function LoginView() {
+  const { company } = useCompany();
   const { login, resetPassword, enterAsGuest } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -104,8 +106,14 @@ export function LoginView() {
         </section>
 
         <section className="login__brand-panel">
-          <span className="login__logo" aria-hidden="true">B</span>
-          <h2 className="login__brand-title">Berry Source</h2>
+          {company.logo ? (
+            <span className="login__logo login__logo--img" aria-hidden="true">
+              <img className="login__logo-img" src={company.logo} alt="" />
+            </span>
+          ) : (
+            <span className="login__logo" aria-hidden="true">{(company.name || 'B').charAt(0)}</span>
+          )}
+          <h2 className="login__brand-title">{company.name || 'Berry Source'}</h2>
           <p className="login__brand-sub">Operations</p>
           <p className="login__brand-text">
             Purchase orders, sales desk, expenses and catalogs — all in one place.

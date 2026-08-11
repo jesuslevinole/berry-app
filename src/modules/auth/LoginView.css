@@ -236,3 +236,18 @@
   color: var(--green-600);
   border-color: var(--green-400);
 }
+
+
+/* Logo real de la empresa en el login */
+.login__logo--img {
+  background-color: #ffffff;
+  overflow: hidden;
+  padding: 8px;
+}
+
+.login__logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}

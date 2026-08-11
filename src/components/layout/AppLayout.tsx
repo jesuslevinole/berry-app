@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useAppConfig } from '../../context/AppConfigContext';
+import { useCompany } from '../../hooks/useCompany';
 import './AppLayout.css';
 
 export type ViewKey = 'dashboard' | 'purchases' | 'sales' | 'expenses' | 'catalogs' | 'lots' | 'reports' | 'checks' | 'company' | 'users' | 'roles' | 'config';
@@ -145,6 +146,7 @@ export function AppLayout({ view, onNavigate, children }: AppLayoutProps) {
   const { can, profile, firebaseUser, bypass, logout, viewAsProfile, setViewAs } = useAuth();
 
   const { sortNav, navLabel } = useAppConfig();
+  const { company } = useCompany();
   const visibleItems = sortNav(NAV_ITEMS.filter((item) => can(item.key, 'view')));
 
   const displayName = profile
@@ -175,9 +177,15 @@ export function AppLayout({ view, onNavigate, children }: AppLayoutProps) {
     <div className={`layout${collapsed ? ' layout--collapsed' : ''}`}>
       <aside className={`sidebar${mobileOpen ? ' sidebar--open' : ''}`}>
         <div className="sidebar__brand">
-          <span className="sidebar__logo" aria-hidden="true">B</span>
+          {company.logo ? (
+            <span className="sidebar__logo sidebar__logo--img" aria-hidden="true">
+              <img className="sidebar__logo-img" src={company.logo} alt="" />
+            </span>
+          ) : (
+            <span className="sidebar__logo" aria-hidden="true">{(company.name || 'B').charAt(0)}</span>
+          )}
           <span className="sidebar__brand-text">
-            <strong>Berry Source</strong>
+            <strong>{company.name || 'Berry Source'}</strong>
             <small>Operations</small>
           </span>
         </div>
