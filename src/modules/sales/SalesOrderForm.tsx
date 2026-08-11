@@ -6,7 +6,7 @@ import { useCatalog, type CatalogOption } from '../../hooks/useCatalog';
 import { useCollection } from '../../hooks/useCollection';
 import { createDocument, deleteDocument, listDocuments, replaceChildren, updateDocument } from '../../services/firestore';
 import { COLLECTIONS, SALES_STATUSES, type SalesOrder, type SalesOrderDetail, type SalesStatus, type SystemUser } from '../../types/models';
-import { fmtMoney, round2, todayISO, toNumber } from '../../utils/format';
+import { fmtMoney, round2, todayISO } from '../../utils/format';
 import { Modal } from '../../components/ui/Modal';
 import { ConfigurableGrid, FormField } from '../../components/ui/FormField';
 import { CatalogSelect } from '../../components/ui/CatalogSelect';
@@ -73,7 +73,14 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
   const [termShippingId, setTermShippingId] = useState('');
   const [tempLog, setTempLog] = useState('');
   const [description, setDescription] = useState('');
-  const [odDay, setOdDay] = useState('0');
+  /** OD day: diferencia en dias entre Date y Due date (calculado, no editable). */
+  const odDay = useMemo(() => {
+    if (!date || !dueDate) return null;
+    const from = new Date(`${date}T00:00:00`).getTime();
+    const to = new Date(`${dueDate}T00:00:00`).getTime();
+    if (!Number.isFinite(from) || !Number.isFinite(to)) return null;
+    return Math.round((to - from) / 86400000);
+  }, [date, dueDate]);
   const [lines, setLines] = useState<LineDraft[]>([]);
 
   useEffect(() => {
@@ -98,7 +105,6 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
     setTermShippingId(initial?.ID_TERMSHIPPING ?? '');
     setTempLog(initial?.TEMP_LOG ?? '');
     setDescription(initial?.DESCRIPTION ?? '');
-    setOdDay(String(initial?.OD_DAY ?? 0));
     setLines([]);
     if (initial) {
       void listDocuments<SalesOrderDetail>(COLLECTIONS.SALES_ORDER_DETAIL, [
@@ -133,7 +139,7 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
       alert('Every line item needs a Description.');
       return;
     }
-    const missing = missingRequired('sales', { '# Sales order': salesOrderNumber, 'Status': status, 'Date': date, 'Due date': dueDate, 'Customer': customerId, 'Buyer': buyer, 'Salesperson': userId, 'Supplier': supplierId, 'Ref': ref, 'Ref pickup': refPickup, 'Pick up #': pickUpNumber, 'OD day': odDay, 'Address': address, 'City / State / ZIP': cityStateZip, 'Carrier': carrierId, 'Ship via': shipViaId, 'Shipping terms': termShippingId, 'Temp log': tempLog, 'Description': description, 'Sent': sent ? 'yes' : '', 'Payment term': paymentTermId });
+    const missing = missingRequired('sales', { '# Sales order': salesOrderNumber, 'Status': status, 'Date': date, 'Due date': dueDate, 'Customer': customerId, 'Buyer': buyer, 'Salesperson': userId, 'Supplier': supplierId, 'Ref': ref, 'Ref pickup': refPickup, 'Pick up #': pickUpNumber, 'OD day': odDay === null ? '' : String(odDay), 'Address': address, 'City / State / ZIP': cityStateZip, 'Carrier': carrierId, 'Ship via': shipViaId, 'Shipping terms': termShippingId, 'Temp log': tempLog, 'Description': description, 'Sent': sent ? 'yes' : '', 'Payment term': paymentTermId });
     if (missing.length > 0) {
       alert(`Required fields missing: ${missing.join(', ')}`);
       return;
@@ -172,7 +178,7 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
         TOTAL: total,
         INCOMES: incomes,
         BALANCE: round2(total - incomes),
-        OD_DAY: toNumber(odDay),
+        OD_DAY: odDay ?? 0,
         SENT: sent,
       };
       const detailRows = lines.map((line) => ({
@@ -286,7 +292,13 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
             <input className="input" value={pickUpNumber} onChange={(e) => setPickUpNumber(e.target.value)} />
           </FormField>
           <FormField label="OD day">
-            <input className="input" type="number" min="0" step="1" value={odDay} onChange={(e) => setOdDay(e.target.value)} />
+            <input
+              className="input"
+              value={odDay === null ? '' : `${odDay} day${Math.abs(odDay) === 1 ? '' : 's'}`}
+              placeholder="Auto (Due date − Date)"
+              disabled
+              title="Calculated: days between Date and Due date"
+            />
           </FormField>
           <FormField label="Payment term">
             <CatalogSelect
