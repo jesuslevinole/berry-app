@@ -21,6 +21,8 @@ export interface SalesDocContext {
   carrierName: string;
   shipViaName: string;
   shippingTermsName: string;
+  /** Nombre del payment term del catalogo (ej. '15 Days'); vacio = fallback a dias calculados. */
+  paymentTermName: string;
   supplierName: string;
   supplierAddress: string;
   supplierPhone: string;
@@ -315,7 +317,7 @@ export async function printSalesOrderDoc(order: SalesOrder, ctx: SalesDocContext
       <td>${esc(ctx.salesPerson)}</td>
       <td class="soft">${esc(ctx.shipViaName)}</td>
       <td>${esc(ctx.carrierName)}</td>
-      <td class="soft"><b>${paymentTermDays(order) || fmtSlashDate(order.DUE_DATE || '')}</b></td>
+      <td class="soft"><b>${esc(ctx.paymentTermName) || paymentTermDays(order) || fmtSlashDate(order.DUE_DATE || '')}</b></td>
     </tr>
   </table>
   <table class="items">

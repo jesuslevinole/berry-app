@@ -11,7 +11,8 @@ import { COLLECTIONS, type CompanyInfo, type PurchaseDetail, type PurchaseOrder 
 
 /* Terminos mostrados en la caja central (ajustables aqui o, si se necesita,
    los movemos a un campo por vendor o por orden). */
-const PAY_TERMS = '21 Days';
+/** Fallback cuando la orden no tiene payment term del catalogo. */
+const PAY_TERMS_FALLBACK = '21 Days';
 const SALE_TERMS = 'PACA';
 const DEFAULT_UOM = 'Cases';
 
@@ -23,6 +24,8 @@ export interface PurchaseOrderPdfContext {
   shipToName: string;
   carrierName: string;
   salesPerson: string;
+  /** Payment term del catalogo (vacio = fallback). */
+  payTerms: string;
   commodityName: (id: string) => string;
 }
 
@@ -142,7 +145,7 @@ export async function printPurchaseOrderPdf(
 
     <div class="terms">
       <div class="terms-cell">
-        <b>Pay Terms:</b> ${esc(PAY_TERMS)}<br />
+        <b>Pay Terms:</b> ${esc(ctx.payTerms || PAY_TERMS_FALLBACK)}<br />
         <b>Sale Terms:</b> ${esc(SALE_TERMS)}
       </div>
       <div class="terms-cell">

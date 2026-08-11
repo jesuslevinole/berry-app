@@ -3,6 +3,8 @@ import { COLLECTIONS } from '../../types/models';
 export interface CatalogFieldDef {
   key: string;
   label: string;
+  /** Campo obligatorio al guardar en el catalogo. */
+  required?: boolean;
 }
 
 export interface CatalogDef {
@@ -20,7 +22,7 @@ export interface CatalogDef {
  * una sola vista generica (CatalogsView) administra todas estas colecciones.
  */
 export const CATALOG_DEFS: CatalogDef[] = [
-  { collection: COLLECTIONS.GROWER, label: 'Growers', idField: 'ID_GROWER', nameField: 'NAME_GROWER', nameLabel: 'Name', extraFields: [{ key: 'PREFIX_GROWER', label: 'Prefix' }] },
+  { collection: COLLECTIONS.GROWER, label: 'Growers', idField: 'ID_GROWER', nameField: 'NAME_GROWER', nameLabel: 'Name', extraFields: [{ key: 'PREFIX_GROWER', label: 'Prefix', required: true }] },
   {
     collection: COLLECTIONS.CUSTOMER,
     label: 'Customers',
@@ -38,6 +40,7 @@ export const CATALOG_DEFS: CatalogDef[] = [
   },
   { collection: COLLECTIONS.SUPPLIERS, label: 'Suppliers', idField: 'ID_SUPPLIERS', nameField: 'NAME_SUPPLIERS', nameLabel: 'Name', extraFields: [{ key: 'ADDRESS_SUPPLIERS', label: 'Address' }, { key: 'PHONE_SUPPLIERS', label: 'Phone' }] },
   { collection: COLLECTIONS.CARRIER, label: 'Carriers', idField: 'ID_CARRIER', nameField: 'NAME_CARRIER', nameLabel: 'Name', extraFields: [] },
+  { collection: COLLECTIONS.PAYMENTTERM, label: 'Payment Terms', idField: 'ID_PAYMENTTERM', nameField: 'NAME_PAYMENTTERM', nameLabel: 'Name (e.g. 21 Days)', extraFields: [] },
   {
     collection: COLLECTIONS.LOCATIONS,
     label: 'Locations',
@@ -56,7 +59,7 @@ export const CATALOG_DEFS: CatalogDef[] = [
     idField: 'ID_COMMODITIES',
     nameField: 'NAME_COMMODITIES',
     nameLabel: 'Name',
-    extraFields: [{ key: 'DESCRIPTION_COMMODITIES', label: 'Description' }],
+    extraFields: [{ key: 'DESCRIPTION_COMMODITIES', label: 'Description', required: true }],
   },
   { collection: COLLECTIONS.SHIPVIA, label: 'Ship via', idField: 'ID_SHIPVIA', nameField: 'NAME_SHIPVIA', nameLabel: 'Name', extraFields: [] },
   { collection: COLLECTIONS.TERMSHIPPING, label: 'Shipping terms', idField: 'ID_TERMSHIPPING', nameField: 'NAME_TERMSHIPPING', nameLabel: 'Name', extraFields: [] },

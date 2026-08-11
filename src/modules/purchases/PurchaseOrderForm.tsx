@@ -39,6 +39,7 @@ export function PurchaseOrderForm({ open, initial, onClose }: PurchaseOrderFormP
   const customers = useCatalog(COLLECTIONS.CUSTOMER, 'NAME_CUSTOMER');
   const { data: systemUsers } = useCollection<SystemUser>(COLLECTIONS.SYSTEM_USERS);
   const carriers = useCatalog(COLLECTIONS.CARRIER, 'NAME_CARRIER');
+  const paymentTerms = useCatalog(COLLECTIONS.PAYMENTTERM, 'NAME_PAYMENTTERM');
   const locations = useCatalog(COLLECTIONS.LOCATIONS, 'NAME_LOCATIONS');
   const commodities = useCatalog(COLLECTIONS.COMMODITIES, 'NAME_COMMODITIES');
 
@@ -51,6 +52,7 @@ export function PurchaseOrderForm({ open, initial, onClose }: PurchaseOrderFormP
   const [customerId, setCustomerId] = useState('');
   const [userId, setUserId] = useState('');
   const [carrierId, setCarrierId] = useState('');
+  const [paymentTermId, setPaymentTermId] = useState('');
   const [shipTo, setShipTo] = useState('');
   const [commissionPercent, setCommissionPercent] = useState('0');
   const [note, setNote] = useState('');
@@ -84,6 +86,7 @@ export function PurchaseOrderForm({ open, initial, onClose }: PurchaseOrderFormP
     setCustomerId(initial?.ID_CUSTOMER ?? '');
     setUserId(initial?.ID_USERS ?? '');
     setCarrierId(initial?.ID_CARRIER ?? '');
+    setPaymentTermId(initial?.ID_PAYMENTTERM ?? '');
     setShipTo(initial?.SHIPTO ?? '');
     setCommissionPercent(String(initial?.COMMISION_PERCENT ?? 0));
     setNote(initial?.NOTE ?? '');
@@ -124,7 +127,17 @@ export function PurchaseOrderForm({ open, initial, onClose }: PurchaseOrderFormP
 
   /** Cierre inmediato: encabezado + detalle se guardan en segundo plano (local-first). */
   const handleSave = () => {
-    const missing = missingRequired('purchases', { 'Lot #': lotNumber, 'Grower / Origin': growerId, 'Vendor': customerId, 'Ship to': shipTo, 'Buyer': userId, 'Note': note, 'Commission %': commissionPercent, '# Ref': refNumber, 'Carrier': carrierId, 'Arrival date': arrivalDate });
+    /* Reglas duras del negocio: no dependen del configurador. */
+    if (!lotNumber.trim()) {
+      alert('Lot # is required. Select a grower with a prefix so it can be generated, or type it manually.');
+      return;
+    }
+    const incompleteLine = lines.find((line) => line.ID_COMMODITIES && !(line.DESCRIPTION ?? '').trim());
+    if (incompleteLine) {
+      alert('Every line item needs a Description. Fill it in the Commodities catalog so it auto-completes, or type it in the line.');
+      return;
+    }
+    const missing = missingRequired('purchases', { 'Lot #': lotNumber, 'Grower / Origin': growerId, 'Vendor': customerId, 'Ship to': shipTo, 'Buyer': userId, 'Note': note, 'Commission %': commissionPercent, '# Ref': refNumber, 'Carrier': carrierId, 'Arrival date': arrivalDate, 'Payment term': paymentTermId });
     if (missing.length > 0) {
       alert(`Required fields missing: ${missing.join(', ')}`);
       return;
@@ -137,6 +150,7 @@ export function PurchaseOrderForm({ open, initial, onClose }: PurchaseOrderFormP
         SHIPTO: shipTo,
         ID_USERS: userId,
         ID_CARRIER: carrierId,
+        ID_PAYMENTTERM: paymentTermId,
         NOTE: note.trim(),
         COMMISION_PERCENT: toNumber(commissionPercent),
         REF_NUMBER: refNumber.trim(),
@@ -286,6 +300,16 @@ export function PurchaseOrderForm({ open, initial, onClose }: PurchaseOrderFormP
           </FormField>
           <FormField label="Arrival date">
             <input className="input" type="date" value={arrivalDate} onChange={(e) => setArrivalDate(e.target.value)} />
+          </FormField>
+          <FormField label="Payment term">
+            <CatalogSelect
+              value={paymentTermId}
+              onChange={setPaymentTermId}
+              options={paymentTerms.options}
+              collection={COLLECTIONS.PAYMENTTERM}
+              nameField="NAME_PAYMENTTERM"
+              catalogLabel="payment term"
+            />
           </FormField>
         </ConfigurableGrid>
 

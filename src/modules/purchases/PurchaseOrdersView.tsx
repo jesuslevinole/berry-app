@@ -26,6 +26,7 @@ export function PurchaseOrdersView() {
   const { data: systemUsers } = useCollection<SystemUser>(COLLECTIONS.SYSTEM_USERS);
   const locations = useCatalog(COLLECTIONS.LOCATIONS, 'NAME_LOCATIONS');
   const carriers = useCatalog(COLLECTIONS.CARRIER, 'NAME_CARRIER');
+  const paymentTermsCat = useCatalog(COLLECTIONS.PAYMENTTERM, 'NAME_PAYMENTTERM');
   const commodities = useCatalog(COLLECTIONS.COMMODITIES, 'NAME_COMMODITIES');
   const { data: customerDocs } = useCollection<{ id: string; ADDRESS_CUSTOMER?: string; CITY_CUSTOMER?: string }>(COLLECTIONS.CUSTOMER);
   const { company } = useCompany();
@@ -117,6 +118,7 @@ export function PurchaseOrdersView() {
       shipToName: locations.nameOf(po.SHIPTO),
       carrierName: carriers.nameOf(po.ID_CARRIER),
       salesPerson: buyerName(po.ID_USERS),
+      payTerms: po.ID_PAYMENTTERM ? paymentTermsCat.nameOf(po.ID_PAYMENTTERM) : '',
       commodityName: (id) => commodities.nameOf(id),
     });
   };

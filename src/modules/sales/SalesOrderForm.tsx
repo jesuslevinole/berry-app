@@ -27,6 +27,8 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
   const customers = useCatalog(COLLECTIONS.CUSTOMER, 'NAME_CUSTOMER');
   const { data: systemUsers } = useCollection<SystemUser>(COLLECTIONS.SYSTEM_USERS);
   const { data: commodityDocs } = useCollection<{ id: string; DESCRIPTION_COMMODITIES?: string }>(COLLECTIONS.COMMODITIES);
+  const { data: allSalesOrders } = useCollection<SalesOrder>(COLLECTIONS.SALES_ORDER);
+  const paymentTerms = useCatalog(COLLECTIONS.PAYMENTTERM, 'NAME_PAYMENTTERM');
   const descriptionOf = (id: string): string =>
     (commodityDocs.find((c) => c.id === id)?.DESCRIPTION_COMMODITIES ?? '').trim();
   const buyerOptions = useMemo(
@@ -43,6 +45,16 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
   const commodities = useCatalog(COLLECTIONS.COMMODITIES, 'NAME_COMMODITIES');
 
   const [salesOrderNumber, setSalesOrderNumber] = useState('');
+  const [paymentTermId, setPaymentTermId] = useState('');
+
+  /** Consecutivo del # de orden/invoice: inicia en 470001 y suma 1 por registro. */
+  const nextSoNumber = useMemo(() => {
+    const maxExisting = allSalesOrders.reduce((acc, so) => {
+      const n = parseInt(so.SALES_ORDER_NUMBER ?? '', 10);
+      return Number.isFinite(n) ? Math.max(acc, n) : acc;
+    }, 0);
+    return Math.max(maxExisting, 470000) + 1;
+  }, [allSalesOrders]);
   const [date, setDate] = useState(todayISO());
   const [dueDate, setDueDate] = useState('');
   const [status, setStatus] = useState<SalesStatus>('Draft');
@@ -66,7 +78,8 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
 
   useEffect(() => {
     if (!open) return;
-    setSalesOrderNumber(initial?.SALES_ORDER_NUMBER ?? '');
+    setSalesOrderNumber(initial?.SALES_ORDER_NUMBER ?? String(nextSoNumber));
+    setPaymentTermId(initial?.ID_PAYMENTTERM ?? '');
     setDate(initial?.DATE ?? todayISO());
     setDueDate(initial?.DUE_DATE ?? '');
     setStatus(initial?.STATUS ?? 'Draft');
@@ -109,7 +122,18 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
 
   /** Cierre inmediato: encabezado + detalle se guardan en segundo plano (local-first). */
   const handleSave = () => {
-    const missing = missingRequired('sales', { '# Sales order': salesOrderNumber, 'Status': status, 'Date': date, 'Due date': dueDate, 'Customer': customerId, 'Buyer': buyer, 'Salesperson': userId, 'Supplier': supplierId, 'Ref': ref, 'Ref pickup': refPickup, 'Pick up #': pickUpNumber, 'OD day': odDay, 'Address': address, 'City / State / ZIP': cityStateZip, 'Carrier': carrierId, 'Ship via': shipViaId, 'Shipping terms': termShippingId, 'Temp log': tempLog, 'Description': description, 'Sent': sent ? 'yes' : '' });
+    /* Reglas duras del negocio: cada linea debe tener su # de lote y descripcion. */
+    const lineWithoutLot = lines.find((line) => line.ID_COMMODITIES && !line.ID_PURCHASEORDER);
+    if (lineWithoutLot) {
+      alert('Every line item must be linked to a Lot # (purchase order).');
+      return;
+    }
+    const lineWithoutDescription = lines.find((line) => line.ID_COMMODITIES && !(line.DESCRIPTION ?? '').trim());
+    if (lineWithoutDescription) {
+      alert('Every line item needs a Description.');
+      return;
+    }
+    const missing = missingRequired('sales', { '# Sales order': salesOrderNumber, 'Status': status, 'Date': date, 'Due date': dueDate, 'Customer': customerId, 'Buyer': buyer, 'Salesperson': userId, 'Supplier': supplierId, 'Ref': ref, 'Ref pickup': refPickup, 'Pick up #': pickUpNumber, 'OD day': odDay, 'Address': address, 'City / State / ZIP': cityStateZip, 'Carrier': carrierId, 'Ship via': shipViaId, 'Shipping terms': termShippingId, 'Temp log': tempLog, 'Description': description, 'Sent': sent ? 'yes' : '', 'Payment term': paymentTermId });
     if (missing.length > 0) {
       alert(`Required fields missing: ${missing.join(', ')}`);
       return;
@@ -124,7 +148,17 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
         DATE: date,
         DUE_DATE: dueDate,
         STATUS: status,
-        SALES_ORDER_NUMBER: salesOrderNumber.trim(),
+        SALES_ORDER_NUMBER: (() => {
+          const requested = parseInt(salesOrderNumber, 10);
+          let n = Number.isFinite(requested) && requested > 0 ? requested : nextSoNumber;
+          const taken = new Set(
+            allSalesOrders.filter((so) => so.id !== initial?.id).map((so) => parseInt(so.SALES_ORDER_NUMBER ?? '', 10)),
+          );
+          if (String(n) !== (initial?.SALES_ORDER_NUMBER ?? '')) {
+            while (taken.has(n)) n += 1;
+          }
+          return String(n);
+        })(),
         PICK_UP_NUMBER: pickUpNumber.trim(),
         ADDRESS: address.trim(),
         CITY_STATE_ZIP: cityStateZip.trim(),
@@ -132,6 +166,7 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
         TEMP_LOG: tempLog.trim(),
         DESCRIPTION: description.trim(),
         ID_CARRIER: carrierId,
+        ID_PAYMENTTERM: paymentTermId,
         ID_TERMSHIPPING: termShippingId,
         ID_SHIPVIA: shipViaId,
         TOTAL: total,
@@ -199,7 +234,7 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
         <h4 className="so-form__section">General information</h4>
         <ConfigurableGrid formId="sales">
           <FormField label="# Sales order">
-            <input className="input mono" placeholder="46102" value={salesOrderNumber} onChange={(e) => setSalesOrderNumber(e.target.value)} />
+            <input className="input mono" placeholder="470001" value={salesOrderNumber} onChange={(e) => setSalesOrderNumber(e.target.value)} />
           </FormField>
           <FormField label="Status">
             <SearchableSelect
@@ -252,6 +287,16 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
           </FormField>
           <FormField label="OD day">
             <input className="input" type="number" min="0" step="1" value={odDay} onChange={(e) => setOdDay(e.target.value)} />
+          </FormField>
+          <FormField label="Payment term">
+            <CatalogSelect
+              value={paymentTermId}
+              onChange={setPaymentTermId}
+              options={paymentTerms.options}
+              collection={COLLECTIONS.PAYMENTTERM}
+              nameField="NAME_PAYMENTTERM"
+              catalogLabel="payment term"
+            />
           </FormField>
         </ConfigurableGrid>
 

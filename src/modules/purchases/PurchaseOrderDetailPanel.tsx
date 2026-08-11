@@ -31,6 +31,7 @@ export function PurchaseOrderDetailPanel({ order, buyerName, onClose, onEdit }: 
   const customers = useCatalog(COLLECTIONS.CUSTOMER, 'NAME_CUSTOMER');
   const locations = useCatalog(COLLECTIONS.LOCATIONS, 'NAME_LOCATIONS');
   const carriers = useCatalog(COLLECTIONS.CARRIER, 'NAME_CARRIER');
+  const paymentTerms = useCatalog(COLLECTIONS.PAYMENTTERM, 'NAME_PAYMENTTERM');
   const commodities = useCatalog(COLLECTIONS.COMMODITIES, 'NAME_COMMODITIES');
 
   const valueByKey: Record<string, string> = {
@@ -44,6 +45,7 @@ export function PurchaseOrderDetailPanel({ order, buyerName, onClose, onEdit }: 
     '# Ref': order.REF_NUMBER ?? '',
     'Carrier': carriers.nameOf(order.ID_CARRIER),
     'Arrival date': fmtDate(order.ARRIVAL_DATE ?? ''),
+    'Payment term': order.ID_PAYMENTTERM ? paymentTerms.nameOf(order.ID_PAYMENTTERM) : '',
   };
   const defaults = FORM_DEFS.find((f) => f.id === 'purchases')?.fields ?? [];
   const fields: DetailField[] = fieldsFor('purchases', defaults).map((f) => ({

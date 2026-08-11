@@ -71,6 +71,13 @@ export function CatalogsView() {
    */
   const handleSave = () => {
     if (!draft[def.nameField]?.trim()) return;
+    const missingFields = def.extraFields
+      .filter((f) => f.required && !(draft[f.key] ?? '').trim())
+      .map((f) => f.label);
+    if (missingFields.length > 0) {
+      alert(`Required fields missing: ${missingFields.join(', ')}`);
+      return;
+    }
     const payload: Record<string, string> = { [def.nameField]: draft[def.nameField].trim() };
     for (const field of def.extraFields) payload[field.key] = (draft[field.key] ?? '').trim();
     const target = editing;

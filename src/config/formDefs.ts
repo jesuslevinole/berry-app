@@ -9,12 +9,12 @@ export const FORM_DEFS: FormDef[] = [
   {
     id: 'purchases',
     label: 'Purchase order form',
-    fields: ['Lot #', 'Grower / Origin', 'Vendor', 'Ship to', 'Buyer', 'Note', 'Commission %', '# Ref', 'Carrier', 'Arrival date'],
+    fields: ['Lot #', 'Grower / Origin', 'Vendor', 'Ship to', 'Buyer', 'Note', 'Commission %', '# Ref', 'Carrier', 'Arrival date', 'Payment term'],
   },
   {
     id: 'sales',
     label: 'Sales order form',
-    fields: ['# Sales order', 'Status', 'Date', 'Due date', 'Customer', 'Buyer', 'Salesperson', 'Supplier', 'Ref', 'Ref pickup', 'Pick up #', 'OD day', 'Address', 'City / State / ZIP', 'Carrier', 'Ship via', 'Shipping terms', 'Temp log', 'Description', 'Sent'],
+    fields: ['# Sales order', 'Status', 'Date', 'Due date', 'Customer', 'Buyer', 'Salesperson', 'Supplier', 'Ref', 'Ref pickup', 'Pick up #', 'OD day', 'Address', 'City / State / ZIP', 'Carrier', 'Ship via', 'Shipping terms', 'Temp log', 'Description', 'Sent', 'Payment term'],
   },
   {
     id: 'expenses',

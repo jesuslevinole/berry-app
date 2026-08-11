@@ -30,6 +30,7 @@ export function SalesDeskView() {
   const carriers = useCatalog(COLLECTIONS.CARRIER, 'NAME_CARRIER');
   const shipVia = useCatalog(COLLECTIONS.SHIPVIA, 'NAME_SHIPVIA');
   const termShipping = useCatalog(COLLECTIONS.TERMSHIPPING, 'NAME_TERMSHIPPING');
+  const paymentTermsCat = useCatalog(COLLECTIONS.PAYMENTTERM, 'NAME_PAYMENTTERM');
   const commodities = useCatalog(COLLECTIONS.COMMODITIES, 'NAME_COMMODITIES');
   const { data: customerDocs } = useCollection<{ id: string; ADDRESS_CUSTOMER?: string; CITY_CUSTOMER?: string }>(COLLECTIONS.CUSTOMER);
   const { data: supplierDocs } = useCollection<{ id: string; ADDRESS_SUPPLIERS?: string; PHONE_SUPPLIERS?: string }>(COLLECTIONS.SUPPLIERS);
@@ -53,7 +54,7 @@ export function SalesDeskView() {
     () =>
       [...purchaseOrders]
         .sort((a, b) => (b.LOT_NUMBER ?? '').localeCompare(a.LOT_NUMBER ?? ''))
-        .map((po) => ({ id: po.id, name: po.LOT_NUMBER || po.REF_NUMBER || po.id })),
+        .map((po) => ({ id: po.id, name: po.LOT_NUMBER || po.REF_NUMBER || '(PO without lot #)' })),
     [purchaseOrders],
   );
 
@@ -152,6 +153,7 @@ export function SalesDeskView() {
       carrierName: carriers.nameOf(so.ID_CARRIER),
       shipViaName: shipVia.nameOf(so.ID_SHIPVIA),
       shippingTermsName: termShipping.nameOf(so.ID_TERMSHIPPING),
+      paymentTermName: so.ID_PAYMENTTERM ? paymentTermsCat.nameOf(so.ID_PAYMENTTERM) : '',
       supplierName: suppliers.nameOf(so.ID_SUPPLIERS),
       supplierAddress: supplierDoc?.ADDRESS_SUPPLIERS ?? '',
       supplierPhone: supplierDoc?.PHONE_SUPPLIERS ?? '',

@@ -32,6 +32,7 @@ export const COLLECTIONS = {
   SHIPVIA: 'CAT_SHIPVIA',
   TERMSHIPPING: 'CAT_TERMSHIPPING',
   PAYMENT_METHOD: 'CAT_PAYMENTMETHOD',
+  PAYMENTTERM: 'CAT_PAYMENTTERM',
   SYSTEM_USERS: 'system_users',
   ROLES: 'settings_roles',
   APP_SETTINGS: 'settings_app',
@@ -50,6 +51,8 @@ export interface PurchaseOrder extends BaseDoc {
   SHIPTO: ID;
   ID_USERS: ID;
   ID_CARRIER: ID;
+  /** Payment term del documento PO (catalogo CAT_PAYMENTTERM). */
+  ID_PAYMENTTERM?: ID;
   NOTE: string;
   COMMISION_PERCENT: number;
   REF_NUMBER: string;
@@ -94,6 +97,8 @@ export interface SalesOrder extends BaseDoc {
   TEMP_LOG: string;
   DESCRIPTION: string;
   ID_CARRIER: ID;
+  /** Payment term de los documentos de venta (catalogo CAT_PAYMENTTERM). */
+  ID_PAYMENTTERM?: ID;
   ID_TERMSHIPPING: ID;
   ID_SHIPVIA: ID;
   TOTAL: number;

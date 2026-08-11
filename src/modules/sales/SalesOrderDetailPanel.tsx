@@ -45,6 +45,7 @@ export function SalesOrderDetailPanel({ order, purchaseOrders, buyerName, onClos
   const carriers = useCatalog(COLLECTIONS.CARRIER, 'NAME_CARRIER');
   const shipVia = useCatalog(COLLECTIONS.SHIPVIA, 'NAME_SHIPVIA');
   const termShipping = useCatalog(COLLECTIONS.TERMSHIPPING, 'NAME_TERMSHIPPING');
+  const paymentTerms = useCatalog(COLLECTIONS.PAYMENTTERM, 'NAME_PAYMENTTERM');
   const commodities = useCatalog(COLLECTIONS.COMMODITIES, 'NAME_COMMODITIES');
   const paymentMethods = useCatalog(COLLECTIONS.PAYMENT_METHOD, 'NAME');
 
@@ -71,6 +72,7 @@ export function SalesOrderDetailPanel({ order, purchaseOrders, buyerName, onClos
     'Temp log': order.TEMP_LOG ?? '',
     'Description': order.DESCRIPTION ?? '',
     'Sent': order.SENT ? 'Yes' : 'No',
+    'Payment term': order.ID_PAYMENTTERM ? paymentTerms.nameOf(order.ID_PAYMENTTERM) : '',
   };
   const defaults = FORM_DEFS.find((f) => f.id === 'sales')?.fields ?? [];
   const fields: DetailField[] = fieldsFor('sales', defaults).map((f) => ({
