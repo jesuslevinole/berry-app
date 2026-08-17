@@ -101,11 +101,6 @@ export function SalesDeskView() {
     { key: 'TOTAL', header: 'Total', align: 'right', render: (so) => <span className="num">{fmtMoney(so.TOTAL)}</span> },
     { key: 'DUE_DATE', header: 'Due Date', render: (so) => fmtDate(so.DUE_DATE) },
     { key: 'STATUS', header: 'Status', render: (so) => <StatusBadge value={so.STATUS ?? 'Draft'} /> },
-    {
-      key: 'SENT',
-      header: 'Sent',
-      render: (so) => <span className={so.SENT ? 'text-ok' : 'muted'}>{so.SENT ? 'Yes' : 'No'}</span>,
-    },
     { key: 'ID_USERS', header: 'Salesperson', render: (so) => buyerName(so.ID_USERS) },
     { key: 'BUYER', header: 'Buyer', render: (so) => so.BUYER || '—' },
     {

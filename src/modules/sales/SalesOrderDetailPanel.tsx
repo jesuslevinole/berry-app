@@ -41,11 +41,7 @@ export function SalesOrderDetailPanel({ order, purchaseOrders, buyerName, onClos
     `${COLLECTIONS.PAYMENT_SALES}:${order.id}`,
   );
   const customers = useCatalog(COLLECTIONS.CUSTOMER, 'NAME_CUSTOMER');
-  const suppliers = useCatalog(COLLECTIONS.SUPPLIERS, 'NAME_SUPPLIERS');
   const carriers = useCatalog(COLLECTIONS.CARRIER, 'NAME_CARRIER');
-  const shipVia = useCatalog(COLLECTIONS.SHIPVIA, 'NAME_SHIPVIA');
-  const termShipping = useCatalog(COLLECTIONS.TERMSHIPPING, 'NAME_TERMSHIPPING');
-  const paymentTerms = useCatalog(COLLECTIONS.PAYMENTTERM, 'NAME_PAYMENTTERM');
   const commodities = useCatalog(COLLECTIONS.COMMODITIES, 'NAME_COMMODITIES');
   const paymentMethods = useCatalog(COLLECTIONS.PAYMENT_METHOD, 'NAME');
 
@@ -59,20 +55,11 @@ export function SalesOrderDetailPanel({ order, purchaseOrders, buyerName, onClos
     'Customer': customers.nameOf(order.ID_CUSTOMER),
     'Buyer': order.BUYER ?? '',
     'Salesperson': buyerName(order.ID_USERS),
-    'Supplier': suppliers.nameOf(order.ID_SUPPLIERS),
     'Ref': order.REF ?? '',
     'Ref pickup': order.REF_PICKUP ?? '',
-    'Pick up #': order.PICK_UP_NUMBER ?? '',
-    'OD day': String(order.OD_DAY ?? ''),
-    'Address': order.ADDRESS ?? '',
-    'City / State / ZIP': order.CITY_STATE_ZIP ?? '',
     'Carrier': carriers.nameOf(order.ID_CARRIER),
-    'Ship via': shipVia.nameOf(order.ID_SHIPVIA),
-    'Shipping terms': termShipping.nameOf(order.ID_TERMSHIPPING),
     'Temp log': order.TEMP_LOG ?? '',
     'Description': order.DESCRIPTION ?? '',
-    'Sent': order.SENT ? 'Yes' : 'No',
-    'Payment term': order.ID_PAYMENTTERM ? paymentTerms.nameOf(order.ID_PAYMENTTERM) : '',
   };
   const defaults = FORM_DEFS.find((f) => f.id === 'sales')?.fields ?? [];
   const fields: DetailField[] = fieldsFor('sales', defaults).map((f) => ({

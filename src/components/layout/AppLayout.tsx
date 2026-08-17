@@ -4,7 +4,7 @@ import { useAppConfig } from '../../context/AppConfigContext';
 import { useCompany } from '../../hooks/useCompany';
 import './AppLayout.css';
 
-export type ViewKey = 'dashboard' | 'purchases' | 'sales' | 'expenses' | 'catalogs' | 'lots' | 'reports' | 'checks' | 'company' | 'users' | 'roles' | 'config';
+export type ViewKey = 'dashboard' | 'purchases' | 'sales' | 'expenses' | 'catalogs' | 'lots' | 'inventory' | 'reports' | 'checks' | 'company' | 'users' | 'roles' | 'config';
 
 export const VIEW_TITLES: Record<ViewKey, string> = {
   dashboard: 'Dashboard',
@@ -13,6 +13,7 @@ export const VIEW_TITLES: Record<ViewKey, string> = {
   expenses: 'Additional expenses',
   catalogs: 'Catalogs',
   lots: 'Lot Activity',
+  inventory: 'Inventory',
   reports: 'Reports',
   checks: 'Checkbook',
   company: 'Company Info',
@@ -74,6 +75,16 @@ const NAV_ITEMS: Array<{ key: ViewKey; label: string; icon: ReactNode }> = [
     icon: (
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8">
         <path d="M21 8l-9-5-9 5v8l9 5 9-5V8z" /><path d="M3.3 8.3L12 13l8.7-4.7" /><path d="M12 13v9" />
+      </svg>
+    ),
+  },
+  {
+    key: 'inventory',
+    label: 'Inventory',
+    icon: (
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <rect x="3" y="12" width="8" height="8" rx="1" /><rect x="13" y="12" width="8" height="8" rx="1" />
+        <rect x="8" y="3" width="8" height="8" rx="1" /><path d="M12 5.5v1.5M7 14.5V16M17 14.5V16" />
       </svg>
     ),
   },

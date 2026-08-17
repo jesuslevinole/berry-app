@@ -18,6 +18,7 @@ export const MODULE_DEFS: ModuleDef[] = [
   { id: 'expenses', label: 'Expenses', hasDocuments: true },
   { id: 'catalogs', label: 'Catalogs', hasDocuments: true },
   { id: 'lots', label: 'Lot Activity', hasDocuments: false },
+  { id: 'inventory', label: 'Inventory', hasDocuments: true },
   { id: 'reports', label: 'Reports', hasDocuments: true },
   { id: 'checks', label: 'Checkbook', hasDocuments: true },
   { id: 'company', label: 'Company Info', hasDocuments: false },

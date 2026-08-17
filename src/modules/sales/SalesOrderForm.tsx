@@ -28,7 +28,6 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
   const { data: systemUsers } = useCollection<SystemUser>(COLLECTIONS.SYSTEM_USERS);
   const { data: commodityDocs } = useCollection<{ id: string; DESCRIPTION_COMMODITIES?: string }>(COLLECTIONS.COMMODITIES);
   const { data: allSalesOrders } = useCollection<SalesOrder>(COLLECTIONS.SALES_ORDER);
-  const paymentTerms = useCatalog(COLLECTIONS.PAYMENTTERM, 'NAME_PAYMENTTERM');
   const descriptionOf = (id: string): string =>
     (commodityDocs.find((c) => c.id === id)?.DESCRIPTION_COMMODITIES ?? '').trim();
   const buyerOptions = useMemo(
@@ -38,14 +37,10 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
         .sort((a, b) => a.name.localeCompare(b.name)),
     [systemUsers],
   );
-  const suppliers = useCatalog(COLLECTIONS.SUPPLIERS, 'NAME_SUPPLIERS');
   const carriers = useCatalog(COLLECTIONS.CARRIER, 'NAME_CARRIER');
-  const shipVia = useCatalog(COLLECTIONS.SHIPVIA, 'NAME_SHIPVIA');
-  const termShipping = useCatalog(COLLECTIONS.TERMSHIPPING, 'NAME_TERMSHIPPING');
   const commodities = useCatalog(COLLECTIONS.COMMODITIES, 'NAME_COMMODITIES');
 
   const [salesOrderNumber, setSalesOrderNumber] = useState('');
-  const [paymentTermId, setPaymentTermId] = useState('');
 
   /** Consecutivo del # de orden/invoice: inicia en 470001 y suma 1 por registro. */
   const nextSoNumber = useMemo(() => {
@@ -58,22 +53,15 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
   const [date, setDate] = useState(todayISO());
   const [dueDate, setDueDate] = useState('');
   const [status, setStatus] = useState<SalesStatus>('Draft');
-  const [sent, setSent] = useState(false);
   const [customerId, setCustomerId] = useState('');
   const [userId, setUserId] = useState('');
   const [buyer, setBuyer] = useState('');
   const [ref, setRef] = useState('');
   const [refPickup, setRefPickup] = useState('');
-  const [pickUpNumber, setPickUpNumber] = useState('');
-  const [address, setAddress] = useState('');
-  const [cityStateZip, setCityStateZip] = useState('');
-  const [supplierId, setSupplierId] = useState('');
   const [carrierId, setCarrierId] = useState('');
-  const [shipViaId, setShipViaId] = useState('');
-  const [termShippingId, setTermShippingId] = useState('');
   const [tempLog, setTempLog] = useState('');
   const [description, setDescription] = useState('');
-  /** OD day: diferencia en dias entre Date y Due date (calculado, no editable). */
+  /** OD day: diferencia en dias entre Date y Due date (calculado en silencio, ya no visible). */
   const odDay = useMemo(() => {
     if (!date || !dueDate) return null;
     const from = new Date(`${date}T00:00:00`).getTime();
@@ -86,23 +74,15 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
   useEffect(() => {
     if (!open) return;
     setSalesOrderNumber(initial?.SALES_ORDER_NUMBER ?? String(nextSoNumber));
-    setPaymentTermId(initial?.ID_PAYMENTTERM ?? '');
     setDate(initial?.DATE ?? todayISO());
     setDueDate(initial?.DUE_DATE ?? '');
     setStatus(initial?.STATUS ?? 'Draft');
-    setSent(initial?.SENT ?? false);
     setCustomerId(initial?.ID_CUSTOMER ?? '');
     setUserId(initial?.ID_USERS ?? '');
     setBuyer(initial?.BUYER ?? '');
     setRef(initial?.REF ?? '');
     setRefPickup(initial?.REF_PICKUP ?? '');
-    setPickUpNumber(initial?.PICK_UP_NUMBER ?? '');
-    setAddress(initial?.ADDRESS ?? '');
-    setCityStateZip(initial?.CITY_STATE_ZIP ?? '');
-    setSupplierId(initial?.ID_SUPPLIERS ?? '');
     setCarrierId(initial?.ID_CARRIER ?? '');
-    setShipViaId(initial?.ID_SHIPVIA ?? '');
-    setTermShippingId(initial?.ID_TERMSHIPPING ?? '');
     setTempLog(initial?.TEMP_LOG ?? '');
     setDescription(initial?.DESCRIPTION ?? '');
     setLines([]);
@@ -139,7 +119,7 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
       alert('Every line item needs a Description.');
       return;
     }
-    const missing = missingRequired('sales', { '# Sales order': salesOrderNumber, 'Status': status, 'Date': date, 'Due date': dueDate, 'Customer': customerId, 'Buyer': buyer, 'Salesperson': userId, 'Supplier': supplierId, 'Ref': ref, 'Ref pickup': refPickup, 'Pick up #': pickUpNumber, 'OD day': odDay === null ? '' : String(odDay), 'Address': address, 'City / State / ZIP': cityStateZip, 'Carrier': carrierId, 'Ship via': shipViaId, 'Shipping terms': termShippingId, 'Temp log': tempLog, 'Description': description, 'Sent': sent ? 'yes' : '', 'Payment term': paymentTermId });
+    const missing = missingRequired('sales', { '# Sales order': salesOrderNumber, 'Status': status, 'Date': date, 'Due date': dueDate, 'Customer': customerId, 'Buyer': buyer, 'Salesperson': userId, 'Ref': ref, 'Ref pickup': refPickup, 'Carrier': carrierId, 'Temp log': tempLog, 'Description': description });
     if (missing.length > 0) {
       alert(`Required fields missing: ${missing.join(', ')}`);
       return;
@@ -165,21 +145,22 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
           }
           return String(n);
         })(),
-        PICK_UP_NUMBER: pickUpNumber.trim(),
-        ADDRESS: address.trim(),
-        CITY_STATE_ZIP: cityStateZip.trim(),
-        ID_SUPPLIERS: supplierId,
+        /* Campos retirados del formulario: se preserva el valor legado del registro. */
+        PICK_UP_NUMBER: initial?.PICK_UP_NUMBER ?? '',
+        ADDRESS: initial?.ADDRESS ?? '',
+        CITY_STATE_ZIP: initial?.CITY_STATE_ZIP ?? '',
+        ID_SUPPLIERS: initial?.ID_SUPPLIERS ?? '',
         TEMP_LOG: tempLog.trim(),
         DESCRIPTION: description.trim(),
         ID_CARRIER: carrierId,
-        ID_PAYMENTTERM: paymentTermId,
-        ID_TERMSHIPPING: termShippingId,
-        ID_SHIPVIA: shipViaId,
+        ID_PAYMENTTERM: initial?.ID_PAYMENTTERM ?? '',
+        ID_TERMSHIPPING: initial?.ID_TERMSHIPPING ?? '',
+        ID_SHIPVIA: initial?.ID_SHIPVIA ?? '',
         TOTAL: total,
         INCOMES: incomes,
         BALANCE: round2(total - incomes),
         OD_DAY: odDay ?? 0,
-        SENT: sent,
+        SENT: initial?.SENT ?? false,
       };
       const detailRows = lines.map((line) => ({
         id: line.id,
@@ -272,53 +253,11 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
           <FormField label="Salesperson">
             <SearchableSelect value={userId} onChange={setUserId} options={buyerOptions} placeholder="Select buyer…" />
           </FormField>
-          <FormField label="Supplier">
-            <CatalogSelect
-              value={supplierId}
-              onChange={setSupplierId}
-              options={suppliers.options}
-              collection={COLLECTIONS.SUPPLIERS}
-              nameField="NAME_SUPPLIERS"
-              catalogLabel="supplier"
-            />
-          </FormField>
           <FormField label="Ref">
             <input className="input" value={ref} onChange={(e) => setRef(e.target.value)} />
           </FormField>
           <FormField label="Ref pickup">
             <input className="input" value={refPickup} onChange={(e) => setRefPickup(e.target.value)} />
-          </FormField>
-          <FormField label="Pick up #">
-            <input className="input" value={pickUpNumber} onChange={(e) => setPickUpNumber(e.target.value)} />
-          </FormField>
-          <FormField label="OD day">
-            <input
-              className="input"
-              value={odDay === null ? '' : `${odDay} day${Math.abs(odDay) === 1 ? '' : 's'}`}
-              placeholder="Auto (Due date − Date)"
-              disabled
-              title="Calculated: days between Date and Due date"
-            />
-          </FormField>
-          <FormField label="Payment term">
-            <CatalogSelect
-              value={paymentTermId}
-              onChange={setPaymentTermId}
-              options={paymentTerms.options}
-              collection={COLLECTIONS.PAYMENTTERM}
-              nameField="NAME_PAYMENTTERM"
-              catalogLabel="payment term"
-            />
-          </FormField>
-        </ConfigurableGrid>
-
-        <h4 className="so-form__section">Shipping</h4>
-        <ConfigurableGrid formId="sales">
-          <FormField label="Address" span2>
-            <input className="input" value={address} onChange={(e) => setAddress(e.target.value)} />
-          </FormField>
-          <FormField label="City / State / ZIP">
-            <input className="input" value={cityStateZip} onChange={(e) => setCityStateZip(e.target.value)} />
           </FormField>
           <FormField label="Carrier">
             <CatalogSelect
@@ -330,37 +269,11 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
               catalogLabel="carrier"
             />
           </FormField>
-          <FormField label="Ship via">
-            <CatalogSelect
-              value={shipViaId}
-              onChange={setShipViaId}
-              options={shipVia.options}
-              collection={COLLECTIONS.SHIPVIA}
-              nameField="NAME_SHIPVIA"
-              catalogLabel="ship via"
-            />
-          </FormField>
-          <FormField label="Shipping terms">
-            <CatalogSelect
-              value={termShippingId}
-              onChange={setTermShippingId}
-              options={termShipping.options}
-              collection={COLLECTIONS.TERMSHIPPING}
-              nameField="NAME_TERMSHIPPING"
-              catalogLabel="shipping term"
-            />
-          </FormField>
           <FormField label="Temp log">
             <input className="input" value={tempLog} onChange={(e) => setTempLog(e.target.value)} />
           </FormField>
           <FormField label="Description">
             <input className="input" value={description} onChange={(e) => setDescription(e.target.value)} />
-          </FormField>
-          <FormField label="Sent">
-            <span className="checkbox-row">
-              <input type="checkbox" checked={sent} onChange={(e) => setSent(e.target.checked)} />
-              Order sent to customer
-            </span>
           </FormField>
         </ConfigurableGrid>
 
