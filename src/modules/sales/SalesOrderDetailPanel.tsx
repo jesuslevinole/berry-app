@@ -42,6 +42,7 @@ export function SalesOrderDetailPanel({ order, purchaseOrders, buyerName, onClos
   );
   const customers = useCatalog(COLLECTIONS.CUSTOMER, 'NAME_CUSTOMER');
   const carriers = useCatalog(COLLECTIONS.CARRIER, 'NAME_CARRIER');
+  const locations = useCatalog(COLLECTIONS.LOCATIONS, 'NAME_LOCATIONS');
   const commodities = useCatalog(COLLECTIONS.COMMODITIES, 'NAME_COMMODITIES');
   const paymentMethods = useCatalog(COLLECTIONS.PAYMENT_METHOD, 'NAME');
 
@@ -58,6 +59,7 @@ export function SalesOrderDetailPanel({ order, purchaseOrders, buyerName, onClos
     'Ref': order.REF ?? '',
     'Ref pickup': order.REF_PICKUP ?? '',
     'Carrier': carriers.nameOf(order.ID_CARRIER),
+    'Warehouse': order.ID_WAREHOUSE ? locations.nameOf(order.ID_WAREHOUSE) : '',
     'Temp log': order.TEMP_LOG ?? '',
     'Description': order.DESCRIPTION ?? '',
   };

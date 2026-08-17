@@ -34,6 +34,8 @@ export function SalesDeskView() {
   const commodities = useCatalog(COLLECTIONS.COMMODITIES, 'NAME_COMMODITIES');
   const { data: customerDocs } = useCollection<{ id: string; ADDRESS_CUSTOMER?: string; CITY_CUSTOMER?: string }>(COLLECTIONS.CUSTOMER);
   const { data: supplierDocs } = useCollection<{ id: string; ADDRESS_SUPPLIERS?: string; PHONE_SUPPLIERS?: string }>(COLLECTIONS.SUPPLIERS);
+  const locations = useCatalog(COLLECTIONS.LOCATIONS, 'NAME_LOCATIONS');
+  const { data: locationDocs } = useCollection<{ id: string; ADDRESS_LOCATIONS?: string; PHONE_LOCATIONS?: string }>(COLLECTIONS.LOCATIONS);
   const { company } = useCompany();
   const [docsFor, setDocsFor] = useState<SalesOrder | null>(null);
   /** Resuelve buyer: usuarios del sistema primero, catalogo legado para registros viejos. */
@@ -138,6 +140,7 @@ export function SalesDeskView() {
   const docContext = (so: SalesOrder): SalesDocContext => {
     const customerDoc = customerDocs.find((c) => c.id === so.ID_CUSTOMER);
     const supplierDoc = supplierDocs.find((s) => s.id === so.ID_SUPPLIERS);
+    const locationDoc = locationDocs.find((l) => l.id === so.ID_WAREHOUSE);
     const lotMap = new Map(purchaseOrders.map((po) => [po.id, po.LOT_NUMBER ?? '']));
     return {
       company,
@@ -149,9 +152,10 @@ export function SalesDeskView() {
       shipViaName: shipVia.nameOf(so.ID_SHIPVIA),
       shippingTermsName: termShipping.nameOf(so.ID_TERMSHIPPING),
       paymentTermName: so.ID_PAYMENTTERM ? paymentTermsCat.nameOf(so.ID_PAYMENTTERM) : '',
-      supplierName: suppliers.nameOf(so.ID_SUPPLIERS),
-      supplierAddress: supplierDoc?.ADDRESS_SUPPLIERS ?? '',
-      supplierPhone: supplierDoc?.PHONE_SUPPLIERS ?? '',
+      /* Warehouse del catalogo Locations; ordenes viejas caen al supplier legado. */
+      warehouseName: so.ID_WAREHOUSE ? locations.nameOf(so.ID_WAREHOUSE) : suppliers.nameOf(so.ID_SUPPLIERS),
+      warehouseAddress: (so.ID_WAREHOUSE ? locationDoc?.ADDRESS_LOCATIONS : supplierDoc?.ADDRESS_SUPPLIERS) ?? '',
+      warehousePhone: (so.ID_WAREHOUSE ? locationDoc?.PHONE_LOCATIONS : supplierDoc?.PHONE_SUPPLIERS) ?? '',
       lotOf: (id) => lotMap.get(id) ?? '',
       commodityName: (id) => commodities.nameOf(id),
     };

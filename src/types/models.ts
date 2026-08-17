@@ -97,6 +97,8 @@ export interface SalesOrder extends BaseDoc {
   TEMP_LOG: string;
   DESCRIPTION: string;
   ID_CARRIER: ID;
+  /** Almacen de despacho (catalogo CAT_LOCATIONS). */
+  ID_WAREHOUSE?: ID;
   /** Payment term de los documentos de venta (catalogo CAT_PAYMENTTERM). */
   ID_PAYMENTTERM?: ID;
   ID_TERMSHIPPING: ID;

@@ -14,6 +14,17 @@ import { SearchableSelect } from '../../components/ui/SearchableSelect';
 import { LineItemsEditor, lineTotal, sumLineTotals, type LineDraft } from '../../components/ui/LineItemsEditor';
 import './SalesOrderForm.css';
 
+/** Suma dias a una fecha ISO (yyyy-mm-dd) sin desfase de zona horaria. */
+const addDaysISO = (iso: string, days: number): string => {
+  const d = new Date(`${iso}T00:00:00`);
+  d.setDate(d.getDate() + days);
+  const pad = (n: number): string => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
+
+/** Dias de credito por defecto para el Due date (Date + 15). */
+const DEFAULT_DUE_DAYS = 15;
+
 interface SalesOrderFormProps {
   open: boolean;
   initial: SalesOrder | null;
@@ -38,6 +49,7 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
     [systemUsers],
   );
   const carriers = useCatalog(COLLECTIONS.CARRIER, 'NAME_CARRIER');
+  const locations = useCatalog(COLLECTIONS.LOCATIONS, 'NAME_LOCATIONS');
   const commodities = useCatalog(COLLECTIONS.COMMODITIES, 'NAME_COMMODITIES');
 
   const [salesOrderNumber, setSalesOrderNumber] = useState('');
@@ -59,6 +71,7 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
   const [ref, setRef] = useState('');
   const [refPickup, setRefPickup] = useState('');
   const [carrierId, setCarrierId] = useState('');
+  const [warehouseId, setWarehouseId] = useState('');
   const [tempLog, setTempLog] = useState('');
   const [description, setDescription] = useState('');
   /** OD day: diferencia en dias entre Date y Due date (calculado en silencio, ya no visible). */
@@ -75,7 +88,7 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
     if (!open) return;
     setSalesOrderNumber(initial?.SALES_ORDER_NUMBER ?? String(nextSoNumber));
     setDate(initial?.DATE ?? todayISO());
-    setDueDate(initial?.DUE_DATE ?? '');
+    setDueDate(initial?.DUE_DATE ?? addDaysISO(todayISO(), DEFAULT_DUE_DAYS));
     setStatus(initial?.STATUS ?? 'Draft');
     setCustomerId(initial?.ID_CUSTOMER ?? '');
     setUserId(initial?.ID_USERS ?? '');
@@ -83,6 +96,7 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
     setRef(initial?.REF ?? '');
     setRefPickup(initial?.REF_PICKUP ?? '');
     setCarrierId(initial?.ID_CARRIER ?? '');
+    setWarehouseId(initial?.ID_WAREHOUSE ?? '');
     setTempLog(initial?.TEMP_LOG ?? '');
     setDescription(initial?.DESCRIPTION ?? '');
     setLines([]);
@@ -119,7 +133,7 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
       alert('Every line item needs a Description.');
       return;
     }
-    const missing = missingRequired('sales', { '# Sales order': salesOrderNumber, 'Status': status, 'Date': date, 'Due date': dueDate, 'Customer': customerId, 'Buyer': buyer, 'Salesperson': userId, 'Ref': ref, 'Ref pickup': refPickup, 'Carrier': carrierId, 'Temp log': tempLog, 'Description': description });
+    const missing = missingRequired('sales', { '# Sales order': salesOrderNumber, 'Status': status, 'Date': date, 'Due date': dueDate, 'Customer': customerId, 'Buyer': buyer, 'Salesperson': userId, 'Ref': ref, 'Ref pickup': refPickup, 'Carrier': carrierId, 'Warehouse': warehouseId, 'Temp log': tempLog, 'Description': description });
     if (missing.length > 0) {
       alert(`Required fields missing: ${missing.join(', ')}`);
       return;
@@ -153,6 +167,7 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
         TEMP_LOG: tempLog.trim(),
         DESCRIPTION: description.trim(),
         ID_CARRIER: carrierId,
+        ID_WAREHOUSE: warehouseId,
         ID_PAYMENTTERM: initial?.ID_PAYMENTTERM ?? '',
         ID_TERMSHIPPING: initial?.ID_TERMSHIPPING ?? '',
         ID_SHIPVIA: initial?.ID_SHIPVIA ?? '',
@@ -232,7 +247,15 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
             />
           </FormField>
           <FormField label="Date">
-            <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            <input
+              className="input"
+              type="date"
+              value={date}
+              onChange={(e) => {
+                setDate(e.target.value);
+                if (e.target.value) setDueDate(addDaysISO(e.target.value, DEFAULT_DUE_DAYS));
+              }}
+            />
           </FormField>
           <FormField label="Due date">
             <input className="input" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
@@ -267,6 +290,16 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
               collection={COLLECTIONS.CARRIER}
               nameField="NAME_CARRIER"
               catalogLabel="carrier"
+            />
+          </FormField>
+          <FormField label="Warehouse">
+            <CatalogSelect
+              value={warehouseId}
+              onChange={setWarehouseId}
+              options={locations.options}
+              collection={COLLECTIONS.LOCATIONS}
+              nameField="NAME_LOCATIONS"
+              catalogLabel="warehouse"
             />
           </FormField>
           <FormField label="Temp log">

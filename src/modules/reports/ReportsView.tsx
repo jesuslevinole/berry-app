@@ -4,12 +4,14 @@ import { useCollection } from '../../hooks/useCollection';
 import { useCatalog } from '../../hooks/useCatalog';
 import { Toolbar } from '../../components/ui/Toolbar';
 import { fmtMoney, round2, todayISO } from '../../utils/format';
+import { StatusBadge } from '../../components/ui/StatusBadge';
 import {
   COLLECTIONS,
   type Expense,
   type PaymentBill,
   type PurchaseOrder,
   type SalesOrder,
+  type SystemUser,
 } from '../../types/models';
 import './ReportsView.css';
 
@@ -102,8 +104,9 @@ export function ReportsView() {
   const { data: salesOrders } = useCollection<SalesOrder>(COLLECTIONS.SALES_ORDER);
   const { data: expenses } = useCollection<Expense>(COLLECTIONS.EXPENSES);
   const { data: billPayments } = useCollection<PaymentBill>(COLLECTIONS.PAYMENT_BILL);
-  const growers = useCatalog(COLLECTIONS.GROWER, 'NAME_GROWER');
   const customers = useCatalog(COLLECTIONS.CUSTOMER, 'NAME_CUSTOMER');
+  const legacyUsers = useCatalog(COLLECTIONS.USERS, 'EMAIL_USERS');
+  const { data: systemUsers } = useCollection<SystemUser>(COLLECTIONS.SYSTEM_USERS);
   const suppliers = useCatalog(COLLECTIONS.SUPPLIERS, 'NAME_SUPPLIERS');
   const categories = useCatalog(COLLECTIONS.CATEGORY_BILL, 'NAME');
 
@@ -111,31 +114,34 @@ export function ReportsView() {
   const matches = (...values: string[]): boolean =>
     !term || values.some((v) => v.toLowerCase().includes(term));
 
-  /* ---- 1. Invoice Queue: POs con saldo pendiente, agrupadas por grower ---- */
-  const queueGroups = useMemo(() => {
-    const pending = purchaseOrders
-      .map((po) => ({ po, balance: round2(po.BALANCE ?? (po.TOTAL ?? 0) - (po.AMOUNT_PAID ?? 0)) }))
-      .filter((r) => r.balance > 0)
-      .filter((r) =>
-        matches(growers.nameOf(r.po.ID_GROWER), customers.nameOf(r.po.ID_CUSTOMER), r.po.LOT_NUMBER ?? '', r.po.REF_NUMBER ?? ''),
-      );
-    const byGrower = new Map<string, typeof pending>();
-    for (const row of pending) {
-      const key = row.po.ID_GROWER || '';
-      byGrower.set(key, [...(byGrower.get(key) ?? []), row]);
-    }
-    return [...byGrower.entries()]
-      .map(([growerId, rows]) => ({
-        growerId,
-        growerName: growers.nameOf(growerId),
-        rows: rows.sort((a, b) => (b.po.LOT_NUMBER ?? '').localeCompare(a.po.LOT_NUMBER ?? '')),
-        total: round2(rows.reduce((acc, r) => acc + r.balance, 0)),
-      }))
-      .sort((a, b) => a.growerName.localeCompare(b.growerName));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [purchaseOrders, growers, customers, term]);
+  /** Resuelve salesperson: usuarios del sistema primero, catalogo legado despues. */
+  const buyerName = useMemo(() => {
+    const map = new Map(
+      systemUsers.map((u) => [u.id, `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email]),
+    );
+    return (id?: string): string => (id ? (map.get(id) ?? legacyUsers.nameOf(id)) : '\u2014');
+  }, [systemUsers, legacyUsers]);
 
-  const queueTotal = round2(queueGroups.reduce((acc, g) => acc + g.total, 0));
+  /* ---- 1. Invoice Queue: ordenes de venta pendientes de facturar/entregar ---- */
+  const queueRows = useMemo(
+    () =>
+      salesOrders
+        .filter((so) => so.STATUS === 'Draft' || so.STATUS === 'Loaded')
+        .filter((so) =>
+          matches(
+            so.SALES_ORDER_NUMBER ?? '',
+            customers.nameOf(so.ID_CUSTOMER),
+            so.BUYER ?? '',
+            buyerName(so.ID_USERS),
+            so.STATUS ?? '',
+          ),
+        )
+        .sort((a, b) => (a.DATE ?? '').localeCompare(b.DATE ?? '') || (a.SALES_ORDER_NUMBER ?? '').localeCompare(b.SALES_ORDER_NUMBER ?? '')),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [salesOrders, customers, buyerName, term],
+  );
+
+  const queueTotal = round2(queueRows.reduce((acc, so) => acc + (so.TOTAL ?? 0), 0));
 
   /* ---- 2. Accounts Payable: gastos con saldo pendiente ---- */
   const apRows = useMemo(() => {
@@ -194,15 +200,15 @@ export function ReportsView() {
 
   const handleExport = () => {
     if (report === 'queue') {
-      const flat = queueGroups.flatMap((g) => g.rows.map((r) => ({ g, r })));
       void exportReport('Invoice Queue', [
-        { header: 'Grower', values: flat.map(({ g }) => g.growerName) },
-        { header: 'Vendor', values: flat.map(({ r }) => customers.nameOf(r.po.ID_CUSTOMER)) },
-        { header: 'Lot #', values: flat.map(({ r }) => r.po.LOT_NUMBER ?? '') },
-        { header: '# Ref', values: flat.map(({ r }) => r.po.REF_NUMBER ?? '') },
-        { header: 'Amount paid', values: flat.map(({ r }) => r.po.AMOUNT_PAID ?? 0) },
-        { header: 'Balance', values: flat.map(({ r }) => r.balance) },
-        { header: 'Arrival date', values: flat.map(({ r }) => fmtDate(r.po.ARRIVAL_DATE ?? '')) },
+        { header: 'Date', values: queueRows.map((so) => fmtDate(so.DATE ?? '')) },
+        { header: 'Customer', values: queueRows.map((so) => customers.nameOf(so.ID_CUSTOMER)) },
+        { header: '# Sales Order', values: queueRows.map((so) => so.SALES_ORDER_NUMBER ?? '') },
+        { header: 'Total', values: queueRows.map((so) => so.TOTAL ?? 0) },
+        { header: 'Due Date', values: queueRows.map((so) => fmtDate(so.DUE_DATE ?? '')) },
+        { header: 'Status', values: queueRows.map((so) => so.STATUS ?? '') },
+        { header: 'Salesperson', values: queueRows.map((so) => buyerName(so.ID_USERS)) },
+        { header: 'Buyer', values: queueRows.map((so) => so.BUYER ?? '') },
       ]);
     } else if (report === 'ap') {
       void exportReport('Accounts Payable', [
@@ -268,43 +274,38 @@ export function ReportsView() {
       {report === 'queue' && (
         <>
           <div className="reports__chips">
-            <span className="reports__chip">Pending to pay <b className="num">{fmtMoney(queueTotal)}</b></span>
-            <span className="reports__chip">{queueGroups.reduce((acc, g) => acc + g.rows.length, 0)} purchase orders</span>
+            <span className="reports__chip">{queueRows.length} orders in queue</span>
+            <span className="reports__chip">Total <b className="num">{fmtMoney(queueTotal)}</b></span>
           </div>
           <div className="reports__card">
             <table className="reports__table">
               <thead>
                 <tr>
-                  <th className="reports__th">Vendor</th>
-                  <th className="reports__th">Lot #</th>
-                  <th className="reports__th"># Ref</th>
-                  <th className="reports__th reports__th--num">Amount paid</th>
-                  <th className="reports__th reports__th--num">Balance</th>
-                  <th className="reports__th">Arrival date</th>
+                  <th className="reports__th">Date</th>
+                  <th className="reports__th">Customer</th>
+                  <th className="reports__th"># Sales Order</th>
+                  <th className="reports__th reports__th--num">Total</th>
+                  <th className="reports__th">Due Date</th>
+                  <th className="reports__th">Status</th>
+                  <th className="reports__th">Salesperson</th>
+                  <th className="reports__th">Buyer</th>
                 </tr>
               </thead>
               <tbody>
-                {queueGroups.length === 0 && (
-                  <tr><td className="reports__empty" colSpan={6}>No pending purchase invoices. All caught up.</td></tr>
+                {queueRows.length === 0 && (
+                  <tr><td className="reports__empty" colSpan={8}>No sales orders pending. All caught up.</td></tr>
                 )}
-                {queueGroups.map((group) => (
-                  [
-                    <tr className="reports__group-row" key={`g-${group.growerId}`}>
-                      <td className="reports__group-cell" colSpan={4}>{group.growerName}</td>
-                      <td className="reports__group-cell reports__td--num">{fmtMoney(group.total)}</td>
-                      <td className="reports__group-cell" />
-                    </tr>,
-                    ...group.rows.map((r) => (
-                      <tr key={r.po.id}>
-                        <td className="reports__td">{customers.nameOf(r.po.ID_CUSTOMER)}</td>
-                        <td className="reports__td reports__td--mono">{r.po.LOT_NUMBER}</td>
-                        <td className="reports__td reports__td--muted">{r.po.REF_NUMBER || '—'}</td>
-                        <td className="reports__td reports__td--num">{fmtMoney(r.po.AMOUNT_PAID ?? 0)}</td>
-                        <td className="reports__td reports__td--num reports__td--bad">{fmtMoney(r.balance)}</td>
-                        <td className="reports__td reports__td--muted">{fmtDate(r.po.ARRIVAL_DATE ?? '')}</td>
-                      </tr>
-                    )),
-                  ]
+                {queueRows.map((so) => (
+                  <tr key={so.id}>
+                    <td className="reports__td reports__td--muted">{fmtDate(so.DATE ?? '')}</td>
+                    <td className="reports__td">{customers.nameOf(so.ID_CUSTOMER)}</td>
+                    <td className="reports__td reports__td--mono">{so.SALES_ORDER_NUMBER || '\u2014'}</td>
+                    <td className="reports__td reports__td--num">{fmtMoney(so.TOTAL ?? 0)}</td>
+                    <td className="reports__td reports__td--muted">{fmtDate(so.DUE_DATE ?? '')}</td>
+                    <td className="reports__td"><StatusBadge value={so.STATUS ?? 'Draft'} /></td>
+                    <td className="reports__td">{buyerName(so.ID_USERS)}</td>
+                    <td className="reports__td reports__td--muted">{so.BUYER || '\u2014'}</td>
+                  </tr>
                 ))}
               </tbody>
             </table>

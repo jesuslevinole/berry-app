@@ -23,9 +23,10 @@ export interface SalesDocContext {
   shippingTermsName: string;
   /** Nombre del payment term del catalogo (ej. '15 Days'); vacio = fallback a dias calculados. */
   paymentTermName: string;
-  supplierName: string;
-  supplierAddress: string;
-  supplierPhone: string;
+  /** Almacen de despacho: catalogo CAT_LOCATIONS (fallback a supplier legado). */
+  warehouseName: string;
+  warehouseAddress: string;
+  warehousePhone: string;
   lotOf: (purchaseOrderId: string) => string;
   commodityName: (id: string) => string;
 }
@@ -327,14 +328,14 @@ export async function printSalesOrderDoc(order: SalesOrder, ctx: SalesDocContext
   <table class="bottom-band">
     <tr>
       <td class="k" style="width:22%">Pick Up Date</td><td style="width:28%">${fmtSlashDate(order.DATE || '')}</td>
-      <td class="k" style="width:22%">Pick Up #</td><td style="width:28%">${esc(order.PICK_UP_NUMBER || '')}</td>
+      <td class="k" style="width:22%">Pick Up #</td><td style="width:28%">${esc(order.REF_PICKUP || '')}</td>
     </tr>
   </table>
   <table class="wh">
     <tr>
-      <td class="k" style="width:18%">WAREHOUSE</td><td style="width:16%">${esc(ctx.supplierName)}</td>
-      <td class="k" style="width:12%">ADDRESS</td><td style="width:26%">${esc(ctx.supplierAddress)}</td>
-      <td class="k" style="width:10%">PHONE</td><td style="width:18%"><a href="tel:${esc(ctx.supplierPhone)}">${esc(ctx.supplierPhone)}</a></td>
+      <td class="k" style="width:18%">WAREHOUSE</td><td style="width:16%">${esc(ctx.warehouseName)}</td>
+      <td class="k" style="width:12%">ADDRESS</td><td style="width:26%">${esc(ctx.warehouseAddress)}</td>
+      <td class="k" style="width:10%">PHONE</td><td style="width:18%"><a href="tel:${esc(ctx.warehousePhone)}">${esc(ctx.warehousePhone)}</a></td>
     </tr>
   </table>
 </div></div></body></html>`);
@@ -401,7 +402,7 @@ export async function printBillOfLading(order: SalesOrder, ctx: SalesDocContext)
   ${soldShipBlock(ctx, order)}
   <div class="carrier-line">
     <span><b>Carrier:</b> &nbsp;${esc(ctx.carrierName)}</span>
-    <span><b>Loaded At:</b> &nbsp;${esc(ctx.supplierName)}</span>
+    <span><b>Loaded At:</b> &nbsp;${esc(ctx.warehouseName)}</span>
     <span><b>Maintain Temp at:</b> &nbsp;<b>${esc(temp)}</b></span>
   </div>
   <table class="items-bol">
