@@ -23,6 +23,13 @@ const VIEW_ORDER: ViewKey[] = ['dashboard', 'purchases', 'sales', 'expenses', 'c
 function Shell() {
   const { firebaseUser, bypass, loading, can, logout } = useAuth();
   const [view, setView] = useState<ViewKey>('dashboard');
+  /** Sub-vista activa (pestana de Reports elegida desde el menu lateral). */
+  const [subview, setSubview] = useState<string | null>(null);
+
+  const handleNavigate = (key: ViewKey, sub?: string) => {
+    setView(key);
+    setSubview(sub ?? null);
+  };
 
   const allowedViews = VIEW_ORDER.filter((key) => can(key, 'view'));
 
@@ -58,7 +65,7 @@ function Shell() {
   }
 
   return (
-    <AppLayout view={view} onNavigate={setView}>
+    <AppLayout view={view} subview={subview} onNavigate={handleNavigate}>
       <div className="app-view">
         {view === 'dashboard' && <DashboardView onNavigate={setView} />}
         {view === 'purchases' && <PurchaseOrdersView />}
@@ -67,7 +74,7 @@ function Shell() {
         {view === 'catalogs' && <CatalogsView />}
         {view === 'lots' && <LotActivityView />}
         {view === 'inventory' && <InventoryView />}
-        {view === 'reports' && <ReportsView />}
+        {view === 'reports' && <ReportsView key={subview ?? 'default'} initialReport={subview} />}
         {view === 'checks' && <ChecksView />}
         {view === 'company' && <CompanyView />}
         {view === 'users' && <UsersView />}

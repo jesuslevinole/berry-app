@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { Fragment, useState, type ReactNode } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useAppConfig } from '../../context/AppConfigContext';
 import { useCompany } from '../../hooks/useCompany';
@@ -145,13 +145,21 @@ const NAV_ITEMS: Array<{ key: ViewKey; label: string; icon: ReactNode }> = [
   },
 ];
 
+/** Sub-items del menu de Reports: navegan directo a la pestana del reporte. */
+const REPORT_SUBITEMS: Array<{ id: string; label: string }> = [
+  { id: 'ar', label: 'Accounts Receivable' },
+  { id: 'ap', label: 'Accounts Payable' },
+];
+
 interface AppLayoutProps {
   view: ViewKey;
-  onNavigate: (view: ViewKey) => void;
+  /** Sub-vista activa (ej. pestana de Reports) o null. */
+  subview?: string | null;
+  onNavigate: (view: ViewKey, subview?: string) => void;
   children: ReactNode;
 }
 
-export function AppLayout({ view, onNavigate, children }: AppLayoutProps) {
+export function AppLayout({ view, subview = null, onNavigate, children }: AppLayoutProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const { can, profile, firebaseUser, bypass, logout, viewAsProfile, setViewAs } = useAuth();
@@ -170,8 +178,8 @@ export function AppLayout({ view, onNavigate, children }: AppLayoutProps) {
     .map((part) => part[0]?.toUpperCase() ?? '')
     .join('') || 'U';
 
-  const handleNavigate = (key: ViewKey) => {
-    onNavigate(key);
+  const handleNavigate = (key: ViewKey, sub?: string) => {
+    onNavigate(key, sub);
     setMobileOpen(false);
   };
 
@@ -203,16 +211,33 @@ export function AppLayout({ view, onNavigate, children }: AppLayoutProps) {
 
         <nav className="sidebar__nav" aria-label="Main navigation">
           {visibleItems.map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              className={`sidebar__link${view === item.key ? ' sidebar__link--active' : ''}`}
-              onClick={() => handleNavigate(item.key)}
-              title={navLabel(item.key, item.label)}
-            >
-              <span className="sidebar__icon">{item.icon}</span>
-              <span className="sidebar__label">{navLabel(item.key, item.label)}</span>
-            </button>
+            <Fragment key={item.key}>
+              <button
+                type="button"
+                className={`sidebar__link${view === item.key && !subview ? ' sidebar__link--active' : ''}`}
+                onClick={() => handleNavigate(item.key)}
+                title={navLabel(item.key, item.label)}
+              >
+                <span className="sidebar__icon">{item.icon}</span>
+                <span className="sidebar__label">{navLabel(item.key, item.label)}</span>
+              </button>
+              {item.key === 'reports' && (
+                <div className="sidebar__subnav">
+                  {REPORT_SUBITEMS.map((sub) => (
+                    <button
+                      key={sub.id}
+                      type="button"
+                      className={`sidebar__sublink${view === 'reports' && subview === sub.id ? ' sidebar__sublink--active' : ''}`}
+                      onClick={() => handleNavigate('reports', sub.id)}
+                      title={sub.label}
+                    >
+                      <span className="sidebar__subdot" aria-hidden="true" />
+                      <span className="sidebar__label">{sub.label}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </Fragment>
           ))}
         </nav>
 

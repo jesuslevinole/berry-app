@@ -95,9 +95,17 @@ async function exportReport(title: string, columns: ExportColumn[]): Promise<voi
   URL.revokeObjectURL(url);
 }
 
-export function ReportsView() {
+interface ReportsViewProps {
+  /** Pestana inicial desde el menu lateral ('ar' | 'ap') o null para la cola. */
+  initialReport?: string | null;
+}
+
+const toReportId = (value?: string | null): ReportId | null =>
+  value === 'ar' || value === 'ap' || value === 'queue' || value === 'expenses' ? value : null;
+
+export function ReportsView({ initialReport = null }: ReportsViewProps) {
   const { can } = useAuth();
-  const [report, setReport] = useState<ReportId>('queue');
+  const [report, setReport] = useState<ReportId>(toReportId(initialReport) ?? 'queue');
   const [search, setSearch] = useState('');
 
   const { data: purchaseOrders } = useCollection<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER);
