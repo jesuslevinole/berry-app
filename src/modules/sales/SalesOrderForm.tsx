@@ -25,6 +25,12 @@ const addDaysISO = (iso: string, days: number): string => {
 /** Dias de credito por defecto para el Due date (Date + 15). */
 const DEFAULT_DUE_DAYS = 15;
 
+/** Texto de Special Instructions segun el Temp log (patron del negocio). */
+const TEMP_LOG_INSTRUCTIONS: Record<'Yes' | 'No', string> = {
+  Yes: 'Place a Temperature Recorder',
+  No: 'Do NOT Place a Temperature Recorder',
+};
+
 interface SalesOrderFormProps {
   open: boolean;
   initial: SalesOrder | null;
@@ -79,6 +85,12 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
   const [termShippingId, setTermShippingId] = useState('');
   const [tempLog, setTempLog] = useState('');
   const [description, setDescription] = useState('');
+  /** Selecciona el Temp log y auto-llena Special Instructions con el texto correspondiente. */
+  const applyTempLog = (value: 'Yes' | 'No') => {
+    setTempLog(value);
+    setDescription(TEMP_LOG_INSTRUCTIONS[value]);
+  };
+
   /** Direccion del warehouse seleccionado (solo lectura, viene de Locations). */
   const warehouseAddress = locationDocs.find((l) => l.id === warehouseId)?.ADDRESS_LOCATIONS ?? '';
 
@@ -143,7 +155,7 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
       alert('Every line item needs a Description.');
       return;
     }
-    const missing = missingRequired('sales', { '# Sales order': salesOrderNumber, 'Status': status, 'Date': date, 'Due date': dueDate, 'Customer': customerId, 'Buyer': buyer, 'Salesperson': userId, 'Ref': ref, 'Ref pickup': refPickup, 'Carrier': carrierId, 'Warehouse': warehouseId, 'Warehouse address': warehouseAddress, 'Ship via': shipViaId, 'Shipping terms': termShippingId, 'Temp log': tempLog, 'Description': description });
+    const missing = missingRequired('sales', { '# Sales order': salesOrderNumber, 'Status': status, 'Date': date, 'Due date': dueDate, 'Customer': customerId, 'Buyer': buyer, 'Salesperson': userId, 'Ref': ref, 'Ref pickup': refPickup, 'Carrier': carrierId, 'Warehouse': warehouseId, 'Warehouse address': warehouseAddress, 'Ship via': shipViaId, 'Shipping terms': termShippingId, 'Temp log': tempLog, 'Special instructions': description });
     if (missing.length > 0) {
       alert(`Required fields missing: ${missing.join(', ')}`);
       return;
@@ -346,21 +358,26 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
               <button
                 type="button"
                 className={`so-form__seg-btn${tempLog === 'No' ? ' so-form__seg-btn--active' : ''}`}
-                onClick={() => setTempLog('No')}
+                onClick={() => applyTempLog('No')}
               >
                 No
               </button>
               <button
                 type="button"
                 className={`so-form__seg-btn${tempLog === 'Yes' ? ' so-form__seg-btn--active' : ''}`}
-                onClick={() => setTempLog('Yes')}
+                onClick={() => applyTempLog('Yes')}
               >
                 Yes
               </button>
             </div>
           </FormField>
-          <FormField label="Description">
-            <input className="input" value={description} onChange={(e) => setDescription(e.target.value)} />
+          <FormField label="Special instructions">
+            <input
+              className="input"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              title="Prints only on the Pick Ticket"
+            />
           </FormField>
         </ConfigurableGrid>
 

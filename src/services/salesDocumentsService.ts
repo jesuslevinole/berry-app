@@ -253,14 +253,14 @@ export async function printPickTicket(order: SalesOrder, ctx: SalesDocContext): 
       <td>${esc(order.REF || '')}</td>
       <td class="soft">${esc(ctx.shippingTermsName)}</td>
       <td class="soft">${esc(ctx.shipViaName)}</td>
-      <td class="soft">No</td>
+      <td class="soft">${esc(temp || 'No')}</td>
     </tr>
   </table>
   <table class="items">
     <tr><th>Item</th><th>Description</th><th>QTY</th><th>Temp</th><th>Lot Number</th></tr>
     ${rows || '<tr><td class="center" colspan="5" style="color:#777">No line items</td></tr>'}
   </table>
-  <div class="no-recorder">Do NOT Place a Temperature Recorder</div>
+  ${order.DESCRIPTION ? `<div class="no-recorder">${esc(order.DESCRIPTION)}</div>` : ''}
   <div class="pt-total"><span class="lbl">TOTAL</span><b>${fmtQty(totalQty)}</b><b>Items</b></div>
 </div></div></body></html>`);
 }

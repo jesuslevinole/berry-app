@@ -67,7 +67,7 @@ export function SalesOrderDetailPanel({ order, purchaseOrders, buyerName, onClos
     'Ship via': shipVia.nameOf(order.ID_SHIPVIA),
     'Shipping terms': termShipping.nameOf(order.ID_TERMSHIPPING),
     'Temp log': order.TEMP_LOG ?? '',
-    'Description': order.DESCRIPTION ?? '',
+    'Special instructions': order.DESCRIPTION ?? '',
   };
   const defaults = FORM_DEFS.find((f) => f.id === 'sales')?.fields ?? [];
   const fields: DetailField[] = fieldsFor('sales', defaults).map((f) => ({

@@ -14,7 +14,7 @@ export const FORM_DEFS: FormDef[] = [
   {
     id: 'sales',
     label: 'Sales order form',
-    fields: ['# Sales order', 'Status', 'Date', 'Due date', 'Customer', 'Buyer', 'Salesperson', 'Ref', 'Ref pickup', 'Carrier', 'Warehouse', 'Warehouse address', 'Ship via', 'Shipping terms', 'Temp log', 'Description'],
+    fields: ['# Sales order', 'Status', 'Date', 'Due date', 'Customer', 'Buyer', 'Salesperson', 'Ref', 'Ref pickup', 'Carrier', 'Warehouse', 'Warehouse address', 'Ship via', 'Shipping terms', 'Temp log', 'Special instructions'],
   },
   {
     id: 'expenses',
