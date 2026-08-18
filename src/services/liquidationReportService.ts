@@ -71,7 +71,7 @@ export async function printLiquidationReport(
   * { box-sizing: border-box; margin: 0; }
   body { font-family: Arial, Helvetica, sans-serif; color: #1c1c1c; background: #eef0f3; padding: 24px; font-size: 12.5px; }
   .page { position: relative; max-width: 820px; margin: 0 auto; background: #ffffff; padding: 46px 54px 60px; min-height: 1060px; overflow: hidden; box-shadow: 0 8px 30px rgba(0,0,0,0.12); }
-  .watermark { position: absolute; top: 40%; left: 34%; transform: translate(-50%, -50%); opacity: 0.14; pointer-events: none; }
+  .watermark { position: absolute; top: 58%; left: 34%; transform: translate(-50%, -50%); opacity: 0.14; pointer-events: none; }
   .watermark img { width: 360px; }
   .content { position: relative; }
   .top { display: flex; justify-content: space-between; align-items: flex-start; }

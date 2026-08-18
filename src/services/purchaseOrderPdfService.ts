@@ -75,7 +75,7 @@ export async function printPurchaseOrderPdf(
   :root { --blue: #1d3fc8; --ink: #1c1c1c; }
   body { font-family: Arial, Helvetica, sans-serif; color: var(--ink); background: #eef0f3; padding: 24px; font-size: 12px; }
   .page { position: relative; max-width: 820px; margin: 0 auto; background: #ffffff; padding: 46px 54px 60px; min-height: 1060px; overflow: hidden; box-shadow: 0 8px 30px rgba(0,0,0,0.12); }
-  .watermark { position: absolute; top: 52%; left: 50%; transform: translate(-50%, -50%); opacity: 0.16; pointer-events: none; }
+  .watermark { position: absolute; top: 66%; left: 50%; transform: translate(-50%, -50%); opacity: 0.16; pointer-events: none; }
   .watermark img { width: 320px; }
   .content { position: relative; }
   .logo img { max-height: 74px; max-width: 190px; object-fit: contain; }

@@ -66,7 +66,7 @@ const baseStyles = `
   * { box-sizing: border-box; margin: 0; }
   body { font-family: Arial, Helvetica, sans-serif; color: #1c1c1c; background: #eef0f3; padding: 24px; font-size: 12px; }
   .page { position: relative; max-width: 820px; margin: 0 auto; background: #ffffff; padding: 42px 50px 56px; min-height: 1060px; overflow: hidden; box-shadow: 0 8px 30px rgba(0,0,0,0.12); }
-  .watermark { position: absolute; top: 46%; left: 38%; transform: translate(-50%, -50%); opacity: 0.14; pointer-events: none; }
+  .watermark { position: absolute; top: 62%; left: 38%; transform: translate(-50%, -50%); opacity: 0.14; pointer-events: none; }
   .watermark img { width: 340px; }
   .content { position: relative; }
   .logo img { max-height: 66px; max-width: 170px; object-fit: contain; }
@@ -105,9 +105,12 @@ const logoBlock = (company: CompanyInfo): string => `
 
 const soldShipBlock = (ctx: SalesDocContext, order: SalesOrder): string => {
   const sold = `${esc(ctx.customerName)}<br />${esc(ctx.customerAddress)}<br />${esc(ctx.customerCity)}`;
-  const ship = order.ADDRESS
-    ? `${esc(ctx.customerName)}<br />${esc(order.ADDRESS)}<br />${esc(order.CITY_STATE_ZIP || '')}`
-    : sold;
+  /* SHIP TO: direccion del Warehouse (Locations); ordenes legadas caen al ADDRESS guardado o al cliente. */
+  const ship = ctx.warehouseName
+    ? `${esc(ctx.warehouseName)}<br />${esc(ctx.warehouseAddress)}${ctx.warehousePhone ? `<br />${esc(ctx.warehousePhone)}` : ''}`
+    : order.ADDRESS
+      ? `${esc(ctx.customerName)}<br />${esc(order.ADDRESS)}<br />${esc(order.CITY_STATE_ZIP || '')}`
+      : sold;
   return `
   <div class="sold-ship">
     <div><div class="ss-head">SOLD TO</div><div class="ss-body">${sold}</div></div>
