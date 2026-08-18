@@ -173,3 +173,8 @@
   background-color: var(--warn-bg);
   color: var(--warn);
 }
+
+/* Variantes aplicadas dentro de celdas de columnas configurables. */
+.reports__td-inner--muted { color: var(--muted); }
+.reports__td-inner--mono { font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace; font-size: 0.82rem; }
+.reports__td-inner--bad { color: var(--bad); font-weight: 700; }

@@ -3,7 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useAppConfig } from '../../context/AppConfigContext';
 import { useCollection } from '../../hooks/useCollection';
 import { MODULE_DEFS } from '../../config/modules';
-import { FORM_DEFS } from '../../config/formDefs';
+import { FORM_DEFS, isReportDef } from '../../config/formDefs';
 import { COLLECTIONS, type CheckSettings, type FormFieldConfig, type SystemUser } from '../../types/models';
 import { SearchableSelect } from '../../components/ui/SearchableSelect';
 import { Toolbar } from '../../components/ui/Toolbar';
@@ -171,8 +171,9 @@ export function ConfigView() {
             <div className="config__card">
               <h3 className="config__card-title">{formDef.label}</h3>
               <p className="config__hint">
-                The order here is the order of the fields in the form — both when creating and when
-                opening a row to edit. Renamed labels appear everywhere the field is shown.
+                {isReportDef(formDef.id)
+                  ? 'Choose which columns belong to this report and their order. Unchecked columns are hidden from the table and the Excel export.'
+                  : 'The order here is the order of the fields in the form — both when creating and when opening a row to edit. Renamed labels appear everywhere the field is shown.'}
               </p>
               <ul className="config__list">
                 {fieldsDraft.map((field, index) => (
@@ -188,16 +189,29 @@ export function ConfigView() {
                       />
                       {field.label !== field.key && <span className="config__field-default">default: {field.key}</span>}
                     </span>
-                    <label className={`config__required${canRequired ? '' : ' config__required--locked'}`}>
-                      <input
-                        type="checkbox"
-                        className="config__checkbox"
-                        checked={field.required}
-                        disabled={!canRequired}
-                        onChange={(e) => patchField(index, { required: e.target.checked })}
-                      />
-                      Required
-                    </label>
+                    {isReportDef(formDef.id) ? (
+                      <label className={`config__required${canRequired ? '' : ' config__required--locked'}`}>
+                        <input
+                          type="checkbox"
+                          className="config__checkbox"
+                          checked={!field.hidden}
+                          disabled={!canRequired}
+                          onChange={(e) => patchField(index, { hidden: !e.target.checked })}
+                        />
+                        Visible
+                      </label>
+                    ) : (
+                      <label className={`config__required${canRequired ? '' : ' config__required--locked'}`}>
+                        <input
+                          type="checkbox"
+                          className="config__checkbox"
+                          checked={field.required}
+                          disabled={!canRequired}
+                          onChange={(e) => patchField(index, { required: e.target.checked })}
+                        />
+                        Required
+                      </label>
+                    )}
                     <span className="config__row-actions">
                       <button type="button" className="config__arrow" disabled={!canOrder || index === 0} onClick={() => moveField(index, -1)} aria-label="Move up">▲</button>
                       <button type="button" className="config__arrow" disabled={!canOrder || index === fieldsDraft.length - 1} onClick={() => moveField(index, 1)} aria-label="Move down">▼</button>

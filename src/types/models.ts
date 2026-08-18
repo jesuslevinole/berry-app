@@ -201,6 +201,8 @@ export interface FormFieldConfig {
   key: string;
   label: string;
   required: boolean;
+  /** Solo secciones de reporte: columna oculta (no aplica a formularios). */
+  hidden?: boolean;
 }
 
 export interface AppConfigDoc extends BaseDoc {

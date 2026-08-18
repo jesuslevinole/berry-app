@@ -57,7 +57,7 @@ export function AppConfigProvider({ children }: { children: ReactNode }) {
       const savedValid = saved.filter((f) => defaultKeys.includes(f.key));
       const missing = defaultKeys.filter((key) => !savedValid.some((f) => f.key === key));
       return [
-        ...savedValid.map((f) => ({ key: f.key, label: f.label || f.key, required: !!f.required })),
+        ...savedValid.map((f) => ({ key: f.key, label: f.label || f.key, required: !!f.required, hidden: !!f.hidden })),
         ...missing.map((key) => ({ key, label: key, required: false })),
       ];
     };

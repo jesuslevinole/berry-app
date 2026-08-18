@@ -178,6 +178,9 @@ export function AppLayout({ view, subview = null, onNavigate, children }: AppLay
     .map((part) => part[0]?.toUpperCase() ?? '')
     .join('') || 'U';
 
+  /** Submenu de Reports expandido/contraido. */
+  const [reportsOpen, setReportsOpen] = useState(true);
+
   const handleNavigate = (key: ViewKey, sub?: string) => {
     onNavigate(key, sub);
     setMobileOpen(false);
@@ -212,16 +215,31 @@ export function AppLayout({ view, subview = null, onNavigate, children }: AppLay
         <nav className="sidebar__nav" aria-label="Main navigation">
           {visibleItems.map((item) => (
             <Fragment key={item.key}>
-              <button
-                type="button"
-                className={`sidebar__link${view === item.key && !subview ? ' sidebar__link--active' : ''}`}
-                onClick={() => handleNavigate(item.key)}
-                title={navLabel(item.key, item.label)}
-              >
-                <span className="sidebar__icon">{item.icon}</span>
-                <span className="sidebar__label">{navLabel(item.key, item.label)}</span>
-              </button>
-              {item.key === 'reports' && (
+              <div className={item.key === 'reports' ? 'sidebar__linkrow' : undefined}>
+                <button
+                  type="button"
+                  className={`sidebar__link${item.key === 'reports' ? ' sidebar__link--grow' : ''}${view === item.key && !subview ? ' sidebar__link--active' : ''}`}
+                  onClick={() => handleNavigate(item.key)}
+                  title={navLabel(item.key, item.label)}
+                >
+                  <span className="sidebar__icon">{item.icon}</span>
+                  <span className="sidebar__label">{navLabel(item.key, item.label)}</span>
+                </button>
+                {item.key === 'reports' && (
+                  <button
+                    type="button"
+                    className={`sidebar__chevron${reportsOpen ? ' sidebar__chevron--open' : ''}`}
+                    onClick={() => setReportsOpen((open) => !open)}
+                    aria-label={reportsOpen ? 'Collapse report shortcuts' : 'Expand report shortcuts'}
+                    aria-expanded={reportsOpen}
+                  >
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2">
+                      <path d="M6 9l6 6 6-6" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+              {item.key === 'reports' && reportsOpen && (
                 <div className="sidebar__subnav">
                   {REPORT_SUBITEMS.map((sub) => (
                     <button

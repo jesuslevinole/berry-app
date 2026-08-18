@@ -50,6 +50,9 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
   );
   const carriers = useCatalog(COLLECTIONS.CARRIER, 'NAME_CARRIER');
   const locations = useCatalog(COLLECTIONS.LOCATIONS, 'NAME_LOCATIONS');
+  const { data: locationDocs } = useCollection<{ id: string; ADDRESS_LOCATIONS?: string }>(COLLECTIONS.LOCATIONS);
+  const shipVia = useCatalog(COLLECTIONS.SHIPVIA, 'NAME_SHIPVIA');
+  const termShipping = useCatalog(COLLECTIONS.TERMSHIPPING, 'NAME_TERMSHIPPING');
   const commodities = useCatalog(COLLECTIONS.COMMODITIES, 'NAME_COMMODITIES');
 
   const [salesOrderNumber, setSalesOrderNumber] = useState('');
@@ -72,8 +75,13 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
   const [refPickup, setRefPickup] = useState('');
   const [carrierId, setCarrierId] = useState('');
   const [warehouseId, setWarehouseId] = useState('');
+  const [shipViaId, setShipViaId] = useState('');
+  const [termShippingId, setTermShippingId] = useState('');
   const [tempLog, setTempLog] = useState('');
   const [description, setDescription] = useState('');
+  /** Direccion del warehouse seleccionado (solo lectura, viene de Locations). */
+  const warehouseAddress = locationDocs.find((l) => l.id === warehouseId)?.ADDRESS_LOCATIONS ?? '';
+
   /** OD day: diferencia en dias entre Date y Due date (calculado en silencio, ya no visible). */
   const odDay = useMemo(() => {
     if (!date || !dueDate) return null;
@@ -97,6 +105,8 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
     setRefPickup(initial?.REF_PICKUP ?? '');
     setCarrierId(initial?.ID_CARRIER ?? '');
     setWarehouseId(initial?.ID_WAREHOUSE ?? '');
+    setShipViaId(initial?.ID_SHIPVIA ?? '');
+    setTermShippingId(initial?.ID_TERMSHIPPING ?? '');
     setTempLog(initial?.TEMP_LOG ?? '');
     setDescription(initial?.DESCRIPTION ?? '');
     setLines([]);
@@ -133,7 +143,7 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
       alert('Every line item needs a Description.');
       return;
     }
-    const missing = missingRequired('sales', { '# Sales order': salesOrderNumber, 'Status': status, 'Date': date, 'Due date': dueDate, 'Customer': customerId, 'Buyer': buyer, 'Salesperson': userId, 'Ref': ref, 'Ref pickup': refPickup, 'Carrier': carrierId, 'Warehouse': warehouseId, 'Temp log': tempLog, 'Description': description });
+    const missing = missingRequired('sales', { '# Sales order': salesOrderNumber, 'Status': status, 'Date': date, 'Due date': dueDate, 'Customer': customerId, 'Buyer': buyer, 'Salesperson': userId, 'Ref': ref, 'Ref pickup': refPickup, 'Carrier': carrierId, 'Warehouse': warehouseId, 'Warehouse address': warehouseAddress, 'Ship via': shipViaId, 'Shipping terms': termShippingId, 'Temp log': tempLog, 'Description': description });
     if (missing.length > 0) {
       alert(`Required fields missing: ${missing.join(', ')}`);
       return;
@@ -169,8 +179,8 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
         ID_CARRIER: carrierId,
         ID_WAREHOUSE: warehouseId,
         ID_PAYMENTTERM: initial?.ID_PAYMENTTERM ?? '',
-        ID_TERMSHIPPING: initial?.ID_TERMSHIPPING ?? '',
-        ID_SHIPVIA: initial?.ID_SHIPVIA ?? '',
+        ID_TERMSHIPPING: termShippingId,
+        ID_SHIPVIA: shipViaId,
         TOTAL: total,
         INCOMES: incomes,
         BALANCE: round2(total - incomes),
@@ -302,8 +312,52 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
               catalogLabel="warehouse"
             />
           </FormField>
+          <FormField label="Warehouse address" span2>
+            <input
+              className="input"
+              value={warehouseAddress}
+              placeholder="Select a warehouse to load its address"
+              disabled
+              title="Address comes from the Locations catalog"
+            />
+          </FormField>
+          <FormField label="Ship via">
+            <CatalogSelect
+              value={shipViaId}
+              onChange={setShipViaId}
+              options={shipVia.options}
+              collection={COLLECTIONS.SHIPVIA}
+              nameField="NAME_SHIPVIA"
+              catalogLabel="ship via"
+            />
+          </FormField>
+          <FormField label="Shipping terms">
+            <CatalogSelect
+              value={termShippingId}
+              onChange={setTermShippingId}
+              options={termShipping.options}
+              collection={COLLECTIONS.TERMSHIPPING}
+              nameField="NAME_TERMSHIPPING"
+              catalogLabel="shipping term"
+            />
+          </FormField>
           <FormField label="Temp log">
-            <input className="input" value={tempLog} onChange={(e) => setTempLog(e.target.value)} />
+            <div className="so-form__segmented" role="group" aria-label="Temp log">
+              <button
+                type="button"
+                className={`so-form__seg-btn${tempLog === 'No' ? ' so-form__seg-btn--active' : ''}`}
+                onClick={() => setTempLog('No')}
+              >
+                No
+              </button>
+              <button
+                type="button"
+                className={`so-form__seg-btn${tempLog === 'Yes' ? ' so-form__seg-btn--active' : ''}`}
+                onClick={() => setTempLog('Yes')}
+              >
+                Yes
+              </button>
+            </div>
           </FormField>
           <FormField label="Description">
             <input className="input" value={description} onChange={(e) => setDescription(e.target.value)} />

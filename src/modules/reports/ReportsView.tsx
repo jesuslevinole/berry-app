@@ -1,5 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useAppConfig } from '../../context/AppConfigContext';
+import { FORM_DEFS } from '../../config/formDefs';
 import { useCollection } from '../../hooks/useCollection';
 import { useCatalog } from '../../hooks/useCatalog';
 import { Toolbar } from '../../components/ui/Toolbar';
@@ -105,6 +107,7 @@ const toReportId = (value?: string | null): ReportId | null =>
 
 export function ReportsView({ initialReport = null }: ReportsViewProps) {
   const { can } = useAuth();
+  const { fieldsFor } = useAppConfig();
   const [report, setReport] = useState<ReportId>(toReportId(initialReport) ?? 'queue');
   const [search, setSearch] = useState('');
 
@@ -206,6 +209,58 @@ export function ReportsView({ initialReport = null }: ReportsViewProps) {
   const expensesTotal = round2(expenseRows.reduce((acc, r) => acc + (r.e.AMOUNT ?? 0), 0));
   const expensesPending = round2(expenseRows.reduce((acc, r) => acc + (r.e.BALANCE ?? 0), 0));
 
+  /* ---- Columnas configurables de AR y AP (Configurator > Report: ...) ---- */
+  interface ReportColumn<R> {
+    numeric?: boolean;
+    render: (row: R) => ReactNode;
+    excel: (row: R) => string | number;
+  }
+
+  type ArRow = (typeof arRows)[number];
+  type ApRow = (typeof apRows)[number];
+
+  const AR_COLUMNS: Record<string, ReportColumn<ArRow>> = {
+    'Date': { render: (r) => <span className="reports__td-inner--muted">{fmtDate(r.so.DATE ?? '')}</span>, excel: (r) => fmtDate(r.so.DATE ?? '') },
+    'Customer': { render: (r) => customers.nameOf(r.so.ID_CUSTOMER), excel: (r) => customers.nameOf(r.so.ID_CUSTOMER) },
+    '# Sales order': { render: (r) => <span className="reports__td-inner--mono">{r.so.SALES_ORDER_NUMBER || '\u2014'}</span>, excel: (r) => r.so.SALES_ORDER_NUMBER ?? '' },
+    'Ref': { render: (r) => <span className="reports__td-inner--muted">{r.so.REF || '\u2014'}</span>, excel: (r) => r.so.REF ?? '' },
+    'Total': { numeric: true, render: (r) => fmtMoney(r.so.TOTAL ?? 0), excel: (r) => r.so.TOTAL ?? 0 },
+    'Balance': { numeric: true, render: (r) => <span className="reports__td-inner--bad">{fmtMoney(r.balance)}</span>, excel: (r) => r.balance },
+    'Due date': { render: (r) => <span className="reports__td-inner--muted">{fmtDate(r.so.DUE_DATE ?? '')}</span>, excel: (r) => fmtDate(r.so.DUE_DATE ?? '') },
+    'Overdue days': {
+      numeric: true,
+      render: (r) => (
+        <span className="reports__overdue">
+          {r.days !== null && r.days < 0 && <span className="reports__dot reports__dot--bad" />}
+          {r.days !== null && r.days >= 0 && <span className="reports__dot reports__dot--ok" />}
+          {r.days ?? '\u2014'}
+        </span>
+      ),
+      excel: (r) => r.days ?? 0,
+    },
+    'Status': { render: (r) => <StatusBadge value={r.so.STATUS ?? 'Draft'} />, excel: (r) => r.so.STATUS ?? '' },
+    'Salesperson': { render: (r) => buyerName(r.so.ID_USERS), excel: (r) => buyerName(r.so.ID_USERS) },
+    'Buyer': { render: (r) => <span className="reports__td-inner--muted">{r.so.BUYER || '\u2014'}</span>, excel: (r) => r.so.BUYER ?? '' },
+  };
+
+  const AP_COLUMNS: Record<string, ReportColumn<ApRow>> = {
+    'Date': { render: (r) => <span className="reports__td-inner--muted">{fmtDate(r.e.DATE ?? '')}</span>, excel: (r) => fmtDate(r.e.DATE ?? '') },
+    '# Lot': { render: (r) => <span className="reports__td-inner--mono">{r.lot}</span>, excel: (r) => r.lot },
+    'Invoice #': { render: (r) => r.e.INVOICE_NUMBER || '\u2014', excel: (r) => r.e.INVOICE_NUMBER ?? '' },
+    'Supplier': { render: (r) => suppliers.nameOf(r.e.ID_SUPPLIERS), excel: (r) => suppliers.nameOf(r.e.ID_SUPPLIERS) },
+    'Category': { render: (r) => <span className="reports__td-inner--muted">{categories.nameOf(r.e.ID_CATEGORYBILL)}</span>, excel: (r) => categories.nameOf(r.e.ID_CATEGORYBILL) },
+    'Amount': { numeric: true, render: (r) => fmtMoney(r.e.AMOUNT ?? 0), excel: (r) => r.e.AMOUNT ?? 0 },
+    'Pay amount': { numeric: true, render: (r) => fmtMoney(r.e.PAY_AMOUNT ?? 0), excel: (r) => r.e.PAY_AMOUNT ?? 0 },
+    'Balance': { numeric: true, render: (r) => <span className="reports__td-inner--bad">{fmtMoney(r.e.BALANCE ?? 0)}</span>, excel: (r) => r.e.BALANCE ?? 0 },
+    'Check #': { render: (r) => <span className="reports__td-inner--mono">{r.e.CHECK_NUMBER || '\u2014'}</span>, excel: (r) => r.e.CHECK_NUMBER ?? '' },
+    'Note': { render: (r) => <span className="reports__td-inner--muted">{r.e.NOTE || '\u2014'}</span>, excel: (r) => r.e.NOTE ?? '' },
+  };
+
+  const arFields = FORM_DEFS.find((f) => f.id === 'report-ar')?.fields ?? [];
+  const apFields = FORM_DEFS.find((f) => f.id === 'report-ap')?.fields ?? [];
+  const arVisible = fieldsFor('report-ar', arFields).filter((f) => !f.hidden && AR_COLUMNS[f.key]);
+  const apVisible = fieldsFor('report-ap', apFields).filter((f) => !f.hidden && AP_COLUMNS[f.key]);
+
   const handleExport = () => {
     if (report === 'queue') {
       void exportReport('Invoice Queue', [
@@ -219,27 +274,15 @@ export function ReportsView({ initialReport = null }: ReportsViewProps) {
         { header: 'Buyer', values: queueRows.map((so) => so.BUYER ?? '') },
       ]);
     } else if (report === 'ap') {
-      void exportReport('Accounts Payable', [
-        { header: '# Lot', values: apRows.map((r) => r.lot) },
-        { header: 'Invoice #', values: apRows.map((r) => r.e.INVOICE_NUMBER ?? '') },
-        { header: 'Date', values: apRows.map((r) => fmtDate(r.e.DATE ?? '')) },
-        { header: 'Supplier', values: apRows.map((r) => suppliers.nameOf(r.e.ID_SUPPLIERS)) },
-        { header: 'Category', values: apRows.map((r) => categories.nameOf(r.e.ID_CATEGORYBILL)) },
-        { header: 'Amount', values: apRows.map((r) => r.e.AMOUNT ?? 0) },
-        { header: 'Pay amount', values: apRows.map((r) => r.e.PAY_AMOUNT ?? 0) },
-        { header: 'Balance', values: apRows.map((r) => r.e.BALANCE ?? 0) },
-      ]);
+      void exportReport('Accounts Payable', apVisible.map((f) => ({
+        header: f.label,
+        values: apRows.map((r) => AP_COLUMNS[f.key].excel(r)),
+      })));
     } else if (report === 'ar') {
-      void exportReport('Accounts Receivable', [
-        { header: '# Sales order', values: arRows.map((r) => r.so.SALES_ORDER_NUMBER ?? '') },
-        { header: 'Customer', values: arRows.map((r) => customers.nameOf(r.so.ID_CUSTOMER)) },
-        { header: 'Ref', values: arRows.map((r) => r.so.REF ?? '') },
-        { header: 'Total', values: arRows.map((r) => r.so.TOTAL ?? 0) },
-        { header: 'Balance', values: arRows.map((r) => r.balance) },
-        { header: 'Date', values: arRows.map((r) => fmtDate(r.so.DATE ?? '')) },
-        { header: 'Due date', values: arRows.map((r) => fmtDate(r.so.DUE_DATE ?? '')) },
-        { header: 'Overdue days', values: arRows.map((r) => r.days ?? 0) },
-      ]);
+      void exportReport('Accounts Receivable', arVisible.map((f) => ({
+        header: f.label,
+        values: arRows.map((r) => AR_COLUMNS[f.key].excel(r)),
+      })));
     } else {
       void exportReport('Expenses', [
         { header: 'Date', values: expenseRows.map((r) => fmtDate(r.e.DATE ?? '')) },
@@ -331,30 +374,20 @@ export function ReportsView({ initialReport = null }: ReportsViewProps) {
             <table className="reports__table">
               <thead>
                 <tr>
-                  <th className="reports__th"># Lot</th>
-                  <th className="reports__th">Invoice #</th>
-                  <th className="reports__th">Date</th>
-                  <th className="reports__th">Supplier</th>
-                  <th className="reports__th">Category</th>
-                  <th className="reports__th reports__th--num">Amount</th>
-                  <th className="reports__th reports__th--num">Pay amount</th>
-                  <th className="reports__th reports__th--num">Balance</th>
+                  {apVisible.map((f) => (
+                    <th key={f.key} className={`reports__th${AP_COLUMNS[f.key].numeric ? ' reports__th--num' : ''}`}>{f.label}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
                 {apRows.length === 0 && (
-                  <tr><td className="reports__empty" colSpan={8}>No pending bills. All caught up.</td></tr>
+                  <tr><td className="reports__empty" colSpan={Math.max(apVisible.length, 1)}>No pending bills. All caught up.</td></tr>
                 )}
                 {apRows.map((r) => (
                   <tr key={r.e.id}>
-                    <td className="reports__td reports__td--mono">{r.lot}</td>
-                    <td className="reports__td">{r.e.INVOICE_NUMBER || '—'}</td>
-                    <td className="reports__td reports__td--muted">{fmtDate(r.e.DATE ?? '')}</td>
-                    <td className="reports__td">{suppliers.nameOf(r.e.ID_SUPPLIERS)}</td>
-                    <td className="reports__td reports__td--muted">{categories.nameOf(r.e.ID_CATEGORYBILL)}</td>
-                    <td className="reports__td reports__td--num">{fmtMoney(r.e.AMOUNT ?? 0)}</td>
-                    <td className="reports__td reports__td--num">{fmtMoney(r.e.PAY_AMOUNT ?? 0)}</td>
-                    <td className="reports__td reports__td--num reports__td--bad">{fmtMoney(r.e.BALANCE ?? 0)}</td>
+                    {apVisible.map((f) => (
+                      <td key={f.key} className={`reports__td${AP_COLUMNS[f.key].numeric ? ' reports__td--num' : ''}`}>{AP_COLUMNS[f.key].render(r)}</td>
+                    ))}
                   </tr>
                 ))}
               </tbody>
@@ -374,36 +407,20 @@ export function ReportsView({ initialReport = null }: ReportsViewProps) {
             <table className="reports__table">
               <thead>
                 <tr>
-                  <th className="reports__th"># Sales order</th>
-                  <th className="reports__th">Customer</th>
-                  <th className="reports__th">Ref</th>
-                  <th className="reports__th reports__th--num">Total</th>
-                  <th className="reports__th reports__th--num">Balance</th>
-                  <th className="reports__th">Date</th>
-                  <th className="reports__th">Due date</th>
-                  <th className="reports__th reports__th--num">Overdue days</th>
+                  {arVisible.map((f) => (
+                    <th key={f.key} className={`reports__th${AR_COLUMNS[f.key].numeric ? ' reports__th--num' : ''}`}>{f.label}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
                 {arRows.length === 0 && (
-                  <tr><td className="reports__empty" colSpan={8}>Nothing pending to collect. All caught up.</td></tr>
+                  <tr><td className="reports__empty" colSpan={Math.max(arVisible.length, 1)}>Nothing pending to collect. All caught up.</td></tr>
                 )}
                 {arRows.map((r) => (
                   <tr key={r.so.id}>
-                    <td className="reports__td reports__td--mono">{r.so.SALES_ORDER_NUMBER}</td>
-                    <td className="reports__td">{customers.nameOf(r.so.ID_CUSTOMER)}</td>
-                    <td className="reports__td reports__td--muted">{r.so.REF || '—'}</td>
-                    <td className="reports__td reports__td--num">{fmtMoney(r.so.TOTAL ?? 0)}</td>
-                    <td className="reports__td reports__td--num reports__td--bad">{fmtMoney(r.balance)}</td>
-                    <td className="reports__td reports__td--muted">{fmtDate(r.so.DATE ?? '')}</td>
-                    <td className="reports__td reports__td--muted">{fmtDate(r.so.DUE_DATE ?? '')}</td>
-                    <td className="reports__td reports__td--num">
-                      <span className="reports__overdue">
-                        {r.days !== null && r.days < 0 && <span className="reports__dot reports__dot--bad" />}
-                        {r.days !== null && r.days >= 0 && <span className="reports__dot reports__dot--ok" />}
-                        {r.days ?? '—'}
-                      </span>
-                    </td>
+                    {arVisible.map((f) => (
+                      <td key={f.key} className={`reports__td${AR_COLUMNS[f.key].numeric ? ' reports__td--num' : ''}`}>{AR_COLUMNS[f.key].render(r)}</td>
+                    ))}
                   </tr>
                 ))}
               </tbody>

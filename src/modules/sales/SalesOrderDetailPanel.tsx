@@ -43,6 +43,9 @@ export function SalesOrderDetailPanel({ order, purchaseOrders, buyerName, onClos
   const customers = useCatalog(COLLECTIONS.CUSTOMER, 'NAME_CUSTOMER');
   const carriers = useCatalog(COLLECTIONS.CARRIER, 'NAME_CARRIER');
   const locations = useCatalog(COLLECTIONS.LOCATIONS, 'NAME_LOCATIONS');
+  const { data: locationDocs } = useCollection<{ id: string; ADDRESS_LOCATIONS?: string }>(COLLECTIONS.LOCATIONS);
+  const shipVia = useCatalog(COLLECTIONS.SHIPVIA, 'NAME_SHIPVIA');
+  const termShipping = useCatalog(COLLECTIONS.TERMSHIPPING, 'NAME_TERMSHIPPING');
   const commodities = useCatalog(COLLECTIONS.COMMODITIES, 'NAME_COMMODITIES');
   const paymentMethods = useCatalog(COLLECTIONS.PAYMENT_METHOD, 'NAME');
 
@@ -60,6 +63,9 @@ export function SalesOrderDetailPanel({ order, purchaseOrders, buyerName, onClos
     'Ref pickup': order.REF_PICKUP ?? '',
     'Carrier': carriers.nameOf(order.ID_CARRIER),
     'Warehouse': order.ID_WAREHOUSE ? locations.nameOf(order.ID_WAREHOUSE) : '',
+    'Warehouse address': locationDocs.find((l) => l.id === order.ID_WAREHOUSE)?.ADDRESS_LOCATIONS ?? '',
+    'Ship via': shipVia.nameOf(order.ID_SHIPVIA),
+    'Shipping terms': termShipping.nameOf(order.ID_TERMSHIPPING),
     'Temp log': order.TEMP_LOG ?? '',
     'Description': order.DESCRIPTION ?? '',
   };

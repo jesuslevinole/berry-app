@@ -78,6 +78,8 @@ export const SALES_ORDER_SCHEMA: EntitySchema = {
     { key: 'REF_PICKUP', type: 'text', width: 14 },
     { key: 'ID_CARRIER', type: 'text', width: 24, ref: COLLECTIONS.CARRIER },
     { key: 'ID_WAREHOUSE', type: 'text', width: 24, ref: COLLECTIONS.LOCATIONS },
+    { key: 'ID_SHIPVIA', type: 'text', width: 24, ref: COLLECTIONS.SHIPVIA },
+    { key: 'ID_TERMSHIPPING', type: 'text', width: 24, ref: COLLECTIONS.TERMSHIPPING },
     { key: 'TEMP_LOG', type: 'text', width: 14 },
     { key: 'DESCRIPTION', type: 'text', width: 30 },
     { key: 'TOTAL', type: 'number', width: 14 },
