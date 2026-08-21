@@ -271,3 +271,22 @@
 .record-detail__section-head .record-detail__section-title {
   margin-bottom: 10px;
 }
+
+/* Toggle Loaded del detalle de venta. */
+.record-detail__loaded {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+.record-detail__loaded input {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--green-600);
+  cursor: pointer;
+}
+.record-detail__loaded-text {
+  color: var(--ink);
+  font-weight: 600;
+}

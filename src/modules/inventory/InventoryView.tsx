@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react';
+import { SalesOrderDetailPanel } from '../sales/SalesOrderDetailPanel';
+import { PurchaseOrderDetailPanel } from '../purchases/PurchaseOrderDetailPanel';
 import { useAuth } from '../../context/AuthContext';
 import { useCollection } from '../../hooks/useCollection';
 import { useCatalog } from '../../hooks/useCatalog';
@@ -11,6 +13,7 @@ import {
   type PurchaseOrder,
   type SalesOrder,
   type SalesOrderDetail,
+  type SystemUser,
 } from '../../types/models';
 import './InventoryView.css';
 
@@ -99,12 +102,7 @@ async function exportMovements(rows: MovementRow[], commodityName: (id: string) 
   URL.revokeObjectURL(url);
 }
 
-interface InventoryViewProps {
-  /** Abre el detalle del documento origen: compra (in) o venta (out). */
-  onOpenDocument?: (kind: 'in' | 'out', orderId: string) => void;
-}
-
-export function InventoryView({ onOpenDocument }: InventoryViewProps) {
+export function InventoryView() {
   const { can } = useAuth();
   const { data: purchaseOrders } = useCollection<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER);
   const { data: purchaseDetails } = useCollection<PurchaseDetail>(COLLECTIONS.PURCHASE_DETAILS);
@@ -113,6 +111,8 @@ export function InventoryView({ onOpenDocument }: InventoryViewProps) {
   const commodities = useCatalog(COLLECTIONS.COMMODITIES, 'NAME_COMMODITIES');
   const growers = useCatalog(COLLECTIONS.GROWER, 'NAME_GROWER');
   const customers = useCatalog(COLLECTIONS.CUSTOMER, 'NAME_CUSTOMER');
+  const legacyUsers = useCatalog(COLLECTIONS.USERS, 'EMAIL_USERS');
+  const { data: systemUsers } = useCollection<SystemUser>(COLLECTIONS.SYSTEM_USERS);
 
   const [tab, setTab] = useState<InventoryTab>('stock');
   const [search, setSearch] = useState('');
@@ -120,6 +120,28 @@ export function InventoryView({ onOpenDocument }: InventoryViewProps) {
   const [commodityFilter, setCommodityFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  /* Detalle abierto dentro de la vista de inventario (sin salir de ella). */
+  const [viewingSale, setViewingSale] = useState<SalesOrder | null>(null);
+  const [viewingPurchase, setViewingPurchase] = useState<PurchaseOrder | null>(null);
+
+  /** Resuelve salesperson: usuarios del sistema primero, catalogo legado despues. */
+  const buyerName = useMemo(() => {
+    const map = new Map(
+      systemUsers.map((u) => [u.id, `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email]),
+    );
+    return (id?: string): string => (id ? (map.get(id) ?? legacyUsers.nameOf(id)) : '\u2014');
+  }, [systemUsers, legacyUsers]);
+
+  /** Abre el detalle del documento origen dentro de esta misma vista. */
+  const openDocument = (row: MovementRow) => {
+    if (row.type === 'in') {
+      const po = purchaseOrders.find((p) => p.id === row.sourceId);
+      if (po) setViewingPurchase(po);
+    } else {
+      const so = salesOrders.find((o) => o.id === row.sourceId);
+      if (so) setViewingSale(so);
+    }
+  };
 
   /* Ordenes de venta canceladas no afectan el inventario. */
   const cancelledSales = useMemo(
@@ -388,18 +410,14 @@ export function InventoryView({ onOpenDocument }: InventoryViewProps) {
                       </span>
                     </td>
                     <td className="inventory__td inventory__td--mono">
-                      {onOpenDocument ? (
-                        <button
-                          type="button"
-                          className="inventory__doclink"
-                          onClick={() => onOpenDocument(row.type, row.sourceId)}
-                          title={row.type === 'in' ? 'Open purchase order detail' : 'Open sales order detail'}
-                        >
-                          {row.documentNumber}
-                        </button>
-                      ) : (
-                        row.documentNumber
-                      )}
+                      <button
+                        type="button"
+                        className="inventory__doclink"
+                        onClick={() => openDocument(row)}
+                        title={row.type === 'in' ? 'Open purchase order detail' : 'Open sales order detail'}
+                      >
+                        {row.documentNumber}
+                      </button>
                     </td>
                     <td className="inventory__td inventory__td--strong">{commodities.nameOf(row.commodityId)}</td>
                     <td className="inventory__td inventory__td--muted">{row.description || '—'}</td>
@@ -413,6 +431,23 @@ export function InventoryView({ onOpenDocument }: InventoryViewProps) {
             </table>
           </div>
         </>
+      )}
+
+      {viewingSale && (
+        <SalesOrderDetailPanel
+          order={viewingSale}
+          purchaseOrders={purchaseOrders}
+          buyerName={buyerName}
+          onClose={() => setViewingSale(null)}
+        />
+      )}
+
+      {viewingPurchase && (
+        <PurchaseOrderDetailPanel
+          order={viewingPurchase}
+          buyerName={buyerName}
+          onClose={() => setViewingPurchase(null)}
+        />
       )}
     </div>
   );

@@ -1,7 +1,9 @@
+import { useState } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import { useCollection } from '../../hooks/useCollection';
 import { useCatalog } from '../../hooks/useCatalog';
 import { useAppConfig } from '../../context/AppConfigContext';
-import { where } from '../../services/firestore';
+import { updateDocument, where } from '../../services/firestore';
 import { RecordDetail, DetailSection, type DetailField } from '../../components/ui/RecordDetail';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { FORM_DEFS } from '../../config/formDefs';
@@ -30,6 +32,23 @@ interface Props {
 
 export function SalesOrderDetailPanel({ order, purchaseOrders, buyerName, onClose, onEdit }: Props) {
   const { fieldsFor } = useAppConfig();
+  const { can } = useAuth();
+  /* Palomeado local optimista del Loaded (persiste en Firestore al togglear). */
+  const [loaded, setLoaded] = useState<boolean>(!!order.LOADED);
+  const [savingLoaded, setSavingLoaded] = useState(false);
+
+  const toggleLoaded = async (checked: boolean) => {
+    setLoaded(checked);
+    setSavingLoaded(true);
+    try {
+      await updateDocument<SalesOrder>(COLLECTIONS.SALES_ORDER, order.id, { LOADED: checked });
+    } catch {
+      setLoaded(!checked);
+      alert('Could not update Loaded. Try again.');
+    } finally {
+      setSavingLoaded(false);
+    }
+  };
   const { data: lines, loading } = useCollection<SalesOrderDetail>(
     COLLECTIONS.SALES_ORDER_DETAIL,
     [where('ID_SALESORDER', '==', order.id)],
@@ -92,6 +111,20 @@ export function SalesOrderDetailPanel({ order, purchaseOrders, buyerName, onClos
           <div className="record-detail__stat"><span className="record-detail__stat-label">Paid</span><span className="record-detail__stat-value">{fmtMoney(order.INCOMES ?? 0)}</span></div>
           <div className={`record-detail__stat${(order.BALANCE ?? 0) > 0 ? ' record-detail__stat--bad' : ''}`}><span className="record-detail__stat-label">Balance</span><span className="record-detail__stat-value">{fmtMoney(order.BALANCE ?? 0)}</span></div>
         </div>
+      </DetailSection>
+
+      <DetailSection title="Loaded">
+        <label className="record-detail__loaded">
+          <input
+            type="checkbox"
+            checked={loaded}
+            disabled={savingLoaded || !can('sales', 'edit')}
+            onChange={(e) => void toggleLoaded(e.target.checked)}
+          />
+          <span className="record-detail__loaded-text">
+            {loaded ? 'Yes \u2014 order loaded' : 'No \u2014 pending to load (shows in Invoice Queue)'}
+          </span>
+        </label>
       </DetailSection>
 
       <DetailSection title={`Line items (${lines.length})`}>

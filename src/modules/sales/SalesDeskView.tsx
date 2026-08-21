@@ -119,6 +119,11 @@ export function SalesDeskView({ initialOpenId = null }: SalesDeskViewProps) {
     { key: 'TOTAL', header: 'Total', align: 'right', render: (so) => <span className="num">{fmtMoney(so.TOTAL)}</span> },
     { key: 'DUE_DATE', header: 'Due Date', render: (so) => fmtDate(so.DUE_DATE) },
     { key: 'STATUS', header: 'Status', render: (so) => <StatusBadge value={so.STATUS ?? 'Draft'} /> },
+    {
+      key: 'LOADED',
+      header: 'Loaded',
+      render: (so) => <span className={so.LOADED ? 'text-ok' : 'muted'}>{so.LOADED ? 'Yes' : 'No'}</span>,
+    },
     { key: 'ID_USERS', header: 'Salesperson', render: (so) => buyerName(so.ID_USERS) },
     { key: 'BUYER', header: 'Buyer', render: (so) => so.BUYER || '—' },
     {

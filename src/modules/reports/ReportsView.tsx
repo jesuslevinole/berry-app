@@ -133,11 +133,11 @@ export function ReportsView({ initialReport = null }: ReportsViewProps) {
     return (id?: string): string => (id ? (map.get(id) ?? legacyUsers.nameOf(id)) : '\u2014');
   }, [systemUsers, legacyUsers]);
 
-  /* ---- 1. Invoice Queue: ordenes de venta pendientes de facturar/entregar ---- */
+  /* ---- 1. Invoice Queue: ordenes con Loaded despalomeado (pendientes de cargar) ---- */
   const queueRows = useMemo(
     () =>
       salesOrders
-        .filter((so) => so.STATUS === 'Draft' || so.STATUS === 'Loaded')
+        .filter((so) => !so.LOADED && so.STATUS !== 'Cancelled')
         .filter((so) =>
           matches(
             so.SALES_ORDER_NUMBER ?? '',

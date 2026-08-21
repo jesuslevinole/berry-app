@@ -197,7 +197,7 @@ export async function printSalesInvoice(order: SalesOrder, ctx: SalesDocContext)
       <td><b>${esc(order.REF || '')}</b></td>
       <td class="soft">${esc(ctx.shippingTermsName)}</td>
       <td class="soft">${esc(ctx.shipViaName)}</td>
-      <td class="soft"><b>${fmtSlashDate(order.DUE_DATE || '')}</b></td>
+      <td class="soft"><b>${esc(ctx.paymentTermName) || fmtSlashDate(order.DUE_DATE || '')}</b></td>
     </tr>
   </table>
   <table class="items">

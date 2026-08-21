@@ -71,6 +71,7 @@ export const SALES_ORDER_SCHEMA: EntitySchema = {
     { key: 'DATE', type: 'date', width: 14 },
     { key: 'DUE_DATE', type: 'date', width: 14 },
     { key: 'STATUS', type: 'text', width: 14 },
+    { key: 'LOADED', type: 'boolean', width: 10 },
     { key: 'ID_CUSTOMER', type: 'text', width: 24, ref: COLLECTIONS.CUSTOMER },
     { key: 'BUYER', type: 'text', width: 18 },
     { key: 'ID_USERS', type: 'text', width: 24, ref: COLLECTIONS.USERS },

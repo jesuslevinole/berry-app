@@ -99,6 +99,8 @@ export interface SalesOrder extends BaseDoc {
   ID_CARRIER: ID;
   /** Almacen de despacho (catalogo CAT_LOCATIONS). */
   ID_WAREHOUSE?: ID;
+  /** Palomeado desde el detalle: la orden ya fue cargada (sale del Invoice Queue). */
+  LOADED?: boolean;
   /** Payment term de los documentos de venta (catalogo CAT_PAYMENTTERM). */
   ID_PAYMENTTERM?: ID;
   ID_TERMSHIPPING: ID;
