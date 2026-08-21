@@ -304,41 +304,47 @@ export function InventoryView() {
           </div>
 
           <div className="inventory__card">
-            <table className="inventory__table">
-              <thead>
-                <tr>
-                  <th className="inventory__th">Commodity</th>
-                  <th className="inventory__th inventory__th--num">Stock</th>
-                  <th className="inventory__th inventory__th--num">Committed</th>
-                  <th className="inventory__th inventory__th--num">Available</th>
-                </tr>
-              </thead>
-              <tbody>
-                {stockRows.length === 0 && (
-                  <tr><td className="inventory__empty" colSpan={4}>No inventory movements yet. Register purchase orders to build stock.</td></tr>
-                )}
-                {stockRows.map((row) => (
-                  <tr key={row.commodityId}>
-                    <td className="inventory__td inventory__td--strong">{row.name}</td>
-                    <td className="inventory__td inventory__td--num">{fmtQty(row.stock)}</td>
-                    <td className="inventory__td inventory__td--num inventory__td--muted">{fmtQty(row.committed)}</td>
-                    <td className={`inventory__td inventory__td--num inventory__available${row.available < 0 ? ' inventory__available--bad' : row.available === 0 ? ' inventory__available--zero' : ''}`}>
-                      {fmtQty(row.available)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              {stockRows.length > 0 && (
-                <tfoot>
+            {stockRows.length === 0 ? (
+              <div className="inventory__empty">No inventory movements yet. Register purchase orders to build stock.</div>
+            ) : (
+              <table className="inventory__pivot">
+                <thead>
                   <tr>
-                    <td className="inventory__tf">Total</td>
-                    <td className="inventory__tf inventory__tf--num">{fmtQty(stockTotals.stock)}</td>
-                    <td className="inventory__tf inventory__tf--num">{fmtQty(stockTotals.committed)}</td>
-                    <td className="inventory__tf inventory__tf--num">{fmtQty(stockTotals.available)}</td>
+                    <th className="inventory__pivot-corner">Inventory</th>
+                    {stockRows.map((row) => (
+                      <th key={row.commodityId} className="inventory__pivot-head">{row.name}</th>
+                    ))}
                   </tr>
-                </tfoot>
-              )}
-            </table>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className="inventory__pivot-label">STOCK</td>
+                    {stockRows.map((row) => (
+                      <td key={row.commodityId} className="inventory__pivot-cell">{fmtQty(row.stock)}</td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td className="inventory__pivot-label">COMMITTED</td>
+                    {stockRows.map((row) => (
+                      <td key={row.commodityId} className="inventory__pivot-cell inventory__pivot-cell--muted">
+                        {row.committed !== 0 ? fmtQty(row.committed) : ''}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr className="inventory__pivot-row--available">
+                    <td className="inventory__pivot-label inventory__pivot-label--available">AVAILABLE</td>
+                    {stockRows.map((row) => (
+                      <td
+                        key={row.commodityId}
+                        className={`inventory__pivot-cell inventory__pivot-cell--available${row.available < 0 ? ' inventory__pivot-cell--bad' : row.available === 0 ? ' inventory__pivot-cell--zero' : ''}`}
+                      >
+                        {fmtQty(row.available)}
+                      </td>
+                    ))}
+                  </tr>
+                </tbody>
+              </table>
+            )}
           </div>
         </>
       )}
