@@ -210,6 +210,8 @@ export interface FormFieldConfig {
 export interface AppConfigDoc extends BaseDoc {
   /** Orden del menu de navegacion (ViewKeys). */
   navOrder?: string[];
+  /** Agrupacion del menu: modulo hijo -> modulo padre (submenus). */
+  navParents?: Record<string, string>;
   /** Nombres personalizados de los items del menu (key -> etiqueta). */
   navLabels?: Record<string, string>;
   /** Config de campos por formulario (orden del arreglo = orden visual). */
@@ -272,4 +274,6 @@ export interface CheckSettings {
   showAddress?: boolean;
   showBankInfo?: boolean;
   signatureText?: string;
+  /** Numero fraccional del banco impreso bajo el numero de cheque (ej. 67-76890). */
+  fractional?: string;
 }

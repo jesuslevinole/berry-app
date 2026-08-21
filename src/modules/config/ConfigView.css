@@ -260,3 +260,21 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Selector "Inside of" para agrupar modulos como sub-items. */
+.config__nav-parent {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.config__nav-parent-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.config__nav-parent-select {
+  min-width: 150px;
+  max-width: 190px;
+}

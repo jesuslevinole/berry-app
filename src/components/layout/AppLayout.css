@@ -119,6 +119,25 @@
 .sidebar__chevron svg { transition: transform 0.18s ease; transform: rotate(-90deg); }
 .sidebar__chevron--open svg { transform: rotate(0deg); }
 .layout--collapsed .sidebar__chevron { display: none; }
+.sidebar__version {
+  margin-top: auto;
+  padding: 14px 12px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.sidebar__version-number {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--green-100);
+}
+.sidebar__version-author {
+  font-size: 10.5px;
+  color: var(--green-100);
+  opacity: 0.7;
+}
+.layout--collapsed .sidebar__version { display: none; }
 .layout--collapsed .sidebar__subnav { display: none; }
 
 .sidebar__collapse {
@@ -199,6 +218,7 @@
   .layout--collapsed .sidebar__brand-text { display: initial; }
   .layout--collapsed .sidebar__subnav { display: flex; }
   .layout--collapsed .sidebar__chevron { display: flex; }
+  .layout--collapsed .sidebar__version { display: flex; }
   .topbar__hamburger { display: inline-flex; }
   .topbar { padding: 0 14px; }
   .content { padding: 14px; }

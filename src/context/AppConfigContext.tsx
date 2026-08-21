@@ -13,7 +13,9 @@ interface AppConfigValue {
   /** Etiqueta del item del menu (personalizada o la default). */
   navLabel: (key: string, fallback: string) => string;
   /** Guarda orden y nombres del menu en una sola escritura. */
-  saveNavigation: (order: string[], labels: Record<string, string>) => void;
+  saveNavigation: (order: string[], labels: Record<string, string>, parents?: Record<string, string>) => void;
+  /** Padre del modulo en el menu (submenus configurables) o null. */
+  navParentOf: (key: string) => string | null;
   /**
    * Config de campos de un formulario mergeada con los defaults actuales:
    * respeta orden/label/required guardados, agrega campos nuevos al final y
@@ -75,7 +77,8 @@ export function AppConfigProvider({ children }: { children: ReactNode }) {
       },
       saveNavOrder: (order) => persist({ navOrder: order }),
       navLabel: (key, fallback) => (config?.navLabels?.[key] ?? '').trim() || fallback,
-      saveNavigation: (order, labels) => persist({ navOrder: order, navLabels: labels }),
+      saveNavigation: (order, labels, parents) => persist({ navOrder: order, navLabels: labels, ...(parents !== undefined ? { navParents: parents } : {}) }),
+      navParentOf: (key) => config?.navParents?.[key] ?? null,
       fieldsFor,
       checkSettings: config?.checks ?? {},
       saveCheckSettings: (settings) => persist({ checks: settings }),

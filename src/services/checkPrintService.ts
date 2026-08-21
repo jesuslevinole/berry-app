@@ -43,25 +43,54 @@ const esc = (value: string): string =>
 const fmtUsd = (n: number): string =>
   n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-const fmtLongDate = (iso: string): string => {
+
+const fmtMonthYear = (iso: string): string => {
   if (!iso) return '';
   const d = new Date(`${iso}T00:00:00`);
-  return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }).toUpperCase();
 };
 
-/** Abre una pestaña con el cheque listo para imprimir (cheque + talon). */
+const fmtSlash = (iso: string): string => {
+  if (!iso) return '';
+  const [y, m, d] = iso.split('-');
+  return y && m && d ? `${parseInt(m, 10)}/${parseInt(d, 10)}/${y}` : iso;
+};
+
+/**
+ * Abre el cheque listo para imprimir en formato voucher (carta):
+ * cheque arriba (3.5in, banda MICR al pie) + dos talones, siguiendo el
+ * layout del cheque de referencia del cliente y el estandar bancario de EE.UU.
+ * Nota: para deposito bancario real, imprimir con toner magnetico (MICR) o
+ * sobre papel de cheques preimpreso, como exigen los bancos en Texas.
+ */
 export function printCheck(
   check: Check,
   payeeName: string,
   company: CompanyInfo,
   bank: CompanyBank | null,
   settings: CheckSettings,
+  payeeAddress = '',
 ): void {
   const showLogo = settings.showLogo !== false && !!company.logo;
   const showAddress = settings.showAddress !== false;
   const showBank = settings.showBankInfo !== false && !!bank;
-  const signature = settings.signatureText?.trim() || 'Authorized signature';
-  const accountLast4 = bank?.account ? bank.account.slice(-4) : '';
+  const signature = settings.signatureText?.trim() || '';
+  const fractional = settings.fractional?.trim() || '';
+  const words = amountInWords(check.AMOUNT).replace(/ and (\d{2})\/100 Dollars$/, (_m, c) => (c === '00' ? '***' : ` and ${c}/100***`));
+
+  const stub = `
+    <div class="stub">
+      <div class="stub-row">
+        <b>${check.CHECK_NUMBER}</b>
+        <span><b>Amount:</b> $${fmtUsd(check.AMOUNT)}</span>
+        <span><b>Date:</b> ${fmtSlash(check.DATE)}</span>
+      </div>
+      <div class="stub-line"><b>Pay to:</b> ${esc(payeeName)}</div>
+      <div class="stub-line stub-month">${fmtMonthYear(check.DATE)}</div>
+      <div class="stub-ref"><b>Ref #</b> ${esc(check.REF || '')}</div>
+      <div class="stub-line stub-co">${esc(company.name || '')}</div>
+      <div class="stub-line"><b>Memo:</b> ${esc(check.MEMO || '')}</div>
+    </div>`;
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -70,90 +99,100 @@ export function printCheck(
 <title>Check #${check.CHECK_NUMBER}</title>
 <style>
   * { box-sizing: border-box; margin: 0; }
-  body { font-family: Georgia, 'Times New Roman', serif; color: #14251c; background: #f1f3f2; padding: 24px; }
-  .sheet { max-width: 820px; margin: 0 auto; }
-  .check { background: linear-gradient(135deg, #ffffff 0%, #f2f7f4 100%); border: 1.5px solid #1f7a4d; border-radius: 8px; padding: 26px 30px; position: relative; }
-  .row-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
-  .co { display: flex; gap: 14px; align-items: center; }
-  .co img { max-height: 54px; max-width: 130px; object-fit: contain; }
-  .co-name { font-size: 15px; font-weight: 700; letter-spacing: 0.02em; }
-  .co-sub { font-size: 10.5px; color: #47584f; line-height: 1.45; }
+  @page { size: letter; margin: 0.25in; }
+  body { font-family: Arial, Helvetica, sans-serif; color: #111; background: #f1f3f2; }
+  .sheet { width: 8in; margin: 0 auto; background: #ffffff; }
+  /* ---- Cheque (3.5in, estandar personal/business EE.UU.) ---- */
+  .check { height: 3.5in; padding: 0.18in 0.22in 0; position: relative; display: flex; flex-direction: column; }
+  .row-top { display: flex; justify-content: space-between; align-items: flex-start; }
+  .co { display: flex; gap: 10px; }
+  .co img { max-height: 44px; max-width: 110px; object-fit: contain; }
+  .co-name { font-size: 12.5px; font-weight: 700; }
+  .co-sub { font-size: 9.5px; color: #333; line-height: 1.45; }
+  .bank { font-size: 9.5px; color: #333; line-height: 1.45; text-align: left; }
   .num { text-align: right; }
-  .num-label { font-size: 9px; letter-spacing: 0.14em; color: #47584f; text-transform: uppercase; }
-  .num-value { font-size: 19px; font-weight: 700; color: #1f7a4d; font-family: 'Courier New', monospace; }
-  .date-line { text-align: right; margin-top: 12px; font-size: 12px; }
-  .date-line b { border-bottom: 1px solid #14251c; padding: 0 14px 2px; }
-  .pay-row { display: flex; align-items: flex-end; gap: 14px; margin-top: 22px; }
-  .pay-label { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.1em; color: #47584f; width: 92px; line-height: 1.4; }
-  .payee { flex: 1; border-bottom: 1.2px solid #14251c; font-size: 15px; font-weight: 600; padding: 0 4px 3px; }
-  .amount-box { border: 1.5px solid #14251c; border-radius: 4px; padding: 7px 14px; font-size: 15px; font-weight: 700; font-family: 'Courier New', monospace; background: #ffffff; }
-  .words-row { display: flex; align-items: flex-end; gap: 10px; margin-top: 18px; }
-  .words { flex: 1; border-bottom: 1.2px solid #14251c; font-size: 12.5px; padding: 0 4px 3px; font-style: italic; }
-  .bottom { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 30px; gap: 20px; }
-  .memo { flex: 1; font-size: 11px; }
-  .memo b { border-bottom: 1px solid #14251c; padding: 0 8px 2px; font-weight: 400; }
-  .sig { width: 250px; border-top: 1.2px solid #14251c; text-align: center; font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.1em; color: #47584f; padding-top: 4px; }
-  .micr { margin-top: 20px; font-family: 'Courier New', monospace; font-size: 13px; letter-spacing: 0.16em; color: #14251c; }
-  .stub { background: #ffffff; border: 1px dashed #9aa8a0; border-radius: 8px; margin-top: 22px; padding: 18px 24px; font-size: 12px; }
-  .stub h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: #1f7a4d; margin-bottom: 10px; }
-  .stub-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 20px; }
-  .stub-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em; color: #47584f; }
-  .stub-value { font-weight: 600; }
-  .print-bar { text-align: center; margin: 18px 0; }
+  .num-value { font-size: 13.5px; font-weight: 700; }
+  .num-frac { font-size: 8.5px; color: #333; margin-top: 2px; }
+  .date-line { text-align: right; margin-top: 10px; font-size: 10.5px; }
+  .date-line b { display: inline-block; min-width: 110px; border-bottom: 1px solid #111; text-align: center; padding-bottom: 1px; font-weight: 400; }
+  .date-line .lbl { font-weight: 700; margin-right: 6px; }
+  .pay-row { display: flex; align-items: flex-end; gap: 10px; margin-top: 10px; }
+  .pay-label { font-size: 8.5px; font-weight: 700; width: 60px; line-height: 1.35; }
+  .payee { flex: 1; border-bottom: 1px solid #111; font-size: 12px; padding: 0 4px 2px; }
+  .amount-num { border-bottom: 1px solid #111; font-size: 12px; font-weight: 700; padding: 0 8px 2px; white-space: nowrap; }
+  .amount-num .cur { margin-right: 6px; font-weight: 400; }
+  .words-row { display: flex; align-items: flex-end; gap: 8px; margin-top: 12px; }
+  .words { flex: 1; border-bottom: 1px solid #111; font-size: 11px; padding: 0 4px 2px; }
+  .words-dollars { font-size: 10.5px; font-weight: 700; }
+  .payee-address { margin: 14px 0 0 0.9in; font-size: 10.5px; line-height: 1.5; }
+  .bottom { display: flex; justify-content: space-between; align-items: flex-end; margin-top: auto; gap: 20px; padding-bottom: 0.08in; }
+  .memo { flex: 1; font-size: 10px; display: flex; align-items: flex-end; gap: 6px; }
+  .memo .lbl { font-weight: 700; }
+  .memo .val { flex: 0 1 260px; border-bottom: 1px solid #111; padding: 0 4px 1px; min-height: 12px; }
+  .sig { width: 240px; border-top: 1px solid #111; text-align: center; font-size: 8.5px; font-weight: 700; padding-top: 3px; }
+  /* Banda MICR: 5/8in libre al pie del cheque (estandar bancario). */
+  .micr { height: 0.42in; display: flex; align-items: center; padding-left: 0.45in; font-family: 'Courier New', monospace; font-size: 14px; letter-spacing: 0.22em; }
+  .cut { border: 0; border-top: 1px dashed #9aa8a0; margin: 0.08in 0; }
+  /* ---- Talones ---- */
+  .stub { height: 3.1in; padding: 0.24in 0.5in 0; font-size: 11px; }
+  .stub-row { display: flex; justify-content: space-between; margin-bottom: 22px; }
+  .stub-line { margin-top: 10px; }
+  .stub-month { font-weight: 700; }
+  .stub-ref { margin-top: 26px; text-align: center; }
+  .stub-co { font-weight: 700; margin-top: 30px; }
+  .print-bar { text-align: center; padding: 14px 0; }
   .print-bar button { background: #1f7a4d; color: #ffffff; border: none; padding: 10px 26px; border-radius: 8px; font-size: 14px; cursor: pointer; font-family: inherit; }
-  @media print { body { background: #ffffff; padding: 0; } .print-bar { display: none; } .stub { border-style: solid; } }
+  @media print { body { background: #ffffff; } .sheet { width: auto; } .print-bar { display: none; } .cut { visibility: hidden; } }
 </style>
 </head>
 <body>
+<div class="print-bar"><button onclick="window.print()">Print check</button></div>
 <div class="sheet">
-  <div class="print-bar"><button onclick="window.print()">Print check</button></div>
   <div class="check">
     <div class="row-top">
       <div class="co">
         ${showLogo ? `<img src="${company.logo}" alt="logo" />` : ''}
         <div>
           <div class="co-name">${esc(company.name || 'Company name')}</div>
-          ${showAddress ? `<div class="co-sub">${esc(company.address)}<br />${esc(company.cityStateZip)}${company.phone ? ` · ${esc(company.phone)}` : ''}</div>` : ''}
+          ${showAddress ? `<div class="co-sub">${esc(company.address)}<br />${esc(company.cityStateZip)}</div>` : ''}
         </div>
       </div>
+      ${showBank ? `<div class="bank">${esc(bank?.bankName ?? '')}<br />${esc(bank?.address ?? '')}</div>` : '<div></div>'}
       <div class="num">
-        <div class="num-label">Check No.</div>
-        <div class="num-value">${check.CHECK_NUMBER}</div>
-        ${showBank ? `<div class="co-sub" style="margin-top:6px">${esc(bank?.bankName ?? '')}${accountLast4 ? ` · ****${esc(accountLast4)}` : ''}</div>` : ''}
+        <div class="num-value">No. ${check.CHECK_NUMBER}</div>
+        ${fractional ? `<div class="num-frac">${esc(fractional)}</div>` : ''}
+        <div class="date-line"><span class="lbl">Date</span><b>${fmtSlash(check.DATE)}</b></div>
       </div>
     </div>
 
-    <div class="date-line">Date <b>${esc(fmtLongDate(check.DATE))}</b></div>
-
     <div class="pay-row">
-      <div class="pay-label">Pay to the order of</div>
+      <div class="pay-label">Pay To The<br />Order Of</div>
       <div class="payee">${esc(payeeName)}</div>
-      <div class="amount-box">$ ${fmtUsd(check.AMOUNT)}</div>
+      <div class="amount-num"><span class="cur">$</span>**$${fmtUsd(check.AMOUNT)}</div>
     </div>
 
     <div class="words-row">
-      <div class="words">${esc(amountInWords(check.AMOUNT))}</div>
+      <div class="words">${esc(words)}</div>
+      <div class="words-dollars">Dollars</div>
+    </div>
+
+    <div class="payee-address">
+      ${esc(payeeName)}<br />
+      ${payeeAddress ? esc(payeeAddress).replace(/\n/g, '<br />') : ''}
     </div>
 
     <div class="bottom">
-      <div class="memo">Memo <b>${esc(check.MEMO || ' ')}</b></div>
-      <div class="sig">${esc(signature)}</div>
+      <div class="memo"><span class="lbl">Memo:</span><span class="val">${esc(check.MEMO || '')}</span></div>
+      <div class="sig">${signature ? esc(signature) : 'Signature'}</div>
     </div>
 
-    ${showBank && bank?.routing ? `<div class="micr">⑆${esc(bank.routing)}⑆ ${esc(bank.account)}⑈ ${check.CHECK_NUMBER}</div>` : ''}
+    ${showBank && bank?.routing ? `<div class="micr">\u2448${check.CHECK_NUMBER}\u2448&nbsp;&nbsp;\u2446${esc(bank.routing)}\u2446&nbsp;&nbsp;${esc(bank.account)}\u2448</div>` : '<div class="micr"></div>'}
   </div>
 
-  <div class="stub">
-    <h3>Check stub — ${esc(company.name || '')}</h3>
-    <div class="stub-grid">
-      <div><div class="stub-label">Check #</div><div class="stub-value">${check.CHECK_NUMBER}</div></div>
-      <div><div class="stub-label">Date</div><div class="stub-value">${esc(fmtLongDate(check.DATE))}</div></div>
-      <div><div class="stub-label">Amount</div><div class="stub-value">$ ${fmtUsd(check.AMOUNT)}</div></div>
-      <div><div class="stub-label">Payee</div><div class="stub-value">${esc(payeeName)}</div></div>
-      <div><div class="stub-label">Ref #</div><div class="stub-value">${esc(check.REF || '—')}</div></div>
-      <div><div class="stub-label">Memo</div><div class="stub-value">${esc(check.MEMO || '—')}</div></div>
-    </div>
-  </div>
+  <hr class="cut" />
+  ${stub}
+  <hr class="cut" />
+  ${stub}
 </div>
 </body>
 </html>`;

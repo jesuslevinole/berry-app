@@ -7,6 +7,8 @@ import { useCatalog } from '../../hooks/useCatalog';
 import { Toolbar } from '../../components/ui/Toolbar';
 import { fmtMoney, round2, todayISO } from '../../utils/format';
 import { StatusBadge } from '../../components/ui/StatusBadge';
+import { SalesOrderDetailPanel } from '../sales/SalesOrderDetailPanel';
+import { PurchaseOrderDetailPanel } from '../purchases/PurchaseOrderDetailPanel';
 import {
   COLLECTIONS,
   type Expense,
@@ -132,6 +134,16 @@ export function ReportsView({ initialReport = null }: ReportsViewProps) {
     );
     return (id?: string): string => (id ? (map.get(id) ?? legacyUsers.nameOf(id)) : '\u2014');
   }, [systemUsers, legacyUsers]);
+
+  /* Detalle abierto dentro de Reports (sin salir de la vista). */
+  const [viewingSale, setViewingSale] = useState<SalesOrder | null>(null);
+  const [viewingPurchase, setViewingPurchase] = useState<PurchaseOrder | null>(null);
+
+  /** Abre el detalle del gasto: su Purchase Order (lote) asociado. */
+  const openExpensePurchase = (purchaseOrderId?: string) => {
+    const po = purchaseOrders.find((p) => p.id === purchaseOrderId);
+    if (po) setViewingPurchase(po);
+  };
 
   /* ---- 1. Invoice Queue: ordenes con Loaded despalomeado (pendientes de cargar) ---- */
   const queueRows = useMemo(
@@ -347,7 +359,7 @@ export function ReportsView({ initialReport = null }: ReportsViewProps) {
                   <tr><td className="reports__empty" colSpan={8}>No sales orders pending. All caught up.</td></tr>
                 )}
                 {queueRows.map((so) => (
-                  <tr key={so.id}>
+                  <tr key={so.id} className="reports__row--click" onClick={() => setViewingSale(so)} title="Open sales order detail">
                     <td className="reports__td reports__td--muted">{fmtDate(so.DATE ?? '')}</td>
                     <td className="reports__td">{customers.nameOf(so.ID_CUSTOMER)}</td>
                     <td className="reports__td reports__td--mono">{so.SALES_ORDER_NUMBER || '\u2014'}</td>
@@ -384,7 +396,7 @@ export function ReportsView({ initialReport = null }: ReportsViewProps) {
                   <tr><td className="reports__empty" colSpan={Math.max(apVisible.length, 1)}>No pending bills. All caught up.</td></tr>
                 )}
                 {apRows.map((r) => (
-                  <tr key={r.e.id}>
+                  <tr key={r.e.id} className="reports__row--click" onClick={() => openExpensePurchase(r.e.ID_PURCHASEORDER)} title="Open purchase order detail">
                     {apVisible.map((f) => (
                       <td key={f.key} className={`reports__td${AP_COLUMNS[f.key].numeric ? ' reports__td--num' : ''}`}>{AP_COLUMNS[f.key].render(r)}</td>
                     ))}
@@ -417,7 +429,7 @@ export function ReportsView({ initialReport = null }: ReportsViewProps) {
                   <tr><td className="reports__empty" colSpan={Math.max(arVisible.length, 1)}>Nothing pending to collect. All caught up.</td></tr>
                 )}
                 {arRows.map((r) => (
-                  <tr key={r.so.id}>
+                  <tr key={r.so.id} className="reports__row--click" onClick={() => setViewingSale(r.so)} title="Open sales order detail">
                     {arVisible.map((f) => (
                       <td key={f.key} className={`reports__td${AR_COLUMNS[f.key].numeric ? ' reports__td--num' : ''}`}>{AR_COLUMNS[f.key].render(r)}</td>
                     ))}
@@ -459,7 +471,7 @@ export function ReportsView({ initialReport = null }: ReportsViewProps) {
                   <tr><td className="reports__empty" colSpan={10}>No expenses recorded.</td></tr>
                 )}
                 {expenseRows.map((r) => (
-                  <tr key={r.e.id}>
+                  <tr key={r.e.id} className="reports__row--click" onClick={() => openExpensePurchase(r.e.ID_PURCHASEORDER)} title="Open purchase order detail">
                     <td className="reports__td reports__td--muted">{fmtDate(r.e.DATE ?? '')}</td>
                     <td className="reports__td reports__td--mono">{r.lot}</td>
                     <td className="reports__td">{suppliers.nameOf(r.e.ID_SUPPLIERS)}</td>
@@ -480,6 +492,23 @@ export function ReportsView({ initialReport = null }: ReportsViewProps) {
             </table>
           </div>
         </>
+      )}
+
+      {viewingSale && (
+        <SalesOrderDetailPanel
+          order={viewingSale}
+          purchaseOrders={purchaseOrders}
+          buyerName={buyerName}
+          onClose={() => setViewingSale(null)}
+        />
+      )}
+
+      {viewingPurchase && (
+        <PurchaseOrderDetailPanel
+          order={viewingPurchase}
+          buyerName={buyerName}
+          onClose={() => setViewingPurchase(null)}
+        />
       )}
     </div>
   );

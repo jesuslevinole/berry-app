@@ -1,6 +1,7 @@
 import { Fragment, useState, type ReactNode } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useAppConfig } from '../../context/AppConfigContext';
+import { APP_VERSION, APP_AUTHOR } from '../../config/version';
 import { useCompany } from '../../hooks/useCompany';
 import './AppLayout.css';
 
@@ -164,9 +165,18 @@ export function AppLayout({ view, subview = null, onNavigate, children }: AppLay
   const [mobileOpen, setMobileOpen] = useState(false);
   const { can, profile, firebaseUser, bypass, logout, viewAsProfile, setViewAs } = useAuth();
 
-  const { sortNav, navLabel } = useAppConfig();
+  const { sortNav, navLabel, navParentOf } = useAppConfig();
   const { company } = useCompany();
   const visibleItems = sortNav(NAV_ITEMS.filter((item) => can(item.key, 'view')));
+
+  /* Submenus configurables: hijos agrupados bajo su padre visible; huerfanos van al nivel raiz. */
+  const visibleKeys = new Set(visibleItems.map((i) => i.key));
+  const parentOf = (key: string): string | null => {
+    const parent = navParentOf(key);
+    return parent && parent !== key && visibleKeys.has(parent as ViewKey) ? parent : null;
+  };
+  const topItems = visibleItems.filter((item) => !parentOf(item.key));
+  const childrenOf = (key: string) => visibleItems.filter((item) => parentOf(item.key) === key);
 
   const displayName = profile
     ? `${profile.firstName ?? ''} ${profile.lastName ?? ''}`.trim() || profile.email
@@ -178,8 +188,9 @@ export function AppLayout({ view, subview = null, onNavigate, children }: AppLay
     .map((part) => part[0]?.toUpperCase() ?? '')
     .join('') || 'U';
 
-  /** Submenu de Reports expandido/contraido. */
-  const [reportsOpen, setReportsOpen] = useState(true);
+  /** Grupos del menu expandidos (todos contraidos al recargar). */
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  const toggleGroup = (key: string) => setOpenGroups((prev) => ({ ...prev, [key]: !prev[key] }));
 
   const handleNavigate = (key: ViewKey, sub?: string) => {
     onNavigate(key, sub);
@@ -213,50 +224,73 @@ export function AppLayout({ view, subview = null, onNavigate, children }: AppLay
         </div>
 
         <nav className="sidebar__nav" aria-label="Main navigation">
-          {visibleItems.map((item) => (
-            <Fragment key={item.key}>
-              <div className={item.key === 'reports' ? 'sidebar__linkrow' : undefined}>
-                <button
-                  type="button"
-                  className={`sidebar__link${item.key === 'reports' ? ' sidebar__link--grow' : ''}${view === item.key && !subview ? ' sidebar__link--active' : ''}`}
-                  onClick={() => handleNavigate(item.key)}
-                  title={navLabel(item.key, item.label)}
-                >
-                  <span className="sidebar__icon">{item.icon}</span>
-                  <span className="sidebar__label">{navLabel(item.key, item.label)}</span>
-                </button>
-                {item.key === 'reports' && (
+          {topItems.map((item) => {
+            const children = childrenOf(item.key);
+            const hasSub = children.length > 0 || item.key === 'reports';
+            const isOpen = !!openGroups[item.key];
+            return (
+              <Fragment key={item.key}>
+                <div className={hasSub ? 'sidebar__linkrow' : undefined}>
                   <button
                     type="button"
-                    className={`sidebar__chevron${reportsOpen ? ' sidebar__chevron--open' : ''}`}
-                    onClick={() => setReportsOpen((open) => !open)}
-                    aria-label={reportsOpen ? 'Collapse report shortcuts' : 'Expand report shortcuts'}
-                    aria-expanded={reportsOpen}
+                    className={`sidebar__link${hasSub ? ' sidebar__link--grow' : ''}${view === item.key && !subview ? ' sidebar__link--active' : ''}`}
+                    onClick={() => handleNavigate(item.key)}
+                    title={navLabel(item.key, item.label)}
                   >
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2">
-                      <path d="M6 9l6 6 6-6" />
-                    </svg>
+                    <span className="sidebar__icon">{item.icon}</span>
+                    <span className="sidebar__label">{navLabel(item.key, item.label)}</span>
                   </button>
-                )}
-              </div>
-              {item.key === 'reports' && reportsOpen && (
-                <div className="sidebar__subnav">
-                  {REPORT_SUBITEMS.map((sub) => (
+                  {hasSub && (
                     <button
-                      key={sub.id}
                       type="button"
-                      className={`sidebar__sublink${view === 'reports' && subview === sub.id ? ' sidebar__sublink--active' : ''}`}
-                      onClick={() => handleNavigate('reports', sub.id)}
-                      title={sub.label}
+                      className={`sidebar__chevron${isOpen ? ' sidebar__chevron--open' : ''}`}
+                      onClick={() => toggleGroup(item.key)}
+                      aria-label={isOpen ? 'Collapse submenu' : 'Expand submenu'}
+                      aria-expanded={isOpen}
                     >
-                      <span className="sidebar__subdot" aria-hidden="true" />
-                      <span className="sidebar__label">{sub.label}</span>
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2">
+                        <path d="M6 9l6 6 6-6" />
+                      </svg>
                     </button>
-                  ))}
+                  )}
                 </div>
-              )}
-            </Fragment>
-          ))}
+                {hasSub && isOpen && (
+                  <div className="sidebar__subnav">
+                    {children.map((child) => (
+                      <button
+                        key={child.key}
+                        type="button"
+                        className={`sidebar__sublink${view === child.key ? ' sidebar__sublink--active' : ''}`}
+                        onClick={() => handleNavigate(child.key)}
+                        title={navLabel(child.key, child.label)}
+                      >
+                        <span className="sidebar__subdot" aria-hidden="true" />
+                        <span className="sidebar__label">{navLabel(child.key, child.label)}</span>
+                      </button>
+                    ))}
+                    {item.key === 'reports' &&
+                      REPORT_SUBITEMS.map((sub) => (
+                        <button
+                          key={sub.id}
+                          type="button"
+                          className={`sidebar__sublink${view === 'reports' && subview === sub.id ? ' sidebar__sublink--active' : ''}`}
+                          onClick={() => handleNavigate('reports', sub.id)}
+                          title={sub.label}
+                        >
+                          <span className="sidebar__subdot" aria-hidden="true" />
+                          <span className="sidebar__label">{sub.label}</span>
+                        </button>
+                      ))}
+                  </div>
+                )}
+              </Fragment>
+            );
+          })}
+
+          <div className="sidebar__version">
+            <span className="sidebar__version-number">{APP_VERSION}</span>
+            <span className="sidebar__version-author">{APP_AUTHOR}</span>
+          </div>
         </nav>
 
         <button

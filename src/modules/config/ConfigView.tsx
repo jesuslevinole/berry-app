@@ -14,7 +14,7 @@ type Section = 'nav' | 'viewas' | string;
 
 export function ConfigView() {
   const { canAdmin, viewAsProfile, setViewAs } = useAuth();
-  const { sortNav, navLabel, saveNavigation, fieldsFor, saveFormFields, checkSettings, saveCheckSettings } = useAppConfig();
+  const { sortNav, navLabel, navParentOf, saveNavigation, fieldsFor, saveFormFields, checkSettings, saveCheckSettings } = useAppConfig();
   const { data: systemUsers } = useCollection<SystemUser>(COLLECTIONS.SYSTEM_USERS);
 
   const canNav = canAdmin('navOrder');
@@ -41,10 +41,10 @@ export function ConfigView() {
 
   /* ---- Navegacion ---- */
   const navItems = useMemo(
-    () => sortNav(MODULE_DEFS.map((m) => ({ key: m.id, label: navLabel(m.id, m.label), defaultLabel: m.label }))),
-    [sortNav, navLabel],
+    () => sortNav(MODULE_DEFS.map((m) => ({ key: m.id, label: navLabel(m.id, m.label), defaultLabel: m.label, parent: navParentOf(m.id) ?? '' }))),
+    [sortNav, navLabel, navParentOf],
   );
-  const [navDraft, setNavDraft] = useState<{ key: string; label: string; defaultLabel: string }[]>([]);
+  const [navDraft, setNavDraft] = useState<{ key: string; label: string; defaultLabel: string; parent: string }[]>([]);
   useEffect(() => setNavDraft(navItems), [navItems]);
 
   const moveNav = (index: number, delta: number) => {
@@ -121,8 +121,9 @@ export function ConfigView() {
             <div className="config__card">
               <h3 className="config__card-title">Navigation menu order</h3>
               <p className="config__hint">
-                Order and names of the sidebar for every user. Each person still only sees the
-                modules their role allows.
+                Order, names and grouping of the sidebar for every user. Use "Inside of" to show a
+                module as a sub-item of another (one level). Each person still only sees the modules
+                their role allows.
               </p>
               <ul className="config__list">
                 {navDraft.map((item, index) => (
@@ -141,6 +142,25 @@ export function ConfigView() {
                         <span className="config__field-default">default: {item.defaultLabel}</span>
                       )}
                     </span>
+                    <label className="config__nav-parent">
+                      <span className="config__nav-parent-label">Inside of</span>
+                      <select
+                        className="input config__nav-parent-select"
+                        value={item.parent}
+                        disabled={navDraft.some((n) => n.parent === item.key)}
+                        title={navDraft.some((n) => n.parent === item.key) ? 'This module has sub-items; move them out first' : 'Show this module as a sub-item of another module'}
+                        onChange={(e) =>
+                          setNavDraft((prev) => prev.map((n, i) => (i === index ? { ...n, parent: e.target.value } : n)))
+                        }
+                      >
+                        <option value="">&#8212; Top level &#8212;</option>
+                        {navDraft
+                          .filter((n) => n.key !== item.key && !n.parent)
+                          .map((n) => (
+                            <option key={n.key} value={n.key}>{n.label}</option>
+                          ))}
+                      </select>
+                    </label>
                     <span className="config__row-actions">
                       <button type="button" className="config__arrow" disabled={index === 0} onClick={() => moveNav(index, -1)} aria-label="Move up">▲</button>
                       <button type="button" className="config__arrow" disabled={index === navDraft.length - 1} onClick={() => moveNav(index, 1)} aria-label="Move down">▼</button>
@@ -158,7 +178,11 @@ export function ConfigView() {
                       const trimmed = item.label.trim();
                       if (trimmed && trimmed !== item.defaultLabel) labels[item.key] = trimmed;
                     }
-                    saveNavigation(navDraft.map((i) => i.key), labels);
+                    const parents: Record<string, string> = {};
+                    for (const item of navDraft) {
+                      if (item.parent && item.parent !== item.key) parents[item.key] = item.parent;
+                    }
+                    saveNavigation(navDraft.map((i) => i.key), labels, parents);
                   }}
                 >
                   Save order
@@ -268,6 +292,16 @@ export function ConfigView() {
                     placeholder="Authorized signature"
                     onChange={(e) => setChecksDraft((d) => ({ ...d, signatureText: e.target.value }))}
                   />
+                </div>
+                <div>
+                  <span className="config__field-label-title">Bank fractional number</span>
+                  <input
+                    className="input"
+                    value={checksDraft.fractional ?? ''}
+                    placeholder="e.g. 67-76890"
+                    onChange={(e) => setChecksDraft((d) => ({ ...d, fractional: e.target.value }))}
+                  />
+                  <p className="config__field-default">Printed under the check number (top right), per US bank check standards.</p>
                 </div>
               </div>
               <div className="config__toggles">
