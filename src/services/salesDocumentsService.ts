@@ -66,7 +66,7 @@ const baseStyles = `
   * { box-sizing: border-box; margin: 0; }
   body { font-family: Arial, Helvetica, sans-serif; color: #1c1c1c; background: #eef0f3; padding: 24px; font-size: 12px; }
   .page { position: relative; max-width: 820px; margin: 0 auto; background: #ffffff; padding: 42px 50px 56px; min-height: 1060px; overflow: hidden; box-shadow: 0 8px 30px rgba(0,0,0,0.12); }
-  .watermark { position: absolute; top: 62%; left: 38%; transform: translate(-50%, -50%); opacity: 0.14; pointer-events: none; }
+  .watermark { position: absolute; top: 72%; left: 38%; transform: translate(-50%, -50%); opacity: 0.14; pointer-events: none; }
   .watermark img { width: 340px; }
   .content { position: relative; }
   .logo img { max-height: 66px; max-width: 170px; object-fit: contain; }
@@ -228,7 +228,7 @@ export async function printPickTicket(order: SalesOrder, ctx: SalesDocContext): 
         <td class="center">${esc(ctx.commodityName(l.ID_COMMODITIES))}</td>
         <td class="left">${esc(l.DESCRIPTION || '')}</td>
         <td class="center">${fmtQty(l.QUANTITY ?? 0)}</td>
-        <td class="center">${esc(temp)}</td>
+        <td class="center">${TEMP_RANGE}</td>
         <td class="center">${esc(ctx.lotOf(l.ID_PURCHASEORDER))}</td>
       </tr>`,
     )
@@ -355,12 +355,14 @@ const BOL_TERMS: Array<[string, string]> = [
   ['Truck Broker Role', "The Truck Broker (who helps arrange the shipment and is paid by the Carrier) acts as the Carrier\u2019s agent. The shipper or receiver trusted the Broker to arrange good transport. If the Carrier causes a loss through negligence or fails to meet the agreement, the Broker agrees to cover those losses."],
 ];
 
+/** Rango de temperatura estandar impreso en Pick Ticket y BOL. */
+const TEMP_RANGE = '32 - 34 F';
+
 const BOL_FOOTER =
   'The Carrier has received the listed perishable goods in good condition (unless noted otherwise) and agrees to transport them to the destination named, as arranged by the Truck Broker (if involved). In return for payment, the Carrier agrees to deliver the goods to the consignee, following the terms of this contract, which are accepted by the Carrier, Shipper, and Broker';
 
 export async function printBillOfLading(order: SalesOrder, ctx: SalesDocContext): Promise<void> {
   const lines = await fetchLines(order.id);
-  const temp = order.TEMP_LOG || '';
   const rows = lines
     .map(
       (l) => `
@@ -368,7 +370,7 @@ export async function printBillOfLading(order: SalesOrder, ctx: SalesDocContext)
         <td class="center b1">${esc(ctx.commodityName(l.ID_COMMODITIES))}</td>
         <td class="center b1">${esc(l.DESCRIPTION || '')}</td>
         <td class="center b1">${fmtQty(l.QUANTITY ?? 0)}</td>
-        <td class="center b1">${esc(temp)}</td>
+        <td class="center b1">${TEMP_RANGE}</td>
         <td class="center b1"></td>
       </tr>`,
     )
@@ -406,7 +408,7 @@ export async function printBillOfLading(order: SalesOrder, ctx: SalesDocContext)
   <div class="carrier-line">
     <span><b>Carrier:</b> &nbsp;${esc(ctx.carrierName)}</span>
     <span><b>Loaded At:</b> &nbsp;${esc(ctx.warehouseName)}</span>
-    <span><b>Maintain Temp at:</b> &nbsp;<b>${esc(temp)}</b></span>
+    <span><b>Maintain Temp at:</b> &nbsp;<b>${TEMP_RANGE}</b></span>
   </div>
   <table class="items-bol">
     <tr><th style="width:16%">Item</th><th style="width:38%">Description</th><th style="width:14%">QTY</th><th style="width:16%">Temp</th><th style="width:16%">COO</th></tr>

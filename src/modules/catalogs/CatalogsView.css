@@ -43,3 +43,11 @@
     flex-wrap: wrap;
   }
 }
+
+/* Aviso de catalogos limitados a un solo registro (ej. Payment Terms). */
+.catalogs__limit {
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-style: italic;
+  align-self: center;
+}

@@ -21,6 +21,8 @@ type MovementType = 'all' | 'in' | 'out';
 interface MovementRow {
   id: string;
   type: 'in' | 'out';
+  /** Id del documento origen (Purchase Order o Sales Order) para abrir su detalle. */
+  sourceId: string;
   date: string;
   documentNumber: string;
   commodityId: string;
@@ -97,7 +99,12 @@ async function exportMovements(rows: MovementRow[], commodityName: (id: string) 
   URL.revokeObjectURL(url);
 }
 
-export function InventoryView() {
+interface InventoryViewProps {
+  /** Abre el detalle del documento origen: compra (in) o venta (out). */
+  onOpenDocument?: (kind: 'in' | 'out', orderId: string) => void;
+}
+
+export function InventoryView({ onOpenDocument }: InventoryViewProps) {
   const { can } = useAuth();
   const { data: purchaseOrders } = useCollection<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER);
   const { data: purchaseDetails } = useCollection<PurchaseDetail>(COLLECTIONS.PURCHASE_DETAILS);
@@ -130,6 +137,7 @@ export function InventoryView() {
         return {
           id: `in-${line.id}`,
           type: 'in' as const,
+          sourceId: line.ID_PURCHASEORDER,
           date: po?.ARRIVAL_DATE ?? '',
           documentNumber: po?.LOT_NUMBER || po?.REF_NUMBER || '(no lot #)',
           commodityId: line.ID_COMMODITIES,
@@ -150,6 +158,7 @@ export function InventoryView() {
         return {
           id: `out-${line.id}`,
           type: 'out' as const,
+          sourceId: line.ID_SALESORDER,
           date: so?.DATE ?? '',
           documentNumber: so?.SALES_ORDER_NUMBER || '(no order #)',
           commodityId: line.ID_COMMODITIES,
@@ -378,7 +387,20 @@ export function InventoryView() {
                         {row.type === 'in' ? 'IN' : 'OUT'}
                       </span>
                     </td>
-                    <td className="inventory__td inventory__td--mono">{row.documentNumber}</td>
+                    <td className="inventory__td inventory__td--mono">
+                      {onOpenDocument ? (
+                        <button
+                          type="button"
+                          className="inventory__doclink"
+                          onClick={() => onOpenDocument(row.type, row.sourceId)}
+                          title={row.type === 'in' ? 'Open purchase order detail' : 'Open sales order detail'}
+                        >
+                          {row.documentNumber}
+                        </button>
+                      ) : (
+                        row.documentNumber
+                      )}
+                    </td>
                     <td className="inventory__td inventory__td--strong">{commodities.nameOf(row.commodityId)}</td>
                     <td className="inventory__td inventory__td--muted">{row.description || '—'}</td>
                     <td className="inventory__td">{row.party || '—'}</td>

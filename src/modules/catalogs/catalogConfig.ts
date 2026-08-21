@@ -15,6 +15,8 @@ export interface CatalogDef {
   nameField: string;
   nameLabel: string;
   extraFields: CatalogFieldDef[];
+  /** Limite de registros permitidos (ej. Payment Terms = 1). */
+  maxRecords?: number;
 }
 
 /**
@@ -40,7 +42,7 @@ export const CATALOG_DEFS: CatalogDef[] = [
   },
   { collection: COLLECTIONS.SUPPLIERS, label: 'Suppliers', idField: 'ID_SUPPLIERS', nameField: 'NAME_SUPPLIERS', nameLabel: 'Name', extraFields: [{ key: 'ADDRESS_SUPPLIERS', label: 'Address' }, { key: 'PHONE_SUPPLIERS', label: 'Phone' }] },
   { collection: COLLECTIONS.CARRIER, label: 'Carriers', idField: 'ID_CARRIER', nameField: 'NAME_CARRIER', nameLabel: 'Name', extraFields: [] },
-  { collection: COLLECTIONS.PAYMENTTERM, label: 'Payment Terms', idField: 'ID_PAYMENTTERM', nameField: 'NAME_PAYMENTTERM', nameLabel: 'Name (e.g. 21 Days)', extraFields: [] },
+  { collection: COLLECTIONS.PAYMENTTERM, label: 'Payment Terms', idField: 'ID_PAYMENTTERM', nameField: 'NAME_PAYMENTTERM', nameLabel: 'Name (e.g. 21 Days)', extraFields: [], maxRecords: 1 },
   {
     collection: COLLECTIONS.LOCATIONS,
     label: 'Locations',

@@ -142,11 +142,14 @@ export function CatalogsView() {
           searchValue={search}
           onSearchChange={setSearch}
         >
-          {can('catalogs', 'documents') && (
+          {can('catalogs', 'documents') && (def.maxRecords === undefined || rows.length < def.maxRecords) && (
             <DataPortButtons schemas={[schema]} fileName={def.collection.toLowerCase()} />
           )}
-          {can('catalogs', 'add') && (
+          {can('catalogs', 'add') && (def.maxRecords === undefined || rows.length < def.maxRecords) && (
             <button type="button" className="btn btn--primary" onClick={openCreate}>+ Add</button>
+          )}
+          {def.maxRecords !== undefined && rows.length >= def.maxRecords && (
+            <span className="catalogs__limit">Single-record catalog: edit the existing entry</span>
           )}
         </Toolbar>
         <DataTable

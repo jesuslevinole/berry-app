@@ -217,3 +217,20 @@
   color: var(--bad);
   font-weight: 700;
 }
+
+/* Numero de documento clickeable en Movements: abre el detalle de la orden. */
+.inventory__doclink {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--green-600);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.inventory__doclink:hover {
+  color: var(--green-700);
+}

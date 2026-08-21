@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useCollection } from '../../hooks/useCollection';
 import { useCatalog } from '../../hooks/useCatalog';
@@ -17,7 +17,12 @@ import { useCompany } from '../../hooks/useCompany';
 import { DocumentPicker } from '../../components/ui/DocumentPicker';
 import './PurchaseOrdersView.css';
 
-export function PurchaseOrdersView() {
+interface PurchaseOrdersViewProps {
+  /** Abre el detalle de esta orden al montar (navegacion desde Inventory). */
+  initialOpenId?: string | null;
+}
+
+export function PurchaseOrdersView({ initialOpenId = null }: PurchaseOrdersViewProps) {
   const { can } = useAuth();
   const { data, loading } = useCollection<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER);
   const growers = useCatalog(COLLECTIONS.GROWER, 'NAME_GROWER');
@@ -42,6 +47,17 @@ export function PurchaseOrdersView() {
   const [search, setSearch] = useState('');
   const [formOpen, setFormOpen] = useState(false);
   const [viewing, setViewing] = useState<PurchaseOrder | null>(null);
+
+  /* Abre el detalle solicitado desde otra vista (una sola vez, cuando llegan los datos). */
+  const openedInitialRef = useRef(false);
+  useEffect(() => {
+    if (openedInitialRef.current || !initialOpenId) return;
+    const target = data.find((o) => o.id === initialOpenId);
+    if (!target) return;
+    openedInitialRef.current = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- apertura unica de detalle al navegar desde Inventory
+    setViewing(target);
+  }, [initialOpenId, data]);
   const [docsFor, setDocsFor] = useState<PurchaseOrder | null>(null);
   const [editing, setEditing] = useState<PurchaseOrder | null>(null);
 

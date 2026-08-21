@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useCollection } from '../../hooks/useCollection';
 import { useCatalog, type CatalogOption } from '../../hooks/useCatalog';
@@ -19,7 +19,12 @@ import { useCompany } from '../../hooks/useCompany';
 import { DocumentPicker } from '../../components/ui/DocumentPicker';
 import './SalesDeskView.css';
 
-export function SalesDeskView() {
+interface SalesDeskViewProps {
+  /** Abre el detalle de esta orden al montar (navegacion desde Inventory). */
+  initialOpenId?: string | null;
+}
+
+export function SalesDeskView({ initialOpenId = null }: SalesDeskViewProps) {
   const { can } = useAuth();
   const { data, loading } = useCollection<SalesOrder>(COLLECTIONS.SALES_ORDER);
   const { data: purchaseOrders } = useCollection<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER);
@@ -49,6 +54,17 @@ export function SalesDeskView() {
   const [search, setSearch] = useState('');
   const [formOpen, setFormOpen] = useState(false);
   const [viewing, setViewing] = useState<SalesOrder | null>(null);
+
+  /* Abre el detalle solicitado desde otra vista (una sola vez, cuando llegan los datos). */
+  const openedInitialRef = useRef(false);
+  useEffect(() => {
+    if (openedInitialRef.current || !initialOpenId) return;
+    const target = data.find((o) => o.id === initialOpenId);
+    if (!target) return;
+    openedInitialRef.current = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- apertura unica de detalle al navegar desde Inventory
+    setViewing(target);
+  }, [initialOpenId, data]);
   const [editing, setEditing] = useState<SalesOrder | null>(null);
   const [paymentsFor, setPaymentsFor] = useState<SalesOrder | null>(null);
 
@@ -151,7 +167,8 @@ export function SalesDeskView() {
       carrierName: carriers.nameOf(so.ID_CARRIER),
       shipViaName: shipVia.nameOf(so.ID_SHIPVIA),
       shippingTermsName: termShipping.nameOf(so.ID_TERMSHIPPING),
-      paymentTermName: so.ID_PAYMENTTERM ? paymentTermsCat.nameOf(so.ID_PAYMENTTERM) : '',
+      /* Payment terms: registro unico del catalogo (respeta el legado si la orden trae uno). */
+      paymentTermName: so.ID_PAYMENTTERM ? paymentTermsCat.nameOf(so.ID_PAYMENTTERM) : (paymentTermsCat.options[0]?.name ?? ''),
       /* Warehouse del catalogo Locations; ordenes viejas caen al supplier legado. */
       warehouseName: so.ID_WAREHOUSE ? locations.nameOf(so.ID_WAREHOUSE) : suppliers.nameOf(so.ID_SUPPLIERS),
       warehouseAddress: (so.ID_WAREHOUSE ? locationDoc?.ADDRESS_LOCATIONS : supplierDoc?.ADDRESS_SUPPLIERS) ?? '',

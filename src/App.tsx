@@ -26,9 +26,20 @@ function Shell() {
   /** Sub-vista activa (pestana de Reports elegida desde el menu lateral). */
   const [subview, setSubview] = useState<string | null>(null);
 
+  /** Orden a abrir en detalle al navegar desde Inventory (venta o compra). */
+  const [focusOrderId, setFocusOrderId] = useState<string | null>(null);
+
   const handleNavigate = (key: ViewKey, sub?: string) => {
     setView(key);
     setSubview(sub ?? null);
+    setFocusOrderId(null);
+  };
+
+  /** Desde Inventory: abre el documento origen en su modulo con el detalle desplegado. */
+  const handleOpenDocument = (kind: 'in' | 'out', orderId: string) => {
+    setSubview(null);
+    setFocusOrderId(orderId);
+    setView(kind === 'in' ? 'purchases' : 'sales');
   };
 
   const allowedViews = VIEW_ORDER.filter((key) => can(key, 'view'));
@@ -68,12 +79,12 @@ function Shell() {
     <AppLayout view={view} subview={subview} onNavigate={handleNavigate}>
       <div className="app-view">
         {view === 'dashboard' && <DashboardView onNavigate={setView} />}
-        {view === 'purchases' && <PurchaseOrdersView />}
-        {view === 'sales' && <SalesDeskView />}
+        {view === 'purchases' && <PurchaseOrdersView initialOpenId={focusOrderId} />}
+        {view === 'sales' && <SalesDeskView initialOpenId={focusOrderId} />}
         {view === 'expenses' && <ExpensesView />}
         {view === 'catalogs' && <CatalogsView />}
         {view === 'lots' && <LotActivityView />}
-        {view === 'inventory' && <InventoryView />}
+        {view === 'inventory' && <InventoryView onOpenDocument={handleOpenDocument} />}
         {view === 'reports' && <ReportsView key={subview ?? 'default'} initialReport={subview} />}
         {view === 'checks' && <ChecksView />}
         {view === 'company' && <CompanyView />}
