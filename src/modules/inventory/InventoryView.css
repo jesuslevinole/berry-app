@@ -238,8 +238,8 @@
 /* Reporte de stock en formato pivote: commodities como encabezados de columna. */
 .inventory__pivot {
   border-collapse: collapse;
-  min-width: 640px;
-  width: 100%;
+  /* Ancho al contenido: la tabla queda pegada a la izquierda sin estirarse. */
+  width: auto;
 }
 .inventory__pivot-corner {
   text-align: left;
@@ -249,10 +249,10 @@
   color: var(--ink);
   background-color: var(--green-100);
   border-bottom: 1px solid var(--line-strong);
-  min-width: 130px;
 }
 .inventory__pivot-head {
-  padding: 10px 14px;
+  padding: 10px 16px;
+  min-width: 86px;
   font-size: 0.78rem;
   font-weight: 800;
   letter-spacing: 0.03em;
