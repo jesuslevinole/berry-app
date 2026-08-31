@@ -292,3 +292,10 @@
 .inventory__pivot-cell--available { color: var(--green-600); }
 .inventory__pivot-cell--zero { color: var(--muted); }
 .inventory__pivot-cell--bad { color: var(--bad); }
+
+/* Sales Desk embebido bajo el pivote de stock (se gestionan aqui las salidas). */
+.inventory__sales {
+  margin-top: 26px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line-strong);
+}

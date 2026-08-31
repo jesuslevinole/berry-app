@@ -1,12 +1,14 @@
 import { useMemo, useState } from 'react';
 import { SalesOrderDetailPanel } from '../sales/SalesOrderDetailPanel';
 import { PurchaseOrderDetailPanel } from '../purchases/PurchaseOrderDetailPanel';
+import { SalesDeskView } from '../sales/SalesDeskView';
 import { useAuth } from '../../context/AuthContext';
 import { useCollection } from '../../hooks/useCollection';
 import { useCatalog } from '../../hooks/useCatalog';
 import { Toolbar } from '../../components/ui/Toolbar';
 import { SearchableSelect } from '../../components/ui/SearchableSelect';
 import { round2, todayISO } from '../../utils/format';
+import { buildStock } from './inventoryCalc';
 import {
   COLLECTIONS,
   type PurchaseDetail,
@@ -32,7 +34,13 @@ interface MovementRow {
   description: string;
   party: string;
   quantity: number;
+  /** Solo salidas: la orden de venta ya fue cargada (salio de la bodega). */
+  loaded?: boolean;
 }
+
+/** Una orden esta "cargada" (salio de bodega) si tiene el flag LOADED o su status ya avanzo. */
+const isSalesLoaded = (so?: { LOADED?: boolean; STATUS?: string }): boolean =>
+  !!so && (so.LOADED === true || so.STATUS === 'Loaded' || so.STATUS === 'Delivered' || so.STATUS === 'Paid');
 
 const fmtDate = (iso: string): string => {
   if (!iso) return '—';
@@ -187,32 +195,27 @@ export function InventoryView() {
           description: line.DESCRIPTION ?? '',
           party: customers.nameOf(so?.ID_CUSTOMER ?? ''),
           quantity: round2(line.QUANTITY ?? 0),
+          loaded: isSalesLoaded(so),
         };
       });
   }, [salesDetails, salesOrders, cancelledSales, customers]);
 
-  /* ---- Resumen de stock por producto (Stock / Committed / Available) ---- */
+  /* ---- Resumen de stock por producto (Stock / Committed / Available) ----
+     STOCK = entradas de compra - salidas ya cargadas (Loaded);
+     COMMITTED = ventas comprometidas todavia sin cargar;
+     AVAILABLE = STOCK - COMMITTED. Ver inventoryCalc.ts. */
   const stockRows = useMemo(() => {
-    const totals = new Map<string, { stock: number; committed: number }>();
-    for (const row of inRows) {
-      const entry = totals.get(row.commodityId) ?? { stock: 0, committed: 0 };
-      entry.stock = round2(entry.stock + row.quantity);
-      totals.set(row.commodityId, entry);
-    }
-    for (const row of outRows) {
-      const entry = totals.get(row.commodityId) ?? { stock: 0, committed: 0 };
-      entry.committed = round2(entry.committed + row.quantity);
-      totals.set(row.commodityId, entry);
-    }
+    const stockMap = buildStock(
+      inRows.map((row) => ({ commodityId: row.commodityId, quantity: row.quantity })),
+      outRows.map((row) => ({
+        commodityId: row.commodityId,
+        quantity: row.quantity,
+        loaded: !!row.loaded,
+      })),
+    );
     const term = search.trim().toLowerCase();
-    return [...totals.entries()]
-      .map(([commodityId, entry]) => ({
-        commodityId,
-        name: commodities.nameOf(commodityId),
-        stock: entry.stock,
-        committed: entry.committed,
-        available: round2(entry.stock - entry.committed),
-      }))
+    return [...stockMap.values()]
+      .map((row) => ({ ...row, name: commodities.nameOf(row.commodityId) }))
       .filter((row) => !term || row.name.toLowerCase().includes(term))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [inRows, outRows, commodities, search]);
@@ -346,6 +349,12 @@ export function InventoryView() {
               </table>
             )}
           </div>
+
+          {/* Sales Desk embebido: las salidas del inventario se gestionan aqui mismo
+             (trae su propio encabezado, buscador y acciones desde su Toolbar). */}
+          <section className="inventory__sales">
+            <SalesDeskView />
+          </section>
         </>
       )}
 
