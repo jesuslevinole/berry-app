@@ -1,0 +1,36 @@
+/* Vista combinada: inventario fijo + ventas scrolleable. */
+.invsales {
+  display: flex;
+  flex-direction: column;
+  /* Alto disponible: viewport menos topbar (60px) y padding vertical de .content (22px x 2). */
+  height: calc(100vh - var(--topbar-h) - 44px);
+  min-height: 0;
+}
+
+/* Inventario: no participa del scroll de ventas. Si su contenido crece
+   (ej. pestana Movements con muchas filas), scrollea internamente. */
+.invsales__fixed {
+  flex-shrink: 0;
+  max-height: 58vh;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+/* Ventas: unica zona que scrollea con la rueda del mouse. */
+.invsales__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  margin-top: 10px;
+  padding-top: 14px;
+  padding-right: 2px;
+  border-top: 1px solid var(--line-strong);
+}
+
+@media (max-width: 900px) {
+  .invsales {
+    /* En movil .content usa padding 14px x 2. */
+    height: calc(100vh - var(--topbar-h) - 28px);
+  }
+  .invsales__fixed { max-height: 52vh; }
+}
