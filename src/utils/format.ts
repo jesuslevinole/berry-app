@@ -32,3 +32,20 @@ const createdMillis = (value: unknown): number => {
 /** Comparador: registro mas reciente primero (por createdAt). */
 export const byNewest = <T extends { createdAt?: unknown }>(a: T, b: T): number =>
   createdMillis(b.createdAt) - createdMillis(a.createdAt);
+
+/**
+ * Formato de telefono de Estados Unidos: (XXX) XXX-XXXX.
+ * Va formateando conforme se escribe y admite el prefijo pais "1".
+ * Se queda con los digitos y arma la mascara segun cuantos haya.
+ */
+export const formatUsPhone = (raw: string): string => {
+  let digits = (raw ?? '').replace(/\D/g, '');
+  // Quita el 1 de pais si viene con 11 digitos (1 + 10).
+  if (digits.length === 11 && digits.startsWith('1')) digits = digits.slice(1);
+  digits = digits.slice(0, 10);
+  const len = digits.length;
+  if (len === 0) return '';
+  if (len < 4) return `(${digits}`;
+  if (len < 7) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+};

@@ -103,14 +103,11 @@ const logoBlock = (company: CompanyInfo): string => `
     <div class="co-addr">${esc(company.address)}<br />${esc(company.cityStateZip)}<br />${company.phone ? `${esc(company.phone)} Main` : ''}</div>
   </div>`;
 
-const soldShipBlock = (ctx: SalesDocContext, order: SalesOrder): string => {
+const soldShipBlock = (ctx: SalesDocContext): string => {
   const sold = `${esc(ctx.customerName)}<br />${esc(ctx.customerAddress)}<br />${esc(ctx.customerCity)}`;
-  /* SHIP TO: direccion del Warehouse (Locations); ordenes legadas caen al ADDRESS guardado o al cliente. */
-  const ship = ctx.warehouseName
-    ? `${esc(ctx.warehouseName)}<br />${esc(ctx.warehouseAddress)}${ctx.warehousePhone ? `<br />${esc(ctx.warehousePhone)}` : ''}`
-    : order.ADDRESS
-      ? `${esc(ctx.customerName)}<br />${esc(order.ADDRESS)}<br />${esc(order.CITY_STATE_ZIP || '')}`
-      : sold;
+  /* SHIP TO = misma informacion del cliente que SOLD TO (requerido por el cliente):
+     el destino en ventas, pick tickets, BOL e invoice es el propio cliente. */
+  const ship = sold;
   return `
   <div class="sold-ship">
     <div><div class="ss-head">SOLD TO</div><div class="ss-body">${sold}</div></div>
@@ -190,7 +187,7 @@ export async function printSalesInvoice(order: SalesOrder, ctx: SalesDocContext)
 <div class="print-bar"><button onclick="window.print()">Print / Save as PDF</button></div>
 <div class="page">${watermark(ctx.company)}<div class="content">
   ${headTables(ctx, order, '<div class="inv-title">INVOICE</div>', 'INVOICE #')}
-  ${soldShipBlock(ctx, order)}
+  ${soldShipBlock(ctx)}
   <table class="bar">
     <tr><th>Reference</th><th>Shipping Terms</th><th>Ship Via</th><th>Payment Terms</th></tr>
     <tr>
@@ -246,7 +243,7 @@ export async function printPickTicket(order: SalesOrder, ctx: SalesDocContext): 
 <div class="print-bar"><button onclick="window.print()">Print / Save as PDF</button></div>
 <div class="page">${watermark(ctx.company)}<div class="content">
   ${headTables(ctx, order, '<div class="pt-title">Pick Ticket</div>', 'SALES ORDER #')}
-  ${soldShipBlock(ctx, order)}
+  ${soldShipBlock(ctx)}
   <table class="bar">
     <tr><th>Reference</th><th>Shipping Terms</th><th>Ship Via</th><th>Temp Recorder</th></tr>
     <tr>
@@ -312,7 +309,7 @@ export async function printSalesOrderDoc(order: SalesOrder, ctx: SalesDocContext
     </div>
   </div>
   <div class="pickup-band"><div class="inner"><span class="lbl">Pick Up Date</span><span class="val">${fmtSlashDate(order.DATE || '')}</span></div></div>
-  ${soldShipBlock(ctx, order)}
+  ${soldShipBlock(ctx)}
   <table class="bar">
     <tr><th>Reference</th><th>Shipping Terms</th><th>Sales Person</th><th>Ship Via</th><th>Carrier</th><th>Payment Terms</th></tr>
     <tr>
@@ -404,7 +401,7 @@ export async function printBillOfLading(order: SalesOrder, ctx: SalesDocContext)
     <div class="bol-meta"><b>Ship:</b> &nbsp;${fmtSlashDate(order.DATE || '')}<br /><b>Terms:</b> &nbsp;${esc(ctx.shippingTermsName)}</div>
     <div class="bol-num"># ${esc(order.SALES_ORDER_NUMBER || '')}</div>
   </div>
-  ${soldShipBlock(ctx, order)}
+  ${soldShipBlock(ctx)}
   <div class="carrier-line">
     <span><b>Carrier:</b> &nbsp;${esc(ctx.carrierName)}</span>
     <span><b>Loaded At:</b> &nbsp;${esc(ctx.warehouseName)}</span>

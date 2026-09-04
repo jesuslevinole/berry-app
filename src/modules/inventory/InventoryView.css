@@ -1,8 +1,44 @@
+/* Layout Stock: el bloque de inventario (arriba) queda fijo y el Sales Desk (abajo) hace scroll.
+   La vista ocupa el alto disponible restando la topbar (60px) y el padding del contenido. */
+.inventory {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - var(--topbar-h) - 44px);
+  min-height: 420px;
+}
+
+/* Parte fija: toolbar con los botones a la derecha + pivote de stock. */
+.inventory__fixed {
+  flex-shrink: 0;
+}
+.inventory__fixed--stock {
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line-strong);
+}
+
+/* El buscador y las pestanas Stock/Movements viven a la derecha del Toolbar. */
+.inventory .toolbar {
+  margin-bottom: 14px;
+}
+
+/* Sales Desk embebido: unica zona con scroll vertical. */
+.inventory__sales {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-top: 16px;
+}
+
+/* En Movements no aplica la division fija/scroll: todo fluye normal. */
+.inventory:has(.inventory__filters) {
+  height: auto;
+  min-height: 0;
+}
+
 .inventory__tabs {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
-  margin-bottom: 16px;
 }
 
 .inventory__tab {
@@ -292,10 +328,3 @@
 .inventory__pivot-cell--available { color: var(--green-600); }
 .inventory__pivot-cell--zero { color: var(--muted); }
 .inventory__pivot-cell--bad { color: var(--bad); }
-
-/* Sales Desk embebido bajo el pivote de stock (se gestionan aqui las salidas). */
-.inventory__sales {
-  margin-top: 26px;
-  padding-top: 20px;
-  border-top: 1px solid var(--line-strong);
-}

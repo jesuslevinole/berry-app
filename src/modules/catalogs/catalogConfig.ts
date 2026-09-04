@@ -5,6 +5,8 @@ export interface CatalogFieldDef {
   label: string;
   /** Campo obligatorio al guardar en el catalogo. */
   required?: boolean;
+  /** Formato especial del input (p. ej. telefono de EE. UU.). */
+  format?: 'phone';
 }
 
 export interface CatalogDef {
@@ -34,13 +36,13 @@ export const CATALOG_DEFS: CatalogDef[] = [
     extraFields: [
       { key: 'ADDRESS_CUSTOMER', label: 'Address' },
       { key: 'CITY_CUSTOMER', label: 'City' },
-      { key: 'ACCOUNTING_EMAIL_CUSTOMER', label: 'Accounting email' },
+      { key: 'ACCOUNTING_EMAIL_CUSTOMER', label: 'Sales Email' },
       { key: 'ACCOUNTING_EMAIL_TWO_CUSTOMER', label: 'Accounting email 2' },
-      { key: 'PHONE_ONE_CUSTOMER', label: 'Phone 1' },
-      { key: 'PHONE_TWO_CUSTOMER', label: 'Phone 2' },
+      { key: 'PHONE_ONE_CUSTOMER', label: 'Phone 1', format: 'phone' },
+      { key: 'PHONE_TWO_CUSTOMER', label: 'Phone 2', format: 'phone' },
     ],
   },
-  { collection: COLLECTIONS.SUPPLIERS, label: 'Suppliers', idField: 'ID_SUPPLIERS', nameField: 'NAME_SUPPLIERS', nameLabel: 'Name', extraFields: [{ key: 'ADDRESS_SUPPLIERS', label: 'Address' }, { key: 'PHONE_SUPPLIERS', label: 'Phone' }] },
+  { collection: COLLECTIONS.SUPPLIERS, label: 'Suppliers', idField: 'ID_SUPPLIERS', nameField: 'NAME_SUPPLIERS', nameLabel: 'Name', extraFields: [{ key: 'ADDRESS_SUPPLIERS', label: 'Address' }, { key: 'PHONE_SUPPLIERS', label: 'Phone', format: 'phone' }] },
   { collection: COLLECTIONS.CARRIER, label: 'Carriers', idField: 'ID_CARRIER', nameField: 'NAME_CARRIER', nameLabel: 'Name', extraFields: [] },
   { collection: COLLECTIONS.PAYMENTTERM, label: 'Payment Terms', idField: 'ID_PAYMENTTERM', nameField: 'NAME_PAYMENTTERM', nameLabel: 'Name (e.g. 21 Days)', extraFields: [], maxRecords: 1 },
   {
@@ -52,7 +54,7 @@ export const CATALOG_DEFS: CatalogDef[] = [
     extraFields: [
       { key: 'ADDRESS_LOCATIONS', label: 'Address' },
       { key: 'EMAIL_LOCATIONS', label: 'Email' },
-      { key: 'PHONE_LOCATIONS', label: 'Phone' },
+      { key: 'PHONE_LOCATIONS', label: 'Phone', format: 'phone' },
     ],
   },
   {

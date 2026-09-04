@@ -90,6 +90,26 @@
 }
 .sidebar__sublink:hover { background: rgba(255, 255, 255, 0.07); opacity: 1; }
 .sidebar__sublink--active { background: var(--green-600); color: #fff; font-weight: 600; opacity: 1; }
+
+/* Grupos del submenu de Accounting (Accounts Payables / Accounts Receivables). */
+.sidebar__subgroup {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 4px;
+}
+.sidebar__subgroup:first-child { margin-top: 0; }
+.sidebar__subgroup-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--green-100);
+  opacity: 0.6;
+  padding: 5px 10px 2px;
+}
+/* Hoja anidada un nivel mas (Payables, Expenses, Queue, Receivables). */
+.sidebar__sublink--nested { padding-left: 18px; }
 .sidebar__subdot {
   width: 5px;
   height: 5px;

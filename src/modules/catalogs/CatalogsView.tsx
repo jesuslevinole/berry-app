@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { byNewest } from '../../utils/format';
+import { byNewest, formatUsPhone } from '../../utils/format';
 import { useAuth } from '../../context/AuthContext';
 import { useCollection } from '../../hooks/useCollection';
 import { createDocument, deleteDocument, updateDocument } from '../../services/firestore';
@@ -197,8 +197,14 @@ export function CatalogsView() {
             <FormField key={field.key} label={field.label}>
               <input
                 className="input"
+                inputMode={field.format === 'phone' ? 'tel' : undefined}
                 value={draft[field.key] ?? ''}
-                onChange={(e) => setDraft((d) => ({ ...d, [field.key]: e.target.value }))}
+                onChange={(e) =>
+                  setDraft((d) => ({
+                    ...d,
+                    [field.key]: field.format === 'phone' ? formatUsPhone(e.target.value) : e.target.value,
+                  }))
+                }
               />
             </FormField>
           ))}

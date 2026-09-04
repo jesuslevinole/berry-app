@@ -4,6 +4,7 @@ import { useAppConfig } from '../../context/AppConfigContext';
 import { FORM_DEFS } from '../../config/formDefs';
 import { useCollection } from '../../hooks/useCollection';
 import { useCatalog } from '../../hooks/useCatalog';
+import { updateDocument } from '../../services/firestore';
 import { Toolbar } from '../../components/ui/Toolbar';
 import { fmtMoney, round2, todayISO } from '../../utils/format';
 import { StatusBadge } from '../../components/ui/StatusBadge';
@@ -22,10 +23,10 @@ import './ReportsView.css';
 type ReportId = 'queue' | 'ap' | 'ar' | 'expenses';
 
 const REPORTS: { id: ReportId; label: string }[] = [
-  { id: 'queue', label: 'Invoice Queue' },
-  { id: 'ap', label: 'Accounts Payable' },
-  { id: 'ar', label: 'Accounts Receivable' },
+  { id: 'ap', label: 'Payables' },
   { id: 'expenses', label: 'Expenses' },
+  { id: 'queue', label: 'Queue' },
+  { id: 'ar', label: 'Receivables' },
 ];
 
 const fmtDate = (iso: string): string => {
@@ -145,11 +146,12 @@ export function ReportsView({ initialReport = null }: ReportsViewProps) {
     if (po) setViewingPurchase(po);
   };
 
-  /* ---- 1. Invoice Queue: ordenes con Loaded despalomeado (pendientes de cargar) ---- */
+  /* ---- 1. Invoice Queue: ordenes ya cargadas (Loaded) y aun no enviadas al cliente (Sent).
+     La factura entra al queue cuando se confirma la carga y se cae al enviarla al cliente. ---- */
   const queueRows = useMemo(
     () =>
       salesOrders
-        .filter((so) => !so.LOADED && so.STATUS !== 'Cancelled')
+        .filter((so) => so.LOADED && !so.SENT && so.STATUS !== 'Cancelled')
         .filter((so) =>
           matches(
             so.SALES_ORDER_NUMBER ?? '',
@@ -165,6 +167,16 @@ export function ReportsView({ initialReport = null }: ReportsViewProps) {
   );
 
   const queueTotal = round2(queueRows.reduce((acc, so) => acc + (so.TOTAL ?? 0), 0));
+
+  /** Marca la factura como enviada al cliente: se cae del Invoice Queue. */
+  const markAsSent = async (so: SalesOrder) => {
+    if (!window.confirm(`Mark invoice ${so.SALES_ORDER_NUMBER || ''} as sent to the customer? It will leave the queue.`)) return;
+    try {
+      await updateDocument<SalesOrder>(COLLECTIONS.SALES_ORDER, so.id, { SENT: true });
+    } catch (error) {
+      alert(`Could not update: ${(error as Error).message ?? 'Unknown error'}`);
+    }
+  };
 
   /* ---- 2. Accounts Payable: gastos con saldo pendiente ---- */
   const apRows = useMemo(() => {
@@ -313,7 +325,7 @@ export function ReportsView({ initialReport = null }: ReportsViewProps) {
 
   return (
     <div className="reports">
-      <Toolbar title="Reports" subtitle="Live financial reports" searchValue={search} onSearchChange={setSearch}>
+      <Toolbar title="Accounting" subtitle="Live financial reports" searchValue={search} onSearchChange={setSearch}>
         {can('reports', 'documents') && (
           <button type="button" className="btn btn--secondary" onClick={handleExport}>
             Export Excel
@@ -352,11 +364,12 @@ export function ReportsView({ initialReport = null }: ReportsViewProps) {
                   <th className="reports__th">Status</th>
                   <th className="reports__th">Salesperson</th>
                   <th className="reports__th">Buyer</th>
+                  <th className="reports__th reports__th--num">Sent</th>
                 </tr>
               </thead>
               <tbody>
                 {queueRows.length === 0 && (
-                  <tr><td className="reports__empty" colSpan={8}>No sales orders pending. All caught up.</td></tr>
+                  <tr><td className="reports__empty" colSpan={9}>No sales orders pending. All caught up.</td></tr>
                 )}
                 {queueRows.map((so) => (
                   <tr key={so.id} className="reports__row--click" onClick={() => setViewingSale(so)} title="Open sales order detail">
@@ -368,6 +381,19 @@ export function ReportsView({ initialReport = null }: ReportsViewProps) {
                     <td className="reports__td"><StatusBadge value={so.STATUS ?? 'Draft'} /></td>
                     <td className="reports__td">{buyerName(so.ID_USERS)}</td>
                     <td className="reports__td reports__td--muted">{so.BUYER || '\u2014'}</td>
+                    <td className="reports__td reports__td--num">
+                      <button
+                        type="button"
+                        className="btn btn--secondary reports__send-btn"
+                        title="Mark invoice as sent to customer"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void markAsSent(so);
+                        }}
+                      >
+                        Mark sent
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>

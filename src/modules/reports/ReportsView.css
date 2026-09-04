@@ -182,3 +182,9 @@
 /* Filas de reporte clickeables: abren el detalle sin salir de la vista. */
 .reports__row--click { cursor: pointer; }
 .reports__row--click:hover td { background: var(--green-50); }
+
+/* Boton para marcar la factura como enviada (se cae del Invoice Queue). */
+.reports__send-btn {
+  padding: 5px 12px;
+  font-size: 0.78rem;
+}

@@ -2,7 +2,6 @@ import './StatusBadge.css';
 
 const TONE_BY_STATUS: Record<string, string> = {
   Draft: 'warn',
-  'Pending Load': 'warn',
   Loaded: 'info',
   Delivered: 'ok',
   Paid: 'ok',

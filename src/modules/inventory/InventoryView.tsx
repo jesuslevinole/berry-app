@@ -1,14 +1,13 @@
 import { useMemo, useState } from 'react';
 import { SalesOrderDetailPanel } from '../sales/SalesOrderDetailPanel';
-import { PurchaseOrderDetailPanel } from '../purchases/PurchaseOrderDetailPanel';
 import { SalesDeskView } from '../sales/SalesDeskView';
+import { PurchaseOrderDetailPanel } from '../purchases/PurchaseOrderDetailPanel';
 import { useAuth } from '../../context/AuthContext';
 import { useCollection } from '../../hooks/useCollection';
 import { useCatalog } from '../../hooks/useCatalog';
 import { Toolbar } from '../../components/ui/Toolbar';
 import { SearchableSelect } from '../../components/ui/SearchableSelect';
 import { round2, todayISO } from '../../utils/format';
-import { buildStock } from './inventoryCalc';
 import {
   COLLECTIONS,
   type PurchaseDetail,
@@ -34,13 +33,7 @@ interface MovementRow {
   description: string;
   party: string;
   quantity: number;
-  /** Solo salidas: la orden de venta ya fue cargada (salio de la bodega). */
-  loaded?: boolean;
 }
-
-/** Una orden esta "cargada" (salio de bodega) si tiene el flag LOADED o su status ya avanzo. */
-const isSalesLoaded = (so?: { LOADED?: boolean; STATUS?: string }): boolean =>
-  !!so && (so.LOADED === true || so.STATUS === 'Loaded' || so.STATUS === 'Delivered' || so.STATUS === 'Paid');
 
 const fmtDate = (iso: string): string => {
   if (!iso) return '—';
@@ -195,27 +188,32 @@ export function InventoryView() {
           description: line.DESCRIPTION ?? '',
           party: customers.nameOf(so?.ID_CUSTOMER ?? ''),
           quantity: round2(line.QUANTITY ?? 0),
-          loaded: isSalesLoaded(so),
         };
       });
   }, [salesDetails, salesOrders, cancelledSales, customers]);
 
-  /* ---- Resumen de stock por producto (Stock / Committed / Available) ----
-     STOCK = entradas de compra - salidas ya cargadas (Loaded);
-     COMMITTED = ventas comprometidas todavia sin cargar;
-     AVAILABLE = STOCK - COMMITTED. Ver inventoryCalc.ts. */
+  /* ---- Resumen de stock por producto (Stock / Committed / Available) ---- */
   const stockRows = useMemo(() => {
-    const stockMap = buildStock(
-      inRows.map((row) => ({ commodityId: row.commodityId, quantity: row.quantity })),
-      outRows.map((row) => ({
-        commodityId: row.commodityId,
-        quantity: row.quantity,
-        loaded: !!row.loaded,
-      })),
-    );
+    const totals = new Map<string, { stock: number; committed: number }>();
+    for (const row of inRows) {
+      const entry = totals.get(row.commodityId) ?? { stock: 0, committed: 0 };
+      entry.stock = round2(entry.stock + row.quantity);
+      totals.set(row.commodityId, entry);
+    }
+    for (const row of outRows) {
+      const entry = totals.get(row.commodityId) ?? { stock: 0, committed: 0 };
+      entry.committed = round2(entry.committed + row.quantity);
+      totals.set(row.commodityId, entry);
+    }
     const term = search.trim().toLowerCase();
-    return [...stockMap.values()]
-      .map((row) => ({ ...row, name: commodities.nameOf(row.commodityId) }))
+    return [...totals.entries()]
+      .map(([commodityId, entry]) => ({
+        commodityId,
+        name: commodities.nameOf(commodityId),
+        stock: entry.stock,
+        committed: entry.committed,
+        available: round2(entry.stock - entry.committed),
+      }))
       .filter((row) => !term || row.name.toLowerCase().includes(term))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [inRows, outRows, commodities, search]);
@@ -261,97 +259,100 @@ export function InventoryView() {
 
   return (
     <div className="inventory">
-      <Toolbar
-        title="Inventory"
-        subtitle="Entries from Purchase Orders, exits from Sales Desk"
-        searchValue={search}
-        onSearchChange={setSearch}
-      >
-        {tab === 'movements' && can('inventory', 'documents') && (
-          <button
-            type="button"
-            className="btn btn--secondary"
-            onClick={() => void exportMovements(movementRows, commodities.nameOf)}
-          >
-            Export Excel
-          </button>
-        )}
-      </Toolbar>
-
-      <div className="inventory__tabs">
-        <button
-          type="button"
-          className={`inventory__tab${tab === 'stock' ? ' inventory__tab--active' : ''}`}
-          onClick={() => setTab('stock')}
+      <div className="inventory__fixed">
+        <Toolbar
+          title="Inventory and Sales"
+          subtitle="Entries from Purchase Orders, exits from Sales Desk"
+          searchValue={search}
+          onSearchChange={setSearch}
         >
-          Stock
-        </button>
-        <button
-          type="button"
-          className={`inventory__tab${tab === 'movements' ? ' inventory__tab--active' : ''}`}
-          onClick={() => setTab('movements')}
-        >
-          Movements (In / Out)
-        </button>
+          <div className="inventory__tabs">
+            <button
+              type="button"
+              className={`inventory__tab${tab === 'stock' ? ' inventory__tab--active' : ''}`}
+              onClick={() => setTab('stock')}
+            >
+              Stock
+            </button>
+            <button
+              type="button"
+              className={`inventory__tab${tab === 'movements' ? ' inventory__tab--active' : ''}`}
+              onClick={() => setTab('movements')}
+            >
+              Movements (In / Out)
+            </button>
+          </div>
+          {tab === 'movements' && can('inventory', 'documents') && (
+            <button
+              type="button"
+              className="btn btn--secondary"
+              onClick={() => void exportMovements(movementRows, commodities.nameOf)}
+            >
+              Export Excel
+            </button>
+          )}
+        </Toolbar>
       </div>
 
       {tab === 'stock' && (
         <>
-          <div className="inventory__chips">
-            <span className="inventory__chip">{stockRows.length} products</span>
-            <span className="inventory__chip">Stock <b className="num">{fmtQty(stockTotals.stock)}</b></span>
-            <span className="inventory__chip">Committed <b className="num">{fmtQty(stockTotals.committed)}</b></span>
-            <span className={`inventory__chip${stockTotals.available < 0 ? ' inventory__chip--bad' : ' inventory__chip--ok'}`}>
-              Available <b className="num">{fmtQty(stockTotals.available)}</b>
-            </span>
+          <div className="inventory__fixed inventory__fixed--stock">
+            <div className="inventory__chips">
+              <span className="inventory__chip">{stockRows.length} products</span>
+              <span className="inventory__chip">Stock <b className="num">{fmtQty(stockTotals.stock)}</b></span>
+              <span className="inventory__chip">Committed <b className="num">{fmtQty(stockTotals.committed)}</b></span>
+              <span className={`inventory__chip${stockTotals.available < 0 ? ' inventory__chip--bad' : ' inventory__chip--ok'}`}>
+                Available <b className="num">{fmtQty(stockTotals.available)}</b>
+              </span>
+            </div>
+
+            <div className="inventory__card">
+              {stockRows.length === 0 ? (
+                <div className="inventory__empty">No inventory movements yet. Register purchase orders to build stock.</div>
+              ) : (
+                <table className="inventory__pivot">
+                  <thead>
+                    <tr>
+                      <th className="inventory__pivot-corner">Inventory</th>
+                      {stockRows.map((row) => (
+                        <th key={row.commodityId} className="inventory__pivot-head">{row.name}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="inventory__pivot-label">STOCK</td>
+                      {stockRows.map((row) => (
+                        <td key={row.commodityId} className="inventory__pivot-cell">{fmtQty(row.stock)}</td>
+                      ))}
+                    </tr>
+                    <tr>
+                      <td className="inventory__pivot-label">COMMITTED</td>
+                      {stockRows.map((row) => (
+                        <td key={row.commodityId} className="inventory__pivot-cell inventory__pivot-cell--muted">
+                          {row.committed !== 0 ? fmtQty(row.committed) : ''}
+                        </td>
+                      ))}
+                    </tr>
+                    <tr className="inventory__pivot-row--available">
+                      <td className="inventory__pivot-label inventory__pivot-label--available">AVAILABLE</td>
+                      {stockRows.map((row) => (
+                        <td
+                          key={row.commodityId}
+                          className={`inventory__pivot-cell inventory__pivot-cell--available${row.available < 0 ? ' inventory__pivot-cell--bad' : row.available === 0 ? ' inventory__pivot-cell--zero' : ''}`}
+                        >
+                          {fmtQty(row.available)}
+                        </td>
+                      ))}
+                    </tr>
+                  </tbody>
+                </table>
+              )}
+            </div>
           </div>
 
-          <div className="inventory__card">
-            {stockRows.length === 0 ? (
-              <div className="inventory__empty">No inventory movements yet. Register purchase orders to build stock.</div>
-            ) : (
-              <table className="inventory__pivot">
-                <thead>
-                  <tr>
-                    <th className="inventory__pivot-corner">Inventory</th>
-                    {stockRows.map((row) => (
-                      <th key={row.commodityId} className="inventory__pivot-head">{row.name}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td className="inventory__pivot-label">STOCK</td>
-                    {stockRows.map((row) => (
-                      <td key={row.commodityId} className="inventory__pivot-cell">{fmtQty(row.stock)}</td>
-                    ))}
-                  </tr>
-                  <tr>
-                    <td className="inventory__pivot-label">COMMITTED</td>
-                    {stockRows.map((row) => (
-                      <td key={row.commodityId} className="inventory__pivot-cell inventory__pivot-cell--muted">
-                        {row.committed !== 0 ? fmtQty(row.committed) : ''}
-                      </td>
-                    ))}
-                  </tr>
-                  <tr className="inventory__pivot-row--available">
-                    <td className="inventory__pivot-label inventory__pivot-label--available">AVAILABLE</td>
-                    {stockRows.map((row) => (
-                      <td
-                        key={row.commodityId}
-                        className={`inventory__pivot-cell inventory__pivot-cell--available${row.available < 0 ? ' inventory__pivot-cell--bad' : row.available === 0 ? ' inventory__pivot-cell--zero' : ''}`}
-                      >
-                        {fmtQty(row.available)}
-                      </td>
-                    ))}
-                  </tr>
-                </tbody>
-              </table>
-            )}
-          </div>
-
-          {/* Sales Desk embebido: las salidas del inventario se gestionan aqui mismo
-             (trae su propio encabezado, buscador y acciones desde su Toolbar). */}
+          {/* Sales Desk embebido: la parte de arriba (stock) queda fija y esta hace scroll.
+             Trae su propio encabezado, buscador y acciones desde su Toolbar. */}
           <section className="inventory__sales">
             <SalesDeskView />
           </section>

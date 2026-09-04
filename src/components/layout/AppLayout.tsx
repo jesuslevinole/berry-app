@@ -15,7 +15,7 @@ export const VIEW_TITLES: Record<ViewKey, string> = {
   catalogs: 'Catalogs',
   lots: 'Lot Activity',
   inventory: 'Inventory',
-  reports: 'Reports',
+  reports: 'Accounting',
   checks: 'Checkbook',
   company: 'Company Info',
   users: 'System Users',
@@ -91,7 +91,7 @@ const NAV_ITEMS: Array<{ key: ViewKey; label: string; icon: ReactNode }> = [
   },
   {
     key: 'reports',
-    label: 'Reports',
+    label: 'Accounting',
     icon: (
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8">
         <path d="M3 3v18h18" /><path d="M7 15l4-5 3 3 5-7" />
@@ -146,10 +146,33 @@ const NAV_ITEMS: Array<{ key: ViewKey; label: string; icon: ReactNode }> = [
   },
 ];
 
-/** Sub-items del menu de Reports: navegan directo a la pestana del reporte. */
-const REPORT_SUBITEMS: Array<{ id: string; label: string }> = [
-  { id: 'ar', label: 'Accounts Receivable' },
-  { id: 'ap', label: 'Accounts Payable' },
+/**
+ * Submenu de Accounting con dos grupos (imagen del cliente):
+ *   Accounts Payables    -> Payables (ap), Expenses (expenses)
+ *   Accounts Receivables -> Queue (queue), Receivables (ar)
+ * Cada hoja navega a la pestana correspondiente de la vista de Accounting.
+ */
+const ACCOUNTING_GROUPS: Array<{
+  id: string;
+  label: string;
+  items: Array<{ id: string; label: string }>;
+}> = [
+  {
+    id: 'payables',
+    label: 'Accounts Payables',
+    items: [
+      { id: 'ap', label: 'Payables' },
+      { id: 'expenses', label: 'Expenses' },
+    ],
+  },
+  {
+    id: 'receivables',
+    label: 'Accounts Receivables',
+    items: [
+      { id: 'queue', label: 'Queue' },
+      { id: 'ar', label: 'Receivables' },
+    ],
+  },
 ];
 
 interface AppLayoutProps {
@@ -269,17 +292,22 @@ export function AppLayout({ view, subview = null, onNavigate, children }: AppLay
                       </button>
                     ))}
                     {item.key === 'reports' &&
-                      REPORT_SUBITEMS.map((sub) => (
-                        <button
-                          key={sub.id}
-                          type="button"
-                          className={`sidebar__sublink${view === 'reports' && subview === sub.id ? ' sidebar__sublink--active' : ''}`}
-                          onClick={() => handleNavigate('reports', sub.id)}
-                          title={sub.label}
-                        >
-                          <span className="sidebar__subdot" aria-hidden="true" />
-                          <span className="sidebar__label">{sub.label}</span>
-                        </button>
+                      ACCOUNTING_GROUPS.map((group) => (
+                        <div key={group.id} className="sidebar__subgroup">
+                          <span className="sidebar__subgroup-title">{group.label}</span>
+                          {group.items.map((leaf) => (
+                            <button
+                              key={leaf.id}
+                              type="button"
+                              className={`sidebar__sublink sidebar__sublink--nested${view === 'reports' && subview === leaf.id ? ' sidebar__sublink--active' : ''}`}
+                              onClick={() => handleNavigate('reports', leaf.id)}
+                              title={leaf.label}
+                            >
+                              <span className="sidebar__subdot" aria-hidden="true" />
+                              <span className="sidebar__label">{leaf.label}</span>
+                            </button>
+                          ))}
+                        </div>
                       ))}
                   </div>
                 )}
