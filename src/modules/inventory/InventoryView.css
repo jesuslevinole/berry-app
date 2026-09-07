@@ -1,44 +1,8 @@
-/* Layout Stock: el bloque de inventario (arriba) queda fijo y el Sales Desk (abajo) hace scroll.
-   La vista ocupa el alto disponible restando la topbar (60px) y el padding del contenido. */
-.inventory {
-  display: flex;
-  flex-direction: column;
-  height: calc(100vh - var(--topbar-h) - 44px);
-  min-height: 420px;
-}
-
-/* Parte fija: toolbar con los botones a la derecha + pivote de stock. */
-.inventory__fixed {
-  flex-shrink: 0;
-}
-.inventory__fixed--stock {
-  padding-bottom: 14px;
-  border-bottom: 1px solid var(--line-strong);
-}
-
-/* El buscador y las pestanas Stock/Movements viven a la derecha del Toolbar. */
-.inventory .toolbar {
-  margin-bottom: 14px;
-}
-
-/* Sales Desk embebido: unica zona con scroll vertical. */
-.inventory__sales {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding-top: 16px;
-}
-
-/* En Movements no aplica la division fija/scroll: todo fluye normal. */
-.inventory:has(.inventory__filters) {
-  height: auto;
-  min-height: 0;
-}
-
 .inventory__tabs {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
+  margin-bottom: 16px;
 }
 
 .inventory__tab {
@@ -192,37 +156,11 @@
   font-size: 0.82rem;
 }
 
-.inventory__tf {
-  padding: 11px 14px;
-  font-size: 0.86rem;
-  font-weight: 700;
-  color: var(--ink);
-  border-top: 2px solid var(--line-strong);
-}
-
-.inventory__tf--num {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
 .inventory__empty {
   padding: 26px 14px;
   text-align: center;
   color: var(--muted);
   font-size: 0.88rem;
-}
-
-.inventory__available {
-  font-weight: 700;
-  color: var(--green-600);
-}
-
-.inventory__available--zero {
-  color: var(--muted);
-}
-
-.inventory__available--bad {
-  color: var(--bad);
 }
 
 .inventory__badge {
@@ -267,6 +205,7 @@
   text-decoration: underline;
   text-underline-offset: 2px;
 }
+
 .inventory__doclink:hover {
   color: var(--green-700);
 }
@@ -277,6 +216,7 @@
   /* Ancho al contenido: la tabla queda pegada a la izquierda sin estirarse. */
   width: auto;
 }
+
 .inventory__pivot-corner {
   text-align: left;
   padding: 10px 14px;
@@ -286,6 +226,7 @@
   background-color: var(--green-100);
   border-bottom: 1px solid var(--line-strong);
 }
+
 .inventory__pivot-head {
   padding: 10px 16px;
   min-width: 86px;
@@ -298,6 +239,7 @@
   border-bottom: 1px solid var(--line-strong);
   white-space: nowrap;
 }
+
 .inventory__pivot-label {
   padding: 9px 14px;
   font-size: 0.76rem;
@@ -310,6 +252,7 @@
   border-bottom: 1px solid var(--line);
   white-space: nowrap;
 }
+
 .inventory__pivot-cell {
   padding: 9px 14px;
   font-size: 0.88rem;
@@ -318,13 +261,16 @@
   color: var(--ink);
   border-bottom: 1px solid var(--line);
 }
+
 .inventory__pivot-cell--muted { color: var(--muted); }
+
 .inventory__pivot-row--available .inventory__pivot-cell,
 .inventory__pivot-label--available {
   border-top: 3px solid var(--ink);
   border-bottom: 0;
   font-weight: 700;
 }
+
 .inventory__pivot-cell--available { color: var(--green-600); }
 .inventory__pivot-cell--zero { color: var(--muted); }
 .inventory__pivot-cell--bad { color: var(--bad); }

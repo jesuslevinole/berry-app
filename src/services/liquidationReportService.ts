@@ -7,7 +7,7 @@
  */
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase/config';
-import { COLLECTIONS, type CompanyInfo, type PurchaseOrder, type SalesOrderDetail } from '../types/models';
+import { COLLECTIONS, type CompanyInfo, type Expense, type PurchaseOrder, type SalesOrderDetail } from '../types/models';
 
 const GREEN = '#6aa84f';
 
@@ -43,11 +43,42 @@ export async function printLiquidationReport(
 
   const subtotal = lines.reduce((acc, l) => acc + (l.TOTAL ?? 0), 0);
   const commission = order.COMMISION_AMOUNT ?? 0;
-  const expenses = order.TOTAL_EXPENSES ?? order.EXPENSES ?? 0;
+
+  /* Gastos del lote marcados como Deduct: se consultan en vivo (el total del PO no se mantiene). */
+  const expSnap = await getDocs(
+    query(collection(db, COLLECTIONS.EXPENSES), where('ID_PURCHASEORDER', '==', order.id)),
+  );
+  const expenseDocs: Expense[] = expSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Expense);
+  const deductible = expenseDocs.filter((e) => e.DEDUCT);
+  const expenses = deductible.length > 0
+    ? deductible.reduce((acc, e) => acc + (e.AMOUNT ?? 0), 0)
+    : (order.TOTAL_EXPENSES ?? order.EXPENSES ?? 0);
   const totalLiquidation = subtotal - commission - expenses;
   const totalPaid = order.AMOUNT_PAID ?? 0;
   const balance = totalLiquidation - totalPaid;
   const { company } = ctx;
+
+  /* Desglose de gastos deducidos (se imprime solo si hay). */
+  const expRowsHtml = deductible
+    .map(
+      (e) => `
+      <tr>
+        <td class="exp-td">${esc(e.INVOICE_NUMBER || '')}</td>
+        <td class="exp-td">${esc(e.NOTE || '')}</td>
+        <td class="exp-td exp-td--num">$${fmtUsd(e.AMOUNT ?? 0)}</td>
+      </tr>`,
+    )
+    .join('');
+  const expensesBlock = deductible.length > 0
+    ? `
+  <table class="exp-table">
+    <thead>
+      <tr><th class="exp-th" colspan="3">Expenses deducted</th></tr>
+      <tr><th class="exp-th2">Invoice #</th><th class="exp-th2">Note</th><th class="exp-th2 exp-td--num">Amount</th></tr>
+    </thead>
+    <tbody>${expRowsHtml}</tbody>
+  </table>`
+    : '';
 
   const rowsHtml = lines
     .map(
@@ -86,7 +117,12 @@ export async function printLiquidationReport(
   .td { padding: 9px 10px; font-size: 12.5px; }
   .num { text-align: right; }
   .center { text-align: center; }
-  .totals { margin-top: 46px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+  .exp-table { margin-top: 34px; margin-left: auto; border-collapse: collapse; min-width: 55%; }
+  .exp-th { background: #6aa84f; color: #ffffff; font-size: 11px; font-weight: 700; padding: 6px 10px; text-align: center; }
+  .exp-th2 { background: #d9ead3; color: #1e4a38; font-size: 10px; font-weight: 700; padding: 5px 10px; text-align: left; }
+  .exp-td { font-size: 10.5px; padding: 5px 10px; border-bottom: 1px solid #e2e6e3; }
+  .exp-td--num { text-align: right; }
+  .totals { margin-top: 26px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
   .t-row { display: flex; align-items: center; justify-content: flex-end; gap: 18px; padding: 5px 0; }
   .t-label { font-size: 12.5px; }
   .t-label--chip { background: ${GREEN}; color: #ffffff; padding: 7px 34px; }
@@ -134,6 +170,8 @@ export async function printLiquidationReport(
       </thead>
       <tbody>${rowsHtml || '<tr><td class="td center" colspan="5" style="color:#777">No sales registered for this lot</td></tr>'}</tbody>
     </table>
+
+    ${expensesBlock}
 
     <div class="totals">
       <div class="t-row">

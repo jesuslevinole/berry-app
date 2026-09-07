@@ -4,12 +4,11 @@ import { useAppConfig } from '../../context/AppConfigContext';
 import { FORM_DEFS } from '../../config/formDefs';
 import { useCollection } from '../../hooks/useCollection';
 import { useCatalog } from '../../hooks/useCatalog';
-import { updateDocument } from '../../services/firestore';
 import { Toolbar } from '../../components/ui/Toolbar';
-import { fmtMoney, round2, todayISO } from '../../utils/format';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { SalesOrderDetailPanel } from '../sales/SalesOrderDetailPanel';
 import { PurchaseOrderDetailPanel } from '../purchases/PurchaseOrderDetailPanel';
+import { fmtMoney, round2, todayISO } from '../../utils/format';
 import {
   COLLECTIONS,
   type Expense,
@@ -20,17 +19,18 @@ import {
 } from '../../types/models';
 import './ReportsView.css';
 
-type ReportId = 'queue' | 'ap' | 'ar' | 'expenses';
+type ReportId = 'queue' | 'apgrowers' | 'ap' | 'ar' | 'expenses';
 
 const REPORTS: { id: ReportId; label: string }[] = [
-  { id: 'ap', label: 'Payables' },
+  { id: 'queue', label: 'Invoice Queue' },
+  { id: 'apgrowers', label: 'A/P Growers' },
+  { id: 'ap', label: 'Accounts Payable' },
+  { id: 'ar', label: 'Accounts Receivable' },
   { id: 'expenses', label: 'Expenses' },
-  { id: 'queue', label: 'Queue' },
-  { id: 'ar', label: 'Receivables' },
 ];
 
 const fmtDate = (iso: string): string => {
-  if (!iso) return '—';
+  if (!iso) return '\u2014';
   const [y, m, d] = iso.split('-');
   return y && m && d ? `${parseInt(d, 10)}/${parseInt(m, 10)}/${y}` : iso;
 };
@@ -101,12 +101,14 @@ async function exportReport(title: string, columns: ExportColumn[]): Promise<voi
 }
 
 interface ReportsViewProps {
-  /** Pestana inicial desde el menu lateral ('ar' | 'ap') o null para la cola. */
+  /** Pestana inicial desde el menu lateral ('ar' | 'ap' | 'apgrowers') o null para la cola. */
   initialReport?: string | null;
 }
 
 const toReportId = (value?: string | null): ReportId | null =>
-  value === 'ar' || value === 'ap' || value === 'queue' || value === 'expenses' ? value : null;
+  value === 'ar' || value === 'ap' || value === 'apgrowers' || value === 'queue' || value === 'expenses'
+    ? value
+    : null;
 
 export function ReportsView({ initialReport = null }: ReportsViewProps) {
   const { can } = useAuth();
@@ -118,11 +120,12 @@ export function ReportsView({ initialReport = null }: ReportsViewProps) {
   const { data: salesOrders } = useCollection<SalesOrder>(COLLECTIONS.SALES_ORDER);
   const { data: expenses } = useCollection<Expense>(COLLECTIONS.EXPENSES);
   const { data: billPayments } = useCollection<PaymentBill>(COLLECTIONS.PAYMENT_BILL);
+  const growers = useCatalog(COLLECTIONS.GROWER, 'NAME_GROWER');
   const customers = useCatalog(COLLECTIONS.CUSTOMER, 'NAME_CUSTOMER');
-  const legacyUsers = useCatalog(COLLECTIONS.USERS, 'EMAIL_USERS');
-  const { data: systemUsers } = useCollection<SystemUser>(COLLECTIONS.SYSTEM_USERS);
   const suppliers = useCatalog(COLLECTIONS.SUPPLIERS, 'NAME_SUPPLIERS');
   const categories = useCatalog(COLLECTIONS.CATEGORY_BILL, 'NAME');
+  const legacyUsers = useCatalog(COLLECTIONS.USERS, 'EMAIL_USERS');
+  const { data: systemUsers } = useCollection<SystemUser>(COLLECTIONS.SYSTEM_USERS);
 
   const term = search.trim().toLowerCase();
   const matches = (...values: string[]): boolean =>
@@ -140,18 +143,17 @@ export function ReportsView({ initialReport = null }: ReportsViewProps) {
   const [viewingSale, setViewingSale] = useState<SalesOrder | null>(null);
   const [viewingPurchase, setViewingPurchase] = useState<PurchaseOrder | null>(null);
 
-  /** Abre el detalle del gasto: su Purchase Order (lote) asociado. */
-  const openExpensePurchase = (purchaseOrderId?: string) => {
+  /** Abre el detalle del gasto o lote: su Purchase Order asociado. */
+  const openPurchase = (purchaseOrderId?: string) => {
     const po = purchaseOrders.find((p) => p.id === purchaseOrderId);
     if (po) setViewingPurchase(po);
   };
 
-  /* ---- 1. Invoice Queue: ordenes ya cargadas (Loaded) y aun no enviadas al cliente (Sent).
-     La factura entra al queue cuando se confirma la carga y se cae al enviarla al cliente. ---- */
+  /* ---- 1. Invoice Queue: ordenes con Loaded despalomeado (pendientes de cargar) ---- */
   const queueRows = useMemo(
     () =>
       salesOrders
-        .filter((so) => so.LOADED && !so.SENT && so.STATUS !== 'Cancelled')
+        .filter((so) => !so.LOADED && so.STATUS !== 'Cancelled')
         .filter((so) =>
           matches(
             so.SALES_ORDER_NUMBER ?? '',
@@ -168,22 +170,38 @@ export function ReportsView({ initialReport = null }: ReportsViewProps) {
 
   const queueTotal = round2(queueRows.reduce((acc, so) => acc + (so.TOTAL ?? 0), 0));
 
-  /** Marca la factura como enviada al cliente: se cae del Invoice Queue. */
-  const markAsSent = async (so: SalesOrder) => {
-    if (!window.confirm(`Mark invoice ${so.SALES_ORDER_NUMBER || ''} as sent to the customer? It will leave the queue.`)) return;
-    try {
-      await updateDocument<SalesOrder>(COLLECTIONS.SALES_ORDER, so.id, { SENT: true });
-    } catch (error) {
-      alert(`Could not update: ${(error as Error).message ?? 'Unknown error'}`);
+  /* ---- 2. A/P Growers: POs con saldo pendiente al grower, agrupadas por grower ---- */
+  const apGrowerGroups = useMemo(() => {
+    const pending = purchaseOrders
+      .map((po) => ({ po, balance: round2(po.BALANCE ?? (po.TOTAL ?? 0) - (po.AMOUNT_PAID ?? 0)) }))
+      .filter((r) => r.balance > 0)
+      .filter((r) =>
+        matches(growers.nameOf(r.po.ID_GROWER), customers.nameOf(r.po.ID_CUSTOMER), r.po.LOT_NUMBER ?? '', r.po.REF_NUMBER ?? ''),
+      );
+    const byGrower = new Map<string, typeof pending>();
+    for (const row of pending) {
+      const key = row.po.ID_GROWER || '';
+      byGrower.set(key, [...(byGrower.get(key) ?? []), row]);
     }
-  };
+    return [...byGrower.entries()]
+      .map(([growerId, rows]) => ({
+        growerId,
+        growerName: growers.nameOf(growerId),
+        rows: rows.sort((a, b) => (b.po.LOT_NUMBER ?? '').localeCompare(a.po.LOT_NUMBER ?? '')),
+        total: round2(rows.reduce((acc, r) => acc + r.balance, 0)),
+      }))
+      .sort((a, b) => a.growerName.localeCompare(b.growerName));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [purchaseOrders, growers, customers, term]);
 
-  /* ---- 2. Accounts Payable: gastos con saldo pendiente ---- */
+  const apGrowersTotal = round2(apGrowerGroups.reduce((acc, g) => acc + g.total, 0));
+
+  /* ---- 3. Accounts Payable: gastos con saldo pendiente ---- */
   const apRows = useMemo(() => {
     const lotOf = new Map(purchaseOrders.map((po) => [po.id, po.LOT_NUMBER ?? '']));
     return expenses
       .filter((e) => round2(e.BALANCE ?? 0) > 0)
-      .map((e) => ({ e, lot: lotOf.get(e.ID_PURCHASEORDER) ?? '—' }))
+      .map((e) => ({ e, lot: lotOf.get(e.ID_PURCHASEORDER) ?? '\u2014' }))
       .filter((r) =>
         matches(r.lot, r.e.INVOICE_NUMBER ?? '', suppliers.nameOf(r.e.ID_SUPPLIERS), categories.nameOf(r.e.ID_CATEGORYBILL)),
       )
@@ -193,7 +211,7 @@ export function ReportsView({ initialReport = null }: ReportsViewProps) {
 
   const apTotal = round2(apRows.reduce((acc, r) => acc + (r.e.BALANCE ?? 0), 0));
 
-  /* ---- 3. Accounts Receivable: ventas con saldo pendiente ---- */
+  /* ---- 4. Accounts Receivable: ventas con saldo pendiente ---- */
   const arRows = useMemo(
     () =>
       salesOrders
@@ -208,7 +226,7 @@ export function ReportsView({ initialReport = null }: ReportsViewProps) {
   const arTotal = round2(arRows.reduce((acc, r) => acc + r.balance, 0));
   const arOverdue = arRows.filter((r) => (r.days ?? 0) < 0).length;
 
-  /* ---- 4. Expenses: todos los gastos con estado y fecha de pago ---- */
+  /* ---- 5. Expenses: todos los gastos con estado y fecha de pago ---- */
   const expenseRows = useMemo(() => {
     const lotOf = new Map(purchaseOrders.map((po) => [po.id, po.LOT_NUMBER ?? '']));
     const lastPayment = new Map<string, string>();
@@ -219,7 +237,7 @@ export function ReportsView({ initialReport = null }: ReportsViewProps) {
     return expenses
       .map((e) => ({
         e,
-        lot: lotOf.get(e.ID_PURCHASEORDER) ?? '—',
+        lot: lotOf.get(e.ID_PURCHASEORDER) ?? '\u2014',
         paid: round2(e.BALANCE ?? 0) <= 0,
         paymentDate: lastPayment.get(e.id) ?? '',
       }))
@@ -297,6 +315,17 @@ export function ReportsView({ initialReport = null }: ReportsViewProps) {
         { header: 'Salesperson', values: queueRows.map((so) => buyerName(so.ID_USERS)) },
         { header: 'Buyer', values: queueRows.map((so) => so.BUYER ?? '') },
       ]);
+    } else if (report === 'apgrowers') {
+      const flat = apGrowerGroups.flatMap((g) => g.rows.map((r) => ({ g, r })));
+      void exportReport('AP Growers', [
+        { header: 'Grower', values: flat.map(({ g }) => g.growerName) },
+        { header: 'Vendor', values: flat.map(({ r }) => customers.nameOf(r.po.ID_CUSTOMER)) },
+        { header: 'Lot #', values: flat.map(({ r }) => r.po.LOT_NUMBER ?? '') },
+        { header: '# Ref', values: flat.map(({ r }) => r.po.REF_NUMBER ?? '') },
+        { header: 'Amount paid', values: flat.map(({ r }) => r.po.AMOUNT_PAID ?? 0) },
+        { header: 'Balance', values: flat.map(({ r }) => r.balance) },
+        { header: 'Arrival date', values: flat.map(({ r }) => fmtDate(r.po.ARRIVAL_DATE ?? '')) },
+      ]);
     } else if (report === 'ap') {
       void exportReport('Accounts Payable', apVisible.map((f) => ({
         header: f.label,
@@ -325,7 +354,7 @@ export function ReportsView({ initialReport = null }: ReportsViewProps) {
 
   return (
     <div className="reports">
-      <Toolbar title="Accounting" subtitle="Live financial reports" searchValue={search} onSearchChange={setSearch}>
+      <Toolbar title="Reports" subtitle="Live financial reports" searchValue={search} onSearchChange={setSearch}>
         {can('reports', 'documents') && (
           <button type="button" className="btn btn--secondary" onClick={handleExport}>
             Export Excel
@@ -364,12 +393,11 @@ export function ReportsView({ initialReport = null }: ReportsViewProps) {
                   <th className="reports__th">Status</th>
                   <th className="reports__th">Salesperson</th>
                   <th className="reports__th">Buyer</th>
-                  <th className="reports__th reports__th--num">Sent</th>
                 </tr>
               </thead>
               <tbody>
                 {queueRows.length === 0 && (
-                  <tr><td className="reports__empty" colSpan={9}>No sales orders pending. All caught up.</td></tr>
+                  <tr><td className="reports__empty" colSpan={8}>No sales orders pending. All caught up.</td></tr>
                 )}
                 {queueRows.map((so) => (
                   <tr key={so.id} className="reports__row--click" onClick={() => setViewingSale(so)} title="Open sales order detail">
@@ -381,20 +409,55 @@ export function ReportsView({ initialReport = null }: ReportsViewProps) {
                     <td className="reports__td"><StatusBadge value={so.STATUS ?? 'Draft'} /></td>
                     <td className="reports__td">{buyerName(so.ID_USERS)}</td>
                     <td className="reports__td reports__td--muted">{so.BUYER || '\u2014'}</td>
-                    <td className="reports__td reports__td--num">
-                      <button
-                        type="button"
-                        className="btn btn--secondary reports__send-btn"
-                        title="Mark invoice as sent to customer"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          void markAsSent(so);
-                        }}
-                      >
-                        Mark sent
-                      </button>
-                    </td>
                   </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      {report === 'apgrowers' && (
+        <>
+          <div className="reports__chips">
+            <span className="reports__chip">Pending to pay <b className="num">{fmtMoney(apGrowersTotal)}</b></span>
+            <span className="reports__chip">{apGrowerGroups.reduce((acc, g) => acc + g.rows.length, 0)} purchase orders</span>
+            <span className="reports__chip">{apGrowerGroups.length} growers</span>
+          </div>
+          <div className="reports__card">
+            <table className="reports__table">
+              <thead>
+                <tr>
+                  <th className="reports__th">Vendor</th>
+                  <th className="reports__th">Lot #</th>
+                  <th className="reports__th"># Ref</th>
+                  <th className="reports__th reports__th--num">Amount paid</th>
+                  <th className="reports__th reports__th--num">Balance</th>
+                  <th className="reports__th">Arrival date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {apGrowerGroups.length === 0 && (
+                  <tr><td className="reports__empty" colSpan={6}>Nothing pending to pay growers. All caught up.</td></tr>
+                )}
+                {apGrowerGroups.map((group) => (
+                  [
+                    <tr className="reports__group-row" key={`g-${group.growerId}`}>
+                      <td className="reports__group-cell" colSpan={4}>{group.growerName}</td>
+                      <td className="reports__group-cell reports__td--num">{fmtMoney(group.total)}</td>
+                      <td className="reports__group-cell" />
+                    </tr>,
+                    ...group.rows.map((r) => (
+                      <tr key={r.po.id} className="reports__row--click" onClick={() => openPurchase(r.po.id)} title="Open purchase order detail">
+                        <td className="reports__td">{customers.nameOf(r.po.ID_CUSTOMER)}</td>
+                        <td className="reports__td reports__td--mono">{r.po.LOT_NUMBER}</td>
+                        <td className="reports__td reports__td--muted">{r.po.REF_NUMBER || '\u2014'}</td>
+                        <td className="reports__td reports__td--num">{fmtMoney(r.po.AMOUNT_PAID ?? 0)}</td>
+                        <td className="reports__td reports__td--num reports__td--bad">{fmtMoney(r.balance)}</td>
+                        <td className="reports__td reports__td--muted">{fmtDate(r.po.ARRIVAL_DATE ?? '')}</td>
+                      </tr>
+                    )),
+                  ]
                 ))}
               </tbody>
             </table>
@@ -422,7 +485,7 @@ export function ReportsView({ initialReport = null }: ReportsViewProps) {
                   <tr><td className="reports__empty" colSpan={Math.max(apVisible.length, 1)}>No pending bills. All caught up.</td></tr>
                 )}
                 {apRows.map((r) => (
-                  <tr key={r.e.id} className="reports__row--click" onClick={() => openExpensePurchase(r.e.ID_PURCHASEORDER)} title="Open purchase order detail">
+                  <tr key={r.e.id} className="reports__row--click" onClick={() => openPurchase(r.e.ID_PURCHASEORDER)} title="Open purchase order detail">
                     {apVisible.map((f) => (
                       <td key={f.key} className={`reports__td${AP_COLUMNS[f.key].numeric ? ' reports__td--num' : ''}`}>{AP_COLUMNS[f.key].render(r)}</td>
                     ))}
@@ -497,12 +560,12 @@ export function ReportsView({ initialReport = null }: ReportsViewProps) {
                   <tr><td className="reports__empty" colSpan={10}>No expenses recorded.</td></tr>
                 )}
                 {expenseRows.map((r) => (
-                  <tr key={r.e.id} className="reports__row--click" onClick={() => openExpensePurchase(r.e.ID_PURCHASEORDER)} title="Open purchase order detail">
+                  <tr key={r.e.id} className="reports__row--click" onClick={() => openPurchase(r.e.ID_PURCHASEORDER)} title="Open purchase order detail">
                     <td className="reports__td reports__td--muted">{fmtDate(r.e.DATE ?? '')}</td>
                     <td className="reports__td reports__td--mono">{r.lot}</td>
                     <td className="reports__td">{suppliers.nameOf(r.e.ID_SUPPLIERS)}</td>
                     <td className="reports__td reports__td--muted">{categories.nameOf(r.e.ID_CATEGORYBILL)}</td>
-                    <td className="reports__td">{r.e.INVOICE_NUMBER || '—'}</td>
+                    <td className="reports__td">{r.e.INVOICE_NUMBER || '\u2014'}</td>
                     <td className="reports__td reports__td--num">{fmtMoney(r.e.AMOUNT ?? 0)}</td>
                     <td className="reports__td reports__td--num">{fmtMoney(r.e.PAY_AMOUNT ?? 0)}</td>
                     <td className="reports__td reports__td--num">{fmtMoney(r.e.BALANCE ?? 0)}</td>
