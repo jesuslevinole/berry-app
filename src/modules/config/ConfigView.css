@@ -261,12 +261,8 @@
   }
 }
 
-/* Selector "Inside of" para agrupar modulos como sub-items. */
-.config__nav-parent {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
+/* Selector "Inside of" y grupos de submenu del configurador de menu. */
+.config__nav-parent { display: flex; align-items: center; gap: 8px; }
 .config__nav-parent-label {
   font-size: 0.72rem;
   text-transform: uppercase;
@@ -274,7 +270,20 @@
   color: var(--muted);
   white-space: nowrap;
 }
-.config__nav-parent-select {
-  min-width: 150px;
-  max-width: 190px;
+.config__nav-parent-select { min-width: 150px; max-width: 190px; }
+.config__nav-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  padding: 2px 8px;
+  white-space: nowrap;
 }
+.config__nav-badge--group {
+  color: var(--green-600);
+  border-color: var(--green-500);
+}
+.config__group-delete { padding: 4px 9px; }

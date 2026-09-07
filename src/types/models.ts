@@ -51,6 +51,8 @@ export interface PurchaseOrder extends BaseDoc {
   SHIPTO: ID;
   ID_USERS: ID;
   ID_CARRIER: ID;
+  LOADED?: boolean;
+  ID_WAREHOUSE?: string;
   /** Payment term del documento PO (catalogo CAT_PAYMENTTERM). */
   ID_PAYMENTTERM?: ID;
   NOTE: string;
@@ -97,10 +99,8 @@ export interface SalesOrder extends BaseDoc {
   TEMP_LOG: string;
   DESCRIPTION: string;
   ID_CARRIER: ID;
-  /** Almacen de despacho (catalogo CAT_LOCATIONS). */
-  ID_WAREHOUSE?: ID;
-  /** Palomeado desde el detalle: la orden ya fue cargada (sale del Invoice Queue). */
   LOADED?: boolean;
+  ID_WAREHOUSE?: string;
   /** Payment term de los documentos de venta (catalogo CAT_PAYMENTTERM). */
   ID_PAYMENTTERM?: ID;
   ID_TERMSHIPPING: ID;
@@ -203,15 +203,15 @@ export interface FormFieldConfig {
   key: string;
   label: string;
   required: boolean;
-  /** Solo secciones de reporte: columna oculta (no aplica a formularios). */
   hidden?: boolean;
 }
 
 export interface AppConfigDoc extends BaseDoc {
   /** Orden del menu de navegacion (ViewKeys). */
   navOrder?: string[];
-  /** Agrupacion del menu: modulo hijo -> modulo padre (submenus). */
   navParents?: Record<string, string>;
+  /** Grupos de submenu creados por el usuario en el Configurator. */
+  navGroups?: Array<{ id: string; label: string }>;
   /** Nombres personalizados de los items del menu (key -> etiqueta). */
   navLabels?: Record<string, string>;
   /** Config de campos por formulario (orden del arreglo = orden visual). */

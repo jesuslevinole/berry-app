@@ -2,6 +2,7 @@ import { Fragment, useState, type ReactNode } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useAppConfig } from '../../context/AppConfigContext';
 import { APP_VERSION, APP_AUTHOR } from '../../config/version';
+import { REPORT_SHORTCUTS } from '../../config/modules';
 import { useCompany } from '../../hooks/useCompany';
 import './AppLayout.css';
 
@@ -146,13 +147,6 @@ const NAV_ITEMS: Array<{ key: ViewKey; label: string; icon: ReactNode }> = [
   },
 ];
 
-/** Sub-items del menu de Reports: navegan directo a la pestana del reporte. */
-const REPORT_SUBITEMS: Array<{ id: string; label: string }> = [
-  { id: 'apgrowers', label: 'A/P Growers' },
-  { id: 'ar', label: 'Accounts Receivable' },
-  { id: 'ap', label: 'Accounts Payable' },
-];
-
 interface AppLayoutProps {
   view: ViewKey;
   /** Sub-vista activa (ej. pestana de Reports) o null. */
@@ -166,18 +160,37 @@ export function AppLayout({ view, subview = null, onNavigate, children }: AppLay
   const [mobileOpen, setMobileOpen] = useState(false);
   const { can, profile, firebaseUser, bypass, logout, viewAsProfile, setViewAs } = useAuth();
 
-  const { sortNav, navLabel, navParentOf } = useAppConfig();
+  const { sortNav, navLabel, navParentOf, navGroups, navOrderList } = useAppConfig();
   const { company } = useCompany();
   const visibleItems = sortNav(NAV_ITEMS.filter((item) => can(item.key, 'view')));
 
-  /* Submenus configurables: hijos agrupados bajo su padre visible; huerfanos van al nivel raiz. */
-  const visibleKeys = new Set(visibleItems.map((i) => i.key));
+  /* Submenus configurables: grupos nombrados + modulos anidados + atajos de reportes. */
+  const visibleKeys = new Set<string>(visibleItems.map((i) => i.key));
+  const groupIds = new Set(navGroups.map((g) => g.id));
   const parentOf = (key: string): string | null => {
     const parent = navParentOf(key);
-    return parent && parent !== key && visibleKeys.has(parent as ViewKey) ? parent : null;
+    if (!parent || parent === key) return null;
+    return groupIds.has(parent) || visibleKeys.has(parent) ? parent : null;
   };
-  const topItems = visibleItems.filter((item) => !parentOf(item.key));
-  const childrenOf = (key: string) => visibleItems.filter((item) => parentOf(item.key) === key);
+  const shortcuts = can('reports', 'view') ? REPORT_SHORTCUTS : [];
+  const shortcutParent = (id: string): string => parentOf(id) ?? 'reports';
+  const childModulesOf = (key: string) => visibleItems.filter((item) => parentOf(item.key) === key);
+  const childShortcutsOf = (key: string) => shortcuts.filter((sc) => shortcutParent(sc.id) === key);
+  const hasChildren = (key: string): boolean => childModulesOf(key).length > 0 || childShortcutsOf(key).length > 0;
+  /* Orden raiz: navOrder guardado (modulos + grupos), completado con lo que falte. */
+  const topModules = visibleItems.filter((item) => !parentOf(item.key));
+  const orderedTop: Array<{ kind: 'module'; key: ViewKey } | { kind: 'group'; id: string; label: string }> = [];
+  const seen = new Set<string>();
+  for (const key of navOrderList) {
+    if (seen.has(key)) continue;
+    const mod = topModules.find((m) => m.key === key);
+    const grp = navGroups.find((g) => g.id === key);
+    if (mod) { orderedTop.push({ kind: 'module', key: mod.key }); seen.add(key); }
+    else if (grp && hasChildren(grp.id)) { orderedTop.push({ kind: 'group', id: grp.id, label: grp.label }); seen.add(key); }
+  }
+  for (const m of topModules) if (!seen.has(m.key)) { orderedTop.push({ kind: 'module', key: m.key }); seen.add(m.key); }
+  for (const g of navGroups) if (!seen.has(g.id) && hasChildren(g.id)) { orderedTop.push({ kind: 'group', id: g.id, label: g.label }); seen.add(g.id); }
+  const moduleByKey = new Map(visibleItems.map((i) => [i.key, i]));
 
   const displayName = profile
     ? `${profile.firstName ?? ''} ${profile.lastName ?? ''}`.trim() || profile.email
@@ -225,27 +238,89 @@ export function AppLayout({ view, subview = null, onNavigate, children }: AppLay
         </div>
 
         <nav className="sidebar__nav" aria-label="Main navigation">
-          {topItems.map((item) => {
-            const children = childrenOf(item.key);
-            const hasSub = children.length > 0 || item.key === 'reports';
-            const isOpen = !!openGroups[item.key];
+          {orderedTop.map((entry) => {
+            const key = entry.kind === 'module' ? entry.key : entry.id;
+            const item = entry.kind === 'module' ? moduleByKey.get(entry.key) : undefined;
+            const label = entry.kind === 'module'
+              ? navLabel(entry.key, item?.label ?? entry.key)
+              : navLabel(entry.id, entry.label);
+            const childModules = childModulesOf(key);
+            const childShortcuts = childShortcutsOf(key);
+            const hasSub = childModules.length > 0 || childShortcuts.length > 0;
+            const isOpen = !!openGroups[key];
+            const subnav = hasSub && isOpen && (
+              <div className="sidebar__subnav">
+                {childModules.map((child) => (
+                  <button
+                    key={child.key}
+                    type="button"
+                    className={`sidebar__sublink${view === child.key ? ' sidebar__sublink--active' : ''}`}
+                    onClick={() => handleNavigate(child.key)}
+                    title={navLabel(child.key, child.label)}
+                  >
+                    <span className="sidebar__subdot" aria-hidden="true" />
+                    <span className="sidebar__label">{navLabel(child.key, child.label)}</span>
+                  </button>
+                ))}
+                {childShortcuts.map((sc) => (
+                  <button
+                    key={sc.id}
+                    type="button"
+                    className={`sidebar__sublink${view === 'reports' && subview === sc.sub ? ' sidebar__sublink--active' : ''}`}
+                    onClick={() => handleNavigate('reports', sc.sub)}
+                    title={navLabel(sc.id, sc.label)}
+                  >
+                    <span className="sidebar__subdot" aria-hidden="true" />
+                    <span className="sidebar__label">{navLabel(sc.id, sc.label)}</span>
+                  </button>
+                ))}
+              </div>
+            );
+
+            if (entry.kind === 'group') {
+              return (
+                <Fragment key={key}>
+                  <button
+                    type="button"
+                    className="sidebar__link sidebar__link--group"
+                    onClick={() => toggleGroup(key)}
+                    aria-expanded={isOpen}
+                    title={label}
+                  >
+                    <span className="sidebar__icon">
+                      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8">
+                        <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                      </svg>
+                    </span>
+                    <span className="sidebar__label">{label}</span>
+                    <span className={`sidebar__chevron sidebar__chevron--inline${isOpen ? ' sidebar__chevron--open' : ''}`}>
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2">
+                        <path d="M6 9l6 6 6-6" />
+                      </svg>
+                    </span>
+                  </button>
+                  {subnav}
+                </Fragment>
+              );
+            }
+
             return (
-              <Fragment key={item.key}>
+              <Fragment key={key}>
                 <div className={hasSub ? 'sidebar__linkrow' : undefined}>
                   <button
                     type="button"
-                    className={`sidebar__link${hasSub ? ' sidebar__link--grow' : ''}${view === item.key && !subview ? ' sidebar__link--active' : ''}`}
-                    onClick={() => handleNavigate(item.key)}
-                    title={navLabel(item.key, item.label)}
+                    className={`sidebar__link${hasSub ? ' sidebar__link--grow' : ''}${view === key && !subview ? ' sidebar__link--active' : ''}`}
+                    onClick={() => handleNavigate(entry.key)}
+                    title={label}
                   >
-                    <span className="sidebar__icon">{item.icon}</span>
-                    <span className="sidebar__label">{navLabel(item.key, item.label)}</span>
+                    <span className="sidebar__icon">{item?.icon}</span>
+                    <span className="sidebar__label">{label}</span>
                   </button>
                   {hasSub && (
                     <button
                       type="button"
                       className={`sidebar__chevron${isOpen ? ' sidebar__chevron--open' : ''}`}
-                      onClick={() => toggleGroup(item.key)}
+                      onClick={() => toggleGroup(key)}
                       aria-label={isOpen ? 'Collapse submenu' : 'Expand submenu'}
                       aria-expanded={isOpen}
                     >
@@ -255,35 +330,7 @@ export function AppLayout({ view, subview = null, onNavigate, children }: AppLay
                     </button>
                   )}
                 </div>
-                {hasSub && isOpen && (
-                  <div className="sidebar__subnav">
-                    {children.map((child) => (
-                      <button
-                        key={child.key}
-                        type="button"
-                        className={`sidebar__sublink${view === child.key ? ' sidebar__sublink--active' : ''}`}
-                        onClick={() => handleNavigate(child.key)}
-                        title={navLabel(child.key, child.label)}
-                      >
-                        <span className="sidebar__subdot" aria-hidden="true" />
-                        <span className="sidebar__label">{navLabel(child.key, child.label)}</span>
-                      </button>
-                    ))}
-                    {item.key === 'reports' &&
-                      REPORT_SUBITEMS.map((sub) => (
-                        <button
-                          key={sub.id}
-                          type="button"
-                          className={`sidebar__sublink${view === 'reports' && subview === sub.id ? ' sidebar__sublink--active' : ''}`}
-                          onClick={() => handleNavigate('reports', sub.id)}
-                          title={sub.label}
-                        >
-                          <span className="sidebar__subdot" aria-hidden="true" />
-                          <span className="sidebar__label">{sub.label}</span>
-                        </button>
-                      ))}
-                  </div>
-                )}
+                {subnav}
               </Fragment>
             );
           })}

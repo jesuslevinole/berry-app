@@ -1,61 +1,24 @@
-/* Vista combinada: inventario fijo + ventas scrolleable. */
+/* Vista combinada: inventario sticky arriba + Sales Desk scrolleable debajo. */
 .invsales {
-  display: flex;
-  flex-direction: column;
-  /* Alto disponible: viewport menos topbar (60px) y padding vertical de .content (22px x 2). */
-  height: calc(100vh - var(--topbar-h) - 44px);
-  min-height: 0;
+  display: block;
 }
 
-/* Inventario: no participa del scroll de ventas. Si su contenido crece
-   (ej. pestana Movements con muchas filas), scrollea internamente. */
+/* El inventario queda pegado bajo el topbar mientras la pagina scrollea.
+   Fondo solido para que las filas de ventas pasen por debajo sin verse. */
 .invsales__fixed {
-  flex-shrink: 0;
-  max-height: 58vh;
+  position: sticky;
+  top: var(--topbar-h);
+  z-index: 6;
+  background: var(--canvas);
+  padding-bottom: 10px;
+  max-height: calc(100vh - var(--topbar-h) - 8px);
   overflow-y: auto;
-  padding-right: 2px;
+  box-shadow: 0 8px 10px -8px rgba(0, 0, 0, 0.14);
 }
 
-/* Zona de ventas: el titulo, la busqueda y los botones quedan SIEMPRE visibles;
-   solo las filas de la tabla scrollean (el thead sticky de DataTable ya aplica). */
+/* Sales Desk debajo: scrollea normal con la pagina. */
 .invsales__scroll {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  margin-top: 10px;
+  margin-top: 12px;
   padding-top: 14px;
-  padding-right: 2px;
   border-top: 1px solid var(--line-strong);
-}
-
-.invsales__scroll .sales-desk {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.invsales__scroll .sales-desk .data-table {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-/* El scroll vertical vive en el propio contenedor de la tabla: asi el
-   encabezado sticky de columnas funciona y el toolbar nunca desaparece. */
-.invsales__scroll .sales-desk .data-table__scroll {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-}
-
-@media (max-width: 900px) {
-  .invsales {
-    /* En movil .content usa padding 14px x 2. */
-    height: calc(100vh - var(--topbar-h) - 28px);
-  }
-  .invsales__fixed { max-height: 52vh; }
 }

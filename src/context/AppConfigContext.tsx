@@ -13,8 +13,11 @@ interface AppConfigValue {
   /** Etiqueta del item del menu (personalizada o la default). */
   navLabel: (key: string, fallback: string) => string;
   /** Guarda orden y nombres del menu en una sola escritura. */
-  saveNavigation: (order: string[], labels: Record<string, string>, parents?: Record<string, string>) => void;
-  /** Padre del modulo en el menu (submenus configurables) o null. */
+  saveNavigation: (order: string[], labels: Record<string, string>, parents?: Record<string, string>, groups?: Array<{ id: string; label: string }>) => void;
+  /** Orden crudo del menu (puede incluir ids de grupos y atajos de reportes). */
+  navOrderList: string[];
+  /** Grupos de submenu creados en el Configurator. */
+  navGroups: Array<{ id: string; label: string }>;
   navParentOf: (key: string) => string | null;
   /**
    * Config de campos de un formulario mergeada con los defaults actuales:
@@ -77,7 +80,9 @@ export function AppConfigProvider({ children }: { children: ReactNode }) {
       },
       saveNavOrder: (order) => persist({ navOrder: order }),
       navLabel: (key, fallback) => (config?.navLabels?.[key] ?? '').trim() || fallback,
-      saveNavigation: (order, labels, parents) => persist({ navOrder: order, navLabels: labels, ...(parents !== undefined ? { navParents: parents } : {}) }),
+      saveNavigation: (order, labels, parents, groups) => persist({ navOrder: order, navLabels: labels, ...(parents !== undefined ? { navParents: parents } : {}), ...(groups !== undefined ? { navGroups: groups } : {}) }),
+      navOrderList: config?.navOrder ?? [],
+      navGroups: config?.navGroups ?? [],
       navParentOf: (key) => config?.navParents?.[key] ?? null,
       fieldsFor,
       checkSettings: config?.checks ?? {},

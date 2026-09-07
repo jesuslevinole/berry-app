@@ -4,6 +4,7 @@ import { useAppConfig } from '../../context/AppConfigContext';
 import { useCollection } from '../../hooks/useCollection';
 import { MODULE_DEFS } from '../../config/modules';
 import { FORM_DEFS, isReportDef } from '../../config/formDefs';
+import { REPORT_SHORTCUTS } from '../../config/modules';
 import { COLLECTIONS, type CheckSettings, type FormFieldConfig, type SystemUser } from '../../types/models';
 import { SearchableSelect } from '../../components/ui/SearchableSelect';
 import { Toolbar } from '../../components/ui/Toolbar';
@@ -14,7 +15,7 @@ type Section = 'nav' | 'viewas' | string;
 
 export function ConfigView() {
   const { canAdmin, viewAsProfile, setViewAs } = useAuth();
-  const { sortNav, navLabel, navParentOf, saveNavigation, fieldsFor, saveFormFields, checkSettings, saveCheckSettings } = useAppConfig();
+  const { sortNav, navLabel, navParentOf, navGroups, navOrderList, saveNavigation, fieldsFor, saveFormFields, checkSettings, saveCheckSettings } = useAppConfig();
   const { data: systemUsers } = useCollection<SystemUser>(COLLECTIONS.SYSTEM_USERS);
 
   const canNav = canAdmin('navOrder');
@@ -39,13 +40,45 @@ export function ConfigView() {
     if (sections.length > 0 && !sections.some((s) => s.id === section)) setSection(sections[0].id);
   }, [sections, section]);
 
-  /* ---- Navegacion ---- */
-  const navItems = useMemo(
-    () => sortNav(MODULE_DEFS.map((m) => ({ key: m.id, label: navLabel(m.id, m.label), defaultLabel: m.label, parent: navParentOf(m.id) ?? '' }))),
-    [sortNav, navLabel, navParentOf],
-  );
-  const [navDraft, setNavDraft] = useState<{ key: string; label: string; defaultLabel: string; parent: string }[]>([]);
+  /* ---- Navegacion: modulos + atajos de reportes + grupos de submenu ---- */
+  interface NavRow {
+    kind: 'module' | 'shortcut' | 'group';
+    key: string;
+    label: string;
+    defaultLabel: string;
+    parent: string;
+  }
+
+  const navItems = useMemo<NavRow[]>(() => {
+    const modules = sortNav(MODULE_DEFS.map((m) => ({ key: m.id, label: navLabel(m.id, m.label), defaultLabel: m.label })));
+    const rows: NavRow[] = [
+      ...modules.map((m) => ({ kind: 'module' as const, key: m.key, label: m.label, defaultLabel: m.defaultLabel, parent: navParentOf(m.key) ?? '' })),
+      ...REPORT_SHORTCUTS.map((sc) => ({ kind: 'shortcut' as const, key: sc.id, label: navLabel(sc.id, sc.label), defaultLabel: sc.label, parent: navParentOf(sc.id) ?? 'reports' })),
+      ...navGroups.map((g) => ({ kind: 'group' as const, key: g.id, label: g.label, defaultLabel: g.label, parent: '' })),
+    ];
+    /* Respeta el orden guardado; lo no listado va al final en su orden natural. */
+    const pos = new Map(navOrderList.map((k, i) => [k, i]));
+    return rows.sort((a, b) => (pos.get(a.key) ?? 900 + rows.indexOf(a)) - (pos.get(b.key) ?? 900 + rows.indexOf(b)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortNav, navLabel, navParentOf, navGroups, navOrderList]);
+
+  const [navDraft, setNavDraft] = useState<NavRow[]>([]);
   useEffect(() => setNavDraft(navItems), [navItems]);
+
+  /** Crea un grupo de submenu nuevo, listo para renombrar y asignarle modulos. */
+  const addGroup = () => {
+    const id = `group-${Date.now().toString(36)}`;
+    setNavDraft((prev) => [...prev, { kind: 'group', key: id, label: 'New submenu', defaultLabel: 'New submenu', parent: '' }]);
+  };
+
+  /** Elimina un grupo: sus hijos vuelven al nivel raiz. */
+  const removeGroup = (groupKey: string) => {
+    setNavDraft((prev) =>
+      prev
+        .filter((row) => row.key !== groupKey)
+        .map((row) => (row.parent === groupKey ? { ...row, parent: row.kind === 'shortcut' ? 'reports' : '' } : row)),
+    );
+  };
 
   const moveNav = (index: number, delta: number) => {
     const target = index + delta;
@@ -119,11 +152,11 @@ export function ConfigView() {
         <div className="config__content">
           {section === 'nav' && canNav && (
             <div className="config__card">
-              <h3 className="config__card-title">Navigation menu order</h3>
+              <h3 className="config__card-title">Navigation menu</h3>
               <p className="config__hint">
-                Order, names and grouping of the sidebar for every user. Use "Inside of" to show a
-                module as a sub-item of another (one level). Each person still only sees the modules
-                their role allows.
+                Order, names and grouping of the sidebar for every user. Create submenu groups with
+                "+ Add submenu", name them, and use "Inside of" to place any module or report shortcut
+                inside a group (or inside another module). Each person still only sees what their role allows.
               </p>
               <ul className="config__list">
                 {navDraft.map((item, index) => (
@@ -142,50 +175,66 @@ export function ConfigView() {
                         <span className="config__field-default">default: {item.defaultLabel}</span>
                       )}
                     </span>
-                    <label className="config__nav-parent">
-                      <span className="config__nav-parent-label">Inside of</span>
-                      <select
-                        className="input config__nav-parent-select"
-                        value={item.parent}
-                        disabled={navDraft.some((n) => n.parent === item.key)}
-                        title={navDraft.some((n) => n.parent === item.key) ? 'This module has sub-items; move them out first' : 'Show this module as a sub-item of another module'}
-                        onChange={(e) =>
-                          setNavDraft((prev) => prev.map((n, i) => (i === index ? { ...n, parent: e.target.value } : n)))
-                        }
-                      >
-                        <option value="">&#8212; Top level &#8212;</option>
-                        {navDraft
-                          .filter((n) => n.key !== item.key && !n.parent)
-                          .map((n) => (
-                            <option key={n.key} value={n.key}>{n.label}</option>
-                          ))}
-                      </select>
-                    </label>
+                    {item.kind === 'group' && <span className="config__nav-badge config__nav-badge--group">Submenu</span>}
+                    {item.kind === 'shortcut' && <span className="config__nav-badge">Report</span>}
+                    {item.kind !== 'group' && (
+                      <label className="config__nav-parent">
+                        <span className="config__nav-parent-label">Inside of</span>
+                        <select
+                          className="input config__nav-parent-select"
+                          value={item.parent}
+                          disabled={navDraft.some((n) => n.parent === item.key)}
+                          title={navDraft.some((n) => n.parent === item.key) ? 'This module has sub-items; move them out first' : 'Show as a sub-item of a submenu group or another module'}
+                          onChange={(e) =>
+                            setNavDraft((prev) => prev.map((n, i) => (i === index ? { ...n, parent: e.target.value } : n)))
+                          }
+                        >
+                          <option value="">&#8212; Top level &#8212;</option>
+                          {navDraft
+                            .filter((n) => n.kind === 'group')
+                            .map((n) => (
+                              <option key={n.key} value={n.key}>{n.label} (submenu)</option>
+                            ))}
+                          {navDraft
+                            .filter((n) => n.kind === 'module' && n.key !== item.key && !n.parent)
+                            .map((n) => (
+                              <option key={n.key} value={n.key}>{n.label}</option>
+                            ))}
+                        </select>
+                      </label>
+                    )}
                     <span className="config__row-actions">
                       <button type="button" className="config__arrow" disabled={index === 0} onClick={() => moveNav(index, -1)} aria-label="Move up">▲</button>
                       <button type="button" className="config__arrow" disabled={index === navDraft.length - 1} onClick={() => moveNav(index, 1)} aria-label="Move down">▼</button>
+                      {item.kind === 'group' && (
+                        <button type="button" className="btn btn--danger config__group-delete" onClick={() => removeGroup(item.key)} title="Delete submenu (its items go back to top level)">✕</button>
+                      )}
                     </span>
                   </li>
                 ))}
               </ul>
               <div className="config__actions">
+                <button type="button" className="btn btn--secondary" onClick={addGroup}>+ Add submenu</button>
                 <button
                   type="button"
                   className="btn btn--primary"
                   onClick={() => {
                     const labels: Record<string, string> = {};
+                    const parents: Record<string, string> = {};
+                    const groups: Array<{ id: string; label: string }> = [];
                     for (const item of navDraft) {
                       const trimmed = item.label.trim();
+                      if (item.kind === 'group') {
+                        groups.push({ id: item.key, label: trimmed || 'Submenu' });
+                        continue;
+                      }
                       if (trimmed && trimmed !== item.defaultLabel) labels[item.key] = trimmed;
-                    }
-                    const parents: Record<string, string> = {};
-                    for (const item of navDraft) {
                       if (item.parent && item.parent !== item.key) parents[item.key] = item.parent;
                     }
-                    saveNavigation(navDraft.map((i) => i.key), labels, parents);
+                    saveNavigation(navDraft.map((i) => i.key), labels, parents, groups);
                   }}
                 >
-                  Save order
+                  Save menu
                 </button>
               </div>
             </div>
@@ -195,9 +244,8 @@ export function ConfigView() {
             <div className="config__card">
               <h3 className="config__card-title">{formDef.label}</h3>
               <p className="config__hint">
-                {isReportDef(formDef.id)
-                  ? 'Choose which columns belong to this report and their order. Unchecked columns are hidden from the table and the Excel export.'
-                  : 'The order here is the order of the fields in the form — both when creating and when opening a row to edit. Renamed labels appear everywhere the field is shown.'}
+                The order here is the order of the fields in the form — both when creating and when
+                opening a row to edit. Renamed labels appear everywhere the field is shown.
               </p>
               <ul className="config__list">
                 {fieldsDraft.map((field, index) => (
