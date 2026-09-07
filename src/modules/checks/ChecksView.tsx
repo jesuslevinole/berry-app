@@ -8,7 +8,7 @@ import { createDocument, deleteDocument, updateDocument } from '../../services/f
 import { printCheck } from '../../services/checkPrintService';
 import { COLLECTIONS, type Check } from '../../types/models';
 import { Toolbar } from '../../components/ui/Toolbar';
-import { Modal } from '../../components/ui/Modal';
+import { confirmClose, Modal } from '../../components/ui/Modal';
 import { FormField, FormGrid } from '../../components/ui/FormField';
 import { CatalogSelect } from '../../components/ui/CatalogSelect';
 import { SearchableSelect } from '../../components/ui/SearchableSelect';
@@ -26,7 +26,6 @@ export function ChecksView() {
   const { checkSettings } = useAppConfig();
   const { data: checks } = useCollection<Check>(COLLECTIONS.CHECKS);
   const customers = useCatalog(COLLECTIONS.CUSTOMER, 'NAME_CUSTOMER');
-  const { data: customerDocs } = useCollection<{ id: string; ADDRESS_CUSTOMER?: string; CITY_CUSTOMER?: string }>(COLLECTIONS.CUSTOMER);
   const { company } = useCompany();
 
   const [search, setSearch] = useState('');
@@ -147,9 +146,7 @@ export function ChecksView() {
 
   const handlePrint = (check: Check) => {
     const bank = (company.banks ?? []).find((b) => b.id === check.ID_BANK) ?? null;
-    const payeeDoc = customerDocs.find((c) => c.id === check.ID_CUSTOMER);
-    const payeeAddress = [payeeDoc?.ADDRESS_CUSTOMER, payeeDoc?.CITY_CUSTOMER].filter(Boolean).join('\n');
-    printCheck(check, customers.nameOf(check.ID_CUSTOMER), company, bank, checkSettings, payeeAddress);
+    printCheck(check, customers.nameOf(check.ID_CUSTOMER), company, bank, checkSettings);
   };
 
   /** Borrado directo desde la tabla (en segundo plano). */
@@ -253,7 +250,7 @@ export function ChecksView() {
             {editing && can('checks', 'delete') && (
               <button type="button" className="btn btn--danger" onClick={handleDelete}>Delete</button>
             )}
-            <button type="button" className="btn btn--secondary" onClick={() => setFormOpen(false)}>Cancel</button>
+            <button type="button" className="btn btn--secondary" onClick={() => confirmClose(() => setFormOpen(false))}>Cancel</button>
             {(editing ? can('checks', 'edit') : can('checks', 'add')) && (
               <button type="button" className="btn btn--primary" onClick={handleSave}>Save</button>
             )}

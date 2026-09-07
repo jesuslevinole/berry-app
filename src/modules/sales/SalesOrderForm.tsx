@@ -5,9 +5,9 @@ import { where } from 'firebase/firestore';
 import { useCatalog, type CatalogOption } from '../../hooks/useCatalog';
 import { useCollection } from '../../hooks/useCollection';
 import { createDocument, deleteDocument, listDocuments, replaceChildren, updateDocument } from '../../services/firestore';
-import { COLLECTIONS, SALES_STATUSES, type SalesOrder, type SalesOrderDetail, type SalesStatus, type SystemUser } from '../../types/models';
+import { COLLECTIONS, SALES_STATUSES, type PurchaseDetail, type SalesOrder, type SalesOrderDetail, type SalesStatus, type SystemUser } from '../../types/models';
 import { fmtMoney, round2, todayISO } from '../../utils/format';
-import { Modal } from '../../components/ui/Modal';
+import { confirmClose, Modal } from '../../components/ui/Modal';
 import { ConfigurableGrid, FormField } from '../../components/ui/FormField';
 import { CatalogSelect } from '../../components/ui/CatalogSelect';
 import { SearchableSelect } from '../../components/ui/SearchableSelect';
@@ -57,6 +57,8 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
   const carriers = useCatalog(COLLECTIONS.CARRIER, 'NAME_CARRIER');
   const locations = useCatalog(COLLECTIONS.LOCATIONS, 'NAME_LOCATIONS');
   const { data: locationDocs } = useCollection<{ id: string; ADDRESS_LOCATIONS?: string }>(COLLECTIONS.LOCATIONS);
+  const { data: allPurchaseDetails } = useCollection<PurchaseDetail>(COLLECTIONS.PURCHASE_DETAILS);
+  const { data: allSalesDetails } = useCollection<SalesOrderDetail>(COLLECTIONS.SALES_ORDER_DETAIL);
   const shipVia = useCatalog(COLLECTIONS.SHIPVIA, 'NAME_SHIPVIA');
   const termShipping = useCatalog(COLLECTIONS.TERMSHIPPING, 'NAME_TERMSHIPPING');
   const commodities = useCatalog(COLLECTIONS.COMMODITIES, 'NAME_COMMODITIES');
@@ -93,6 +95,31 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
 
   /** Direccion del warehouse seleccionado (solo lectura, viene de Locations). */
   const warehouseAddress = locationDocs.find((l) => l.id === warehouseId)?.ADDRESS_LOCATIONS ?? '';
+
+  /**
+   * Disponible por lote+producto para el tope de cantidad:
+   * comprado en la PO - vendido en OTRAS ordenes (no canceladas) - otras lineas de este borrador.
+   */
+  const availableFor = (line: LineDraft, index: number): number | null => {
+    if (!line.ID_PURCHASEORDER || !line.ID_COMMODITIES) return null;
+    const purchased = allPurchaseDetails
+      .filter((d) => d.ID_PURCHASEORDER === line.ID_PURCHASEORDER && d.ID_COMMODITIES === line.ID_COMMODITIES)
+      .reduce((acc, d) => acc + (d.QUANTITY ?? 0), 0);
+    const cancelled = new Set(allSalesOrders.filter((so) => so.STATUS === 'Cancelled').map((so) => so.id));
+    const soldElsewhere = allSalesDetails
+      .filter(
+        (d) =>
+          d.ID_PURCHASEORDER === line.ID_PURCHASEORDER &&
+          d.ID_COMMODITIES === line.ID_COMMODITIES &&
+          d.ID_SALESORDER !== (initial?.id ?? '') &&
+          !cancelled.has(d.ID_SALESORDER),
+      )
+      .reduce((acc, d) => acc + (d.QUANTITY ?? 0), 0);
+    const inThisDraft = lines
+      .filter((l, i) => i !== index && l.ID_PURCHASEORDER === line.ID_PURCHASEORDER && l.ID_COMMODITIES === line.ID_COMMODITIES)
+      .reduce((acc, l) => acc + (l.QUANTITY ?? 0), 0);
+    return Math.max(round2(purchased - soldElsewhere - inThisDraft), 0);
+  };
 
   /** OD day: diferencia en dias entre Date y Due date (calculado en silencio, ya no visible). */
   const odDay = useMemo(() => {
@@ -155,6 +182,15 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
       alert('Every line item needs a Description.');
       return;
     }
+    /* Tope duro tambien al guardar: ninguna linea puede exceder lo disponible en su lote. */
+    for (let i = 0; i < lines.length; i += 1) {
+      const cap = availableFor(lines[i], i);
+      if (cap !== null && (lines[i].QUANTITY ?? 0) > cap) {
+        alert(`Quantity exceeds what is available on the purchase order for this product (available: ${cap}).`);
+        return;
+      }
+    }
+
     const missing = missingRequired('sales', { '# Sales order': salesOrderNumber, 'Status': status, 'Date': date, 'Due date': dueDate, 'Customer': customerId, 'Buyer': buyer, 'Salesperson': userId, 'Ref': ref, 'Ref pickup': refPickup, 'Carrier': carrierId, 'Warehouse': warehouseId, 'Warehouse address': warehouseAddress, 'Ship via': shipViaId, 'Shipping terms': termShippingId, 'Temp log': tempLog, 'Special instructions': description });
     if (missing.length > 0) {
       alert(`Required fields missing: ${missing.join(', ')}`);
@@ -181,7 +217,6 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
           }
           return String(n);
         })(),
-        /* Campos retirados del formulario: se preserva el valor legado del registro. */
         PICK_UP_NUMBER: initial?.PICK_UP_NUMBER ?? '',
         ADDRESS: initial?.ADDRESS ?? '',
         CITY_STATE_ZIP: initial?.CITY_STATE_ZIP ?? '',
@@ -247,7 +282,7 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
           {initial && can('sales', 'delete') && (
             <button type="button" className="btn btn--danger" onClick={handleDelete}>Delete</button>
           )}
-          <button type="button" className="btn btn--secondary" onClick={onClose}>Cancel</button>
+          <button type="button" className="btn btn--secondary" onClick={() => confirmClose(onClose)}>Cancel</button>
           {(initial ? can('sales', 'edit') : can('sales', 'add')) && (
             <button type="button" className="btn btn--primary" onClick={handleSave}>Save</button>
           )}
@@ -388,6 +423,7 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
           purchaseOrders={purchaseOrderOptions}
           showDescription
           descriptionOf={descriptionOf}
+          maxQtyFor={availableFor}
         />
 
         <div className="so-form__summary">

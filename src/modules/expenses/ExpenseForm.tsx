@@ -5,7 +5,7 @@ import { useCatalog, type CatalogOption } from '../../hooks/useCatalog';
 import { createDocument, deleteDocument, updateDocument } from '../../services/firestore';
 import { COLLECTIONS, type Expense } from '../../types/models';
 import { round2, todayISO, toNumber } from '../../utils/format';
-import { Modal } from '../../components/ui/Modal';
+import { confirmClose, Modal } from '../../components/ui/Modal';
 import { ConfigurableGrid, FormField } from '../../components/ui/FormField';
 import { CatalogSelect } from '../../components/ui/CatalogSelect';
 import { SearchableSelect } from '../../components/ui/SearchableSelect';
@@ -102,7 +102,7 @@ export function ExpenseForm({ open, initial, purchaseOrderOptions, onClose }: Ex
           {initial && can('expenses', 'delete') && (
             <button type="button" className="btn btn--danger" onClick={handleDelete}>Delete</button>
           )}
-          <button type="button" className="btn btn--secondary" onClick={onClose}>Cancel</button>
+          <button type="button" className="btn btn--secondary" onClick={() => confirmClose(onClose)}>Cancel</button>
           {(initial ? can('expenses', 'edit') : can('expenses', 'add')) && (
             <button
               type="button"

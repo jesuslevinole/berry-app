@@ -30,6 +30,8 @@ interface LineItemsEditorProps {
   showDescription?: boolean;
   /** Descripcion del commodity en el catalogo: se autollena al seleccionarlo. */
   descriptionOf?: (commodityId: string) => string;
+  /** Tope de cantidad por linea (modo ventas): disponible del lote. null = sin tope. */
+  maxQtyFor?: (line: LineDraft, index: number) => number | null;
 }
 
 export function LineItemsEditor({
@@ -39,6 +41,7 @@ export function LineItemsEditor({
   purchaseOrders,
   showDescription = false,
   descriptionOf,
+  maxQtyFor,
 }: LineItemsEditorProps) {
   const patch = (index: number, changes: Partial<LineDraft>) => {
     onChange(lines.map((line, i) => (i === index ? { ...line, ...changes } : line)));
@@ -93,7 +96,17 @@ export function LineItemsEditor({
             step="1"
             placeholder="Qty"
             value={line.QUANTITY || ''}
-            onChange={(e) => patch(index, { QUANTITY: toNumber(e.target.value) })}
+            max={maxQtyFor ? (maxQtyFor(line, index) ?? undefined) : undefined}
+            title={(() => {
+              const cap = maxQtyFor ? maxQtyFor(line, index) : null;
+              return cap !== null && cap !== undefined ? `Available on this lot: ${cap}` : undefined;
+            })()}
+            onChange={(e) => {
+              /* Tope duro: nunca mas cantidad que la disponible en la Purchase Order. */
+              const cap = maxQtyFor ? maxQtyFor(line, index) : null;
+              const qty = toNumber(e.target.value);
+              patch(index, { QUANTITY: cap !== null && cap !== undefined && qty > cap ? cap : qty });
+            }}
           />
           <input
             className="input line-editor__price"

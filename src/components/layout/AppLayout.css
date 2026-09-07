@@ -63,103 +63,6 @@
 .sidebar__link--active { background: var(--green-600); color: #fff; font-weight: 600; }
 .sidebar__icon { flex-shrink: 0; line-height: 0; }
 
-.sidebar__subnav {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin: 2px 0 4px;
-  padding-left: 26px;
-}
-.sidebar__sublink {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 7px 10px;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--green-100);
-  opacity: 0.85;
-  font-family: var(--f-body);
-  font-size: 12.8px;
-  font-weight: 500;
-  cursor: pointer;
-  text-align: left;
-  white-space: nowrap;
-  transition: background 0.15s ease;
-}
-.sidebar__sublink:hover { background: rgba(255, 255, 255, 0.07); opacity: 1; }
-.sidebar__sublink--active { background: var(--green-600); color: #fff; font-weight: 600; opacity: 1; }
-
-/* Grupos del submenu de Accounting (Accounts Payables / Accounts Receivables). */
-.sidebar__subgroup {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-top: 4px;
-}
-.sidebar__subgroup:first-child { margin-top: 0; }
-.sidebar__subgroup-title {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--green-100);
-  opacity: 0.6;
-  padding: 5px 10px 2px;
-}
-/* Hoja anidada un nivel mas (Payables, Expenses, Queue, Receivables). */
-.sidebar__sublink--nested { padding-left: 18px; }
-.sidebar__subdot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: currentColor;
-  flex-shrink: 0;
-}
-.sidebar__linkrow {
-  display: flex;
-  align-items: stretch;
-  gap: 2px;
-}
-.sidebar__link--grow { flex: 1; min-width: 0; }
-.sidebar__chevron {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 7px;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--green-100);
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-.sidebar__chevron:hover { background: rgba(255, 255, 255, 0.07); }
-.sidebar__chevron svg { transition: transform 0.18s ease; transform: rotate(-90deg); }
-.sidebar__chevron--open svg { transform: rotate(0deg); }
-.layout--collapsed .sidebar__chevron { display: none; }
-.sidebar__version {
-  margin-top: auto;
-  padding: 14px 12px 6px;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-.sidebar__version-number {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  color: var(--green-100);
-}
-.sidebar__version-author {
-  font-size: 10.5px;
-  color: var(--green-100);
-  opacity: 0.7;
-}
-.layout--collapsed .sidebar__version { display: none; }
-.layout--collapsed .sidebar__subnav { display: none; }
-
 .sidebar__collapse {
   display: flex;
   align-items: center;
@@ -236,9 +139,6 @@
   .sidebar__collapse { display: none; }
   .layout--collapsed .sidebar__label,
   .layout--collapsed .sidebar__brand-text { display: initial; }
-  .layout--collapsed .sidebar__subnav { display: flex; }
-  .layout--collapsed .sidebar__chevron { display: flex; }
-  .layout--collapsed .sidebar__version { display: flex; }
   .topbar__hamburger { display: inline-flex; }
   .topbar { padding: 0 14px; }
   .content { padding: 14px; }
@@ -299,4 +199,39 @@
   height: 100%;
   object-fit: contain;
   display: block;
+}
+
+/* ---------- Submenus, chevron y version (agregados) ---------- */
+.sidebar__linkrow { display: flex; align-items: stretch; gap: 2px; }
+.sidebar__link--grow { flex: 1; min-width: 0; }
+.sidebar__chevron {
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 7px; border: 0; border-radius: var(--radius-sm);
+  background: transparent; color: var(--green-100); cursor: pointer;
+  transition: background 0.15s ease;
+}
+.sidebar__chevron:hover { background: rgba(255, 255, 255, 0.07); }
+.sidebar__chevron svg { transition: transform 0.18s ease; transform: rotate(-90deg); }
+.sidebar__chevron--open svg { transform: rotate(0deg); }
+.sidebar__subnav { display: flex; flex-direction: column; gap: 2px; margin: 2px 0 4px; padding-left: 26px; }
+.sidebar__sublink {
+  display: flex; align-items: center; gap: 9px; padding: 7px 10px;
+  border: 0; border-radius: var(--radius-sm); background: transparent;
+  color: var(--green-100); opacity: 0.85; font-family: var(--f-body);
+  font-size: 12.8px; font-weight: 500; cursor: pointer; text-align: left;
+  white-space: nowrap; transition: background 0.15s ease;
+}
+.sidebar__sublink:hover { background: rgba(255, 255, 255, 0.07); opacity: 1; }
+.sidebar__sublink--active { background: var(--green-600); color: #fff; font-weight: 600; opacity: 1; }
+.sidebar__subdot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+.sidebar__version { margin-top: auto; padding: 14px 12px 6px; display: flex; flex-direction: column; gap: 3px; }
+.sidebar__version-number { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; color: var(--green-100); }
+.sidebar__version-author { font-size: 10.5px; color: var(--green-100); opacity: 0.7; }
+.layout--collapsed .sidebar__subnav,
+.layout--collapsed .sidebar__chevron,
+.layout--collapsed .sidebar__version { display: none; }
+@media (max-width: 900px) {
+  .layout--collapsed .sidebar__subnav { display: flex; }
+  .layout--collapsed .sidebar__chevron { display: flex; }
+  .layout--collapsed .sidebar__version { display: flex; }
 }

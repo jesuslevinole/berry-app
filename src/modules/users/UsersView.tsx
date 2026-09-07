@@ -3,6 +3,7 @@ import { byNewest } from '../../utils/format';
 import { doc, deleteDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
+import { confirmClose } from '../../components/ui/Modal';
 import { useCollection } from '../../hooks/useCollection';
 import { COLLECTIONS, type AppRole, type SystemUser, type SystemUserStatus } from '../../types/models';
 import { createUserWithResetEmail, resendPasswordReset } from '../../services/userAuthService';
@@ -314,11 +315,11 @@ export function UsersView() {
       </div>
 
       {modalOpen && draft && (
-        <div className="users__overlay" onClick={() => setModalOpen(false)}>
+        <div className="users__overlay" onClick={() => confirmClose(() => setModalOpen(false))}>
           <div className="users__modal" onClick={(e) => e.stopPropagation()}>
             <header className="users__modal-header">
               <h3 className="users__modal-title">{draft.id ? 'Edit user' : 'New user'}</h3>
-              <button type="button" className="users__modal-close" onClick={() => setModalOpen(false)} aria-label="Close">
+              <button type="button" className="users__modal-close" onClick={() => confirmClose(() => setModalOpen(false))} aria-label="Close">
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M6 6l12 12M18 6L6 18" />
                 </svg>
@@ -384,7 +385,7 @@ export function UsersView() {
               {draft.id && can('users', 'delete') && (
                 <button type="button" className="btn btn--danger users__footer-left" onClick={handleDelete}>Delete</button>
               )}
-              <button type="button" className="btn btn--secondary" onClick={() => setModalOpen(false)}>Cancel</button>
+              <button type="button" className="btn btn--secondary" onClick={() => confirmClose(() => setModalOpen(false))}>Cancel</button>
               {(draft.id ? can('users', 'edit') : can('users', 'add')) && (
                 <button type="button" className="btn btn--primary" onClick={handleSave}>Save user</button>
               )}

@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react';
-import { byNewest, formatUsPhone } from '../../utils/format';
+import { byNewest } from '../../utils/format';
 import { useAuth } from '../../context/AuthContext';
 import { useCollection } from '../../hooks/useCollection';
 import { createDocument, deleteDocument, updateDocument } from '../../services/firestore';
 import type { BaseDoc } from '../../types/models';
 import { DataTable, type Column } from '../../components/ui/DataTable';
 import { Toolbar } from '../../components/ui/Toolbar';
-import { Modal } from '../../components/ui/Modal';
+import { confirmClose, Modal } from '../../components/ui/Modal';
 import { FormField, FormGrid } from '../../components/ui/FormField';
 import { DataPortButtons } from '../../components/ui/DataPortButtons';
 import type { EntitySchema } from '../../config/entitySchemas';
@@ -142,14 +142,11 @@ export function CatalogsView() {
           searchValue={search}
           onSearchChange={setSearch}
         >
-          {can('catalogs', 'documents') && (def.maxRecords === undefined || rows.length < def.maxRecords) && (
+          {can('catalogs', 'documents') && (
             <DataPortButtons schemas={[schema]} fileName={def.collection.toLowerCase()} />
           )}
-          {can('catalogs', 'add') && (def.maxRecords === undefined || rows.length < def.maxRecords) && (
+          {can('catalogs', 'add') && (
             <button type="button" className="btn btn--primary" onClick={openCreate}>+ Add</button>
-          )}
-          {def.maxRecords !== undefined && rows.length >= def.maxRecords && (
-            <span className="catalogs__limit">Single-record catalog: edit the existing entry</span>
           )}
         </Toolbar>
         <DataTable
@@ -171,7 +168,7 @@ export function CatalogsView() {
             {editing && can('catalogs', 'delete') && (
               <button type="button" className="btn btn--danger" onClick={handleDelete}>Delete</button>
             )}
-            <button type="button" className="btn btn--secondary" onClick={() => setFormOpen(false)}>Cancel</button>
+            <button type="button" className="btn btn--secondary" onClick={() => confirmClose(() => setFormOpen(false))}>Cancel</button>
             {(editing ? can('catalogs', 'edit') : can('catalogs', 'add')) && (
               <button
                 type="button"
@@ -197,14 +194,8 @@ export function CatalogsView() {
             <FormField key={field.key} label={field.label}>
               <input
                 className="input"
-                inputMode={field.format === 'phone' ? 'tel' : undefined}
                 value={draft[field.key] ?? ''}
-                onChange={(e) =>
-                  setDraft((d) => ({
-                    ...d,
-                    [field.key]: field.format === 'phone' ? formatUsPhone(e.target.value) : e.target.value,
-                  }))
-                }
+                onChange={(e) => setDraft((d) => ({ ...d, [field.key]: e.target.value }))}
               />
             </FormField>
           ))}

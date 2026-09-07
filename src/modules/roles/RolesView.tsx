@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { byNewest } from '../../utils/format';
 import { useAuth } from '../../context/AuthContext';
+import { confirmClose } from '../../components/ui/Modal';
 import { useCollection } from '../../hooks/useCollection';
 import { createDocument, deleteDocument, updateDocument } from '../../services/firestore';
 import { ADMIN_CAPABILITIES, COLLECTIONS, type AdminCapability, type AdminPerms, type AppRole, type ModulePermission, type SystemUser } from '../../types/models';
@@ -197,11 +198,11 @@ export function RolesView() {
       </div>
 
       {modalOpen && (
-        <div className="roles__overlay" onClick={() => setModalOpen(false)}>
+        <div className="roles__overlay" onClick={() => confirmClose(() => setModalOpen(false))}>
           <div className="roles__modal" onClick={(e) => e.stopPropagation()}>
             <header className="roles__modal-header">
               <h3 className="roles__modal-title">{draft.id ? 'Edit role' : 'New role'}</h3>
-              <button type="button" className="roles__modal-close" onClick={() => setModalOpen(false)} aria-label="Close">
+              <button type="button" className="roles__modal-close" onClick={() => confirmClose(() => setModalOpen(false))} aria-label="Close">
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M6 6l12 12M18 6L6 18" />
                 </svg>
@@ -334,7 +335,7 @@ export function RolesView() {
               {draft.id && can('roles', 'delete') && (
                 <button type="button" className="btn btn--danger roles__footer-left" onClick={handleDelete}>Delete</button>
               )}
-              <button type="button" className="btn btn--secondary" onClick={() => setModalOpen(false)}>Cancel</button>
+              <button type="button" className="btn btn--secondary" onClick={() => confirmClose(() => setModalOpen(false))}>Cancel</button>
               {(draft.id ? can('roles', 'edit') : can('roles', 'add')) && (
                 <button type="button" className="btn btn--primary" onClick={handleSave}>Save role</button>
               )}

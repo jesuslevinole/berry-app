@@ -9,7 +9,7 @@ import type { SystemUser } from '../../types/models';
 import { createDocument, listDocuments, replaceChildren, updateDocument, deleteDocument } from '../../services/firestore';
 import { COLLECTIONS, type PurchaseDetail, type PurchaseOrder } from '../../types/models';
 import { fmtMoney, round2, todayISO, toNumber } from '../../utils/format';
-import { Modal } from '../../components/ui/Modal';
+import { confirmClose, Modal } from '../../components/ui/Modal';
 import { ConfigurableGrid, FormField } from '../../components/ui/FormField';
 import { CatalogSelect } from '../../components/ui/CatalogSelect';
 import { SearchableSelect } from '../../components/ui/SearchableSelect';
@@ -53,6 +53,8 @@ export function PurchaseOrderForm({ open, initial, onClose }: PurchaseOrderFormP
   const [userId, setUserId] = useState('');
   const [carrierId, setCarrierId] = useState('');
   const [paymentTermId, setPaymentTermId] = useState('');
+  /** Pendiente de precargar el Payment term por defecto (registro unico del catalogo). */
+  const [needsDefaultTerm, setNeedsDefaultTerm] = useState(false);
   const [shipTo, setShipTo] = useState('');
   const [commissionPercent, setCommissionPercent] = useState('0');
   const [note, setNote] = useState('');
@@ -76,6 +78,14 @@ export function PurchaseOrderForm({ open, initial, onClose }: PurchaseOrderFormP
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initial, growerId, growerDocs]);
 
+  /* Payment term por defecto: primer (unico) registro del catalogo al crear ordenes nuevas. */
+  useEffect(() => {
+    if (!needsDefaultTerm || paymentTermId || paymentTerms.options.length === 0) return;
+    setNeedsDefaultTerm(false);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- precarga unica del catalogo
+    setPaymentTermId(paymentTerms.options[0].id);
+  }, [needsDefaultTerm, paymentTermId, paymentTerms.options]);
+
   useEffect(() => {
     if (!open) return;
     setLotNumber(initial?.LOT_NUMBER ?? '');
@@ -87,6 +97,7 @@ export function PurchaseOrderForm({ open, initial, onClose }: PurchaseOrderFormP
     setUserId(initial?.ID_USERS ?? '');
     setCarrierId(initial?.ID_CARRIER ?? '');
     setPaymentTermId(initial?.ID_PAYMENTTERM ?? '');
+    setNeedsDefaultTerm(!initial?.ID_PAYMENTTERM);
     setShipTo(initial?.SHIPTO ?? '');
     setCommissionPercent(String(initial?.COMMISION_PERCENT ?? 0));
     setNote(initial?.NOTE ?? '');
@@ -218,7 +229,7 @@ export function PurchaseOrderForm({ open, initial, onClose }: PurchaseOrderFormP
           {initial && can('purchases', 'delete') && (
             <button type="button" className="btn btn--danger" onClick={handleDelete}>Delete</button>
           )}
-          <button type="button" className="btn btn--secondary" onClick={onClose}>Cancel</button>
+          <button type="button" className="btn btn--secondary" onClick={() => confirmClose(onClose)}>Cancel</button>
           {(initial ? can('purchases', 'edit') : can('purchases', 'add')) && (
             <button type="button" className="btn btn--primary" onClick={handleSave}>Save</button>
           )}
