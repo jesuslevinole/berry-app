@@ -6,6 +6,7 @@ import { Toolbar } from '../../components/ui/Toolbar';
 import { SearchableSelect } from '../../components/ui/SearchableSelect';
 import { SalesOrderDetailPanel } from '../sales/SalesOrderDetailPanel';
 import { PurchaseOrderDetailPanel } from '../purchases/PurchaseOrderDetailPanel';
+import { SalesDeskView } from '../sales/SalesDeskView';
 import { round2, todayISO } from '../../utils/format';
 import {
   COLLECTIONS,
@@ -302,6 +303,8 @@ export function InventoryView() {
 
   return (
     <div className="inventory">
+      {/* Bloque de inventario: sticky bajo el topbar mientras Sales Desk scrollea debajo. */}
+      <div className="inventory__sticky">
       <Toolbar
         title="Inventory"
         subtitle="Entries from Purchase Orders, exits from loaded Sales Orders"
@@ -471,6 +474,13 @@ export function InventoryView() {
           </div>
         </>
       )}
+
+      </div>
+
+      {/* Sales Desk siempre debajo del inventario, scrolleable con la pagina. */}
+      <section className="inventory__sales">
+        <SalesDeskView />
+      </section>
 
       {viewingSale && (
         <SalesOrderDetailPanel

@@ -293,3 +293,22 @@
 .inventory__pivot-cell--available { color: var(--green-600); }
 .inventory__pivot-cell--zero { color: var(--muted); }
 .inventory__pivot-cell--bad { color: var(--bad); }
+
+/* Inventario sticky: queda pegado bajo el topbar; Sales Desk pasa por debajo. */
+.inventory__sticky {
+  position: sticky;
+  top: var(--topbar-h);
+  z-index: 6;
+  background: var(--canvas);
+  padding-bottom: 10px;
+  max-height: calc(100vh - var(--topbar-h) - 8px);
+  overflow-y: auto;
+  box-shadow: 0 8px 10px -8px rgba(0, 0, 0, 0.14);
+}
+
+/* Sales Desk integrado debajo del inventario. */
+.inventory__sales {
+  margin-top: 12px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line-strong);
+}

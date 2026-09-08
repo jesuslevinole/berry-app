@@ -113,6 +113,10 @@ export async function printLiquidationReport(
   .t-value--line { border-top: 1.4px solid #1c1c1c; border-bottom: 1.4px solid #1c1c1c; }
   .t-value--top { border-top: 1.4px solid #1c1c1c; }
   .t-gap { height: 22px; }
+  /* Filas de gastos por categoria: compactas y sin lineas, como la liquidacion original. */
+  .t-row--tight { padding: 1px 0; }
+  .t-row--tight .t-value { padding: 2px 4px; }
+  .t-label--multi { max-width: 120px; text-align: right; line-height: 1.25; }
   .print-bar { text-align: center; margin: 0 0 18px; }
   .print-bar button { background: #1f7a4d; color: #ffffff; border: none; padding: 10px 26px; border-radius: 8px; font-size: 14px; cursor: pointer; }
   @media print {
@@ -168,9 +172,9 @@ export async function printLiquidationReport(
       ${[...byCategory.entries()]
         .map(
           ([label, amount]) => `
-      <div class="t-row">
-        <span class="t-label">${esc(label)}</span>
-        <span class="t-value t-value--line">$${fmtUsd(amount)}</span>
+      <div class="t-row t-row--tight">
+        <span class="t-label t-label--multi">${esc(label)}</span>
+        <span class="t-value">$${fmtUsd(amount)}</span>
       </div>`,
         )
         .join('')}
@@ -181,7 +185,6 @@ export async function printLiquidationReport(
         <span class="t-value t-value--top">$${fmtUsd(expenses)}</span>
       </div>`
         : `
-      <div class="t-gap"></div>
       <div class="t-row">
         <span class="t-label"></span>
         <span class="t-value t-value--top">$${fmtUsd(expenses)}</span>
