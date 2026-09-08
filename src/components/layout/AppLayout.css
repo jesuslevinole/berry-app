@@ -228,7 +228,7 @@
 .sidebar__chevron:hover { background: rgba(255, 255, 255, 0.07); }
 .sidebar__chevron svg { transition: transform 0.18s ease; transform: rotate(-90deg); }
 .sidebar__chevron--open svg { transform: rotate(0deg); }
-.sidebar__subnav { display: flex; flex-direction: column; gap: 2px; margin: 2px 0 4px; padding-left: 26px; }
+.sidebar__subnav { display: flex; flex-direction: column; gap: 2px; margin: 2px 0 4px; padding-left: 0; }
 .sidebar__sublink {
   display: flex; align-items: center; gap: 9px; padding: 7px 10px;
   border: 0; border-radius: var(--radius-sm); background: transparent;
@@ -244,9 +244,8 @@
 .sidebar__version-author { font-size: 10.5px; color: var(--green-100); opacity: 0.7; }
 .sidebar__link--group { cursor: pointer; }
 .sidebar__subnav--nested {
-  padding-left: 16px;
+  padding-left: 0;
   margin: 0 0 4px;
-  border-left: 1px solid rgba(255, 255, 255, 0.12);
 }
 .sidebar__sublink--head {
   font-weight: 700;
@@ -255,7 +254,9 @@
   letter-spacing: 0.06em;
   opacity: 0.85;
   margin-top: 6px;
-  padding: 6px 10px 6px 6px;
+  padding: 6px 10px;
+  justify-content: flex-start;
+  text-align: left;
 }
 .sidebar__sublink--head:hover { opacity: 1; }
 .sidebar__chevron--mini { padding: 0 5px 0 0; flex-shrink: 0; }
