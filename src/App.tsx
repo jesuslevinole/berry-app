@@ -26,6 +26,12 @@ function Shell() {
   const { firebaseUser, bypass, loading, can, logout } = useAuth();
   const [view, setView] = useState<ViewKey>('dashboard');
 
+  /** Navegar siempre muestra la vista desde arriba (evita entrar con el scroll a medias). */
+  const handleNavigate = (key: ViewKey) => {
+    setView(key);
+    window.scrollTo({ top: 0 });
+  };
+
   const allowedViews = VIEW_ORDER.filter((key) => can(key, 'view'));
 
   /* Si el rol no permite la vista actual, saltar a la primera permitida. */
@@ -60,7 +66,7 @@ function Shell() {
   }
 
   return (
-    <AppLayout view={view} onNavigate={setView}>
+    <AppLayout view={view} onNavigate={handleNavigate}>
       <div className="app-view">
         {view === 'dashboard' && <DashboardView onNavigate={setView} />}
         {view === 'purchases' && <PurchaseOrdersView />}

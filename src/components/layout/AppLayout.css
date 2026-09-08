@@ -41,7 +41,22 @@
 .sidebar__brand-text strong { font-family: var(--f-display); font-size: 14px; color: #fff; white-space: nowrap; }
 .sidebar__brand-text small { font-size: 11px; color: var(--green-400); white-space: nowrap; }
 
-.sidebar__nav { display: flex; flex-direction: column; gap: 2px; padding: 12px 8px; flex: 1; }
+.sidebar__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 8px;
+  flex: 1;
+  min-height: 0;
+  /* Scroll propio: con submenus largos, los items de abajo siguen accesibles. */
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+}
+.sidebar__nav::-webkit-scrollbar { width: 6px; }
+.sidebar__nav::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.22); border-radius: 3px; }
+.sidebar__nav::-webkit-scrollbar-track { background: transparent; }
 .sidebar__link {
   display: flex;
   align-items: center;
@@ -224,13 +239,26 @@
 .sidebar__sublink:hover { background: rgba(255, 255, 255, 0.07); opacity: 1; }
 .sidebar__sublink--active { background: var(--green-600); color: #fff; font-weight: 600; opacity: 1; }
 .sidebar__subdot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
-.sidebar__version { margin-top: auto; padding: 14px 12px 6px; display: flex; flex-direction: column; gap: 3px; }
+.sidebar__version { margin-top: auto; padding: 16px 12px 8px; display: flex; flex-direction: column; gap: 3px; flex-shrink: 0; }
 .sidebar__version-number { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; color: var(--green-100); }
 .sidebar__version-author { font-size: 10.5px; color: var(--green-100); opacity: 0.7; }
 .sidebar__link--group { cursor: pointer; }
-.sidebar__subnav--nested { padding-left: 18px; margin: 0 0 2px; }
-.sidebar__sublink--head { font-weight: 700; opacity: 0.95; }
-.sidebar__chevron--mini { padding: 0 4px 0 0; }
+.sidebar__subnav--nested {
+  padding-left: 16px;
+  margin: 0 0 4px;
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+}
+.sidebar__sublink--head {
+  font-weight: 700;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.85;
+  margin-top: 6px;
+  padding: 6px 10px 6px 6px;
+}
+.sidebar__sublink--head:hover { opacity: 1; }
+.sidebar__chevron--mini { padding: 0 5px 0 0; flex-shrink: 0; }
 .sidebar__chevron--inline { margin-left: auto; padding: 0; background: transparent; }
 .layout--collapsed .sidebar__subnav,
 .layout--collapsed .sidebar__chevron,
