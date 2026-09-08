@@ -2,10 +2,11 @@ import { Fragment, useState, type ReactNode } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useAppConfig } from '../../context/AppConfigContext';
 import { APP_VERSION, APP_AUTHOR } from '../../config/version';
+import { NotificationsBell } from './NotificationsBell';
 import { useCompany } from '../../hooks/useCompany';
 import './AppLayout.css';
 
-export type ViewKey = 'dashboard' | 'purchases' | 'sales' | 'expenses' | 'catalogs' | 'lots' | 'inventory' | 'queue' | 'apgrowers' | 'ap' | 'ar' | 'expensesreport' | 'checks' | 'company' | 'users' | 'roles' | 'config';
+export type ViewKey = 'dashboard' | 'purchases' | 'sales' | 'expenses' | 'catalogs' | 'lots' | 'inventory' | 'queue' | 'apgrowers' | 'ap' | 'ar' | 'expensesreport' | 'activity' | 'trash' | 'checks' | 'company' | 'users' | 'roles' | 'config';
 
 export const VIEW_TITLES: Record<ViewKey, string> = {
   dashboard: 'Dashboard',
@@ -20,6 +21,8 @@ export const VIEW_TITLES: Record<ViewKey, string> = {
   ap: 'Accounts Payable',
   ar: 'Accounts Receivable',
   expensesreport: 'Expenses Report',
+  activity: 'Activity Log',
+  trash: 'Recycle Bin',
   checks: 'Checkbook',
   company: 'Company Info',
   users: 'System Users',
@@ -139,6 +142,25 @@ const NAV_ITEMS: Array<{ key: ViewKey; label: string; icon: ReactNode }> = [
     ),
   },
   {
+    key: 'activity',
+    label: 'Activity Log',
+    icon: (
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <circle cx="12" cy="12" r="9" /><path d="M12 7v5l3.5 2" />
+      </svg>
+    ),
+  },
+  {
+    key: 'trash',
+    label: 'Recycle Bin',
+    icon: (
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13" />
+        <path d="M10 11v6M14 11v6" />
+      </svg>
+    ),
+  },
+  {
     key: 'checks',
     label: 'Checkbook',
     icon: (
@@ -210,7 +232,10 @@ export function AppLayout({ view, onNavigate, children }: AppLayoutProps) {
     return groupIds.has(parent) || visibleKeys.has(parent) ? parent : null;
   };
   const childModulesOf = (key: string) => visibleItems.filter((item) => parentOf(item.key) === key);
-  const hasChildren = (key: string): boolean => childModulesOf(key).length > 0;
+  /** Grupos anidados dentro de otro grupo (un nivel extra de encabezados). */
+  const childGroupsOf = (key: string) => navGroups.filter((g) => parentOf(g.id) === key);
+  const hasChildren = (key: string): boolean =>
+    childModulesOf(key).length > 0 || childGroupsOf(key).some((g) => childModulesOf(g.id).length > 0);
   /* Orden raiz: navOrder guardado (modulos + grupos), completado con lo que falte. */
   const topModules = visibleItems.filter((item) => !parentOf(item.key));
   const orderedTop: Array<{ kind: 'module'; key: ViewKey } | { kind: 'group'; id: string; label: string }> = [];
@@ -220,10 +245,10 @@ export function AppLayout({ view, onNavigate, children }: AppLayoutProps) {
     const mod = topModules.find((m) => m.key === key);
     const grp = navGroups.find((g) => g.id === key);
     if (mod) { orderedTop.push({ kind: 'module', key: mod.key }); seen.add(key); }
-    else if (grp && hasChildren(grp.id)) { orderedTop.push({ kind: 'group', id: grp.id, label: grp.label }); seen.add(key); }
+    else if (grp && !parentOf(grp.id) && hasChildren(grp.id)) { orderedTop.push({ kind: 'group', id: grp.id, label: grp.label }); seen.add(key); }
   }
   for (const m of topModules) if (!seen.has(m.key)) { orderedTop.push({ kind: 'module', key: m.key }); seen.add(m.key); }
-  for (const g of navGroups) if (!seen.has(g.id) && hasChildren(g.id)) { orderedTop.push({ kind: 'group', id: g.id, label: g.label }); seen.add(g.id); }
+  for (const g of navGroups) if (!seen.has(g.id) && !parentOf(g.id) && hasChildren(g.id)) { orderedTop.push({ kind: 'group', id: g.id, label: g.label }); seen.add(g.id); }
   const moduleByKey = new Map(visibleItems.map((i) => [i.key, i]));
 
   const displayName = profile
@@ -279,10 +304,45 @@ export function AppLayout({ view, onNavigate, children }: AppLayoutProps) {
               ? navLabel(entry.key, item?.label ?? entry.key)
               : navLabel(entry.id, entry.label);
             const childModules = childModulesOf(key);
-            const hasSub = childModules.length > 0;
+            const hasSub = childModules.length > 0 || childGroupsOf(key).some((g) => childModulesOf(g.id).length > 0);
             const isOpen = !!openGroups[key];
+            const childGroups = childGroupsOf(key).filter((g) => childModulesOf(g.id).length > 0);
             const subnav = hasSub && isOpen && (
               <div className="sidebar__subnav">
+                {childGroups.map((cg) => (
+                  <Fragment key={cg.id}>
+                    <button
+                      type="button"
+                      className="sidebar__sublink sidebar__sublink--head"
+                      onClick={() => toggleGroup(cg.id)}
+                      aria-expanded={!!openGroups[cg.id]}
+                      title={navLabel(cg.id, cg.label)}
+                    >
+                      <span className={`sidebar__chevron sidebar__chevron--inline sidebar__chevron--mini${openGroups[cg.id] ? ' sidebar__chevron--open' : ''}`}>
+                        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.4">
+                          <path d="M6 9l6 6 6-6" />
+                        </svg>
+                      </span>
+                      <span className="sidebar__label">{navLabel(cg.id, cg.label)}</span>
+                    </button>
+                    {openGroups[cg.id] && (
+                      <div className="sidebar__subnav sidebar__subnav--nested">
+                        {childModulesOf(cg.id).map((child) => (
+                          <button
+                            key={child.key}
+                            type="button"
+                            className={`sidebar__sublink${view === child.key ? ' sidebar__sublink--active' : ''}`}
+                            onClick={() => handleNavigate(child.key)}
+                            title={navLabel(child.key, child.label)}
+                          >
+                            <span className="sidebar__subdot" aria-hidden="true" />
+                            <span className="sidebar__label">{navLabel(child.key, child.label)}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </Fragment>
+                ))}
                 {childModules.map((child) => (
                   <button
                     key={child.key}
@@ -390,6 +450,7 @@ export function AppLayout({ view, onNavigate, children }: AppLayoutProps) {
             </svg>
           </button>
           <h1 className="topbar__title">{navLabel(view, VIEW_TITLES[view])}</h1>
+          <NotificationsBell />
           <div className="topbar__user">
             <span className="topbar__avatar">{initials}</span>
             <span className="topbar__user-name">{displayName}</span>

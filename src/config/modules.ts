@@ -24,6 +24,8 @@ export const MODULE_DEFS: ModuleDef[] = [
   { id: 'ap', label: 'Accounts Payable', hasDocuments: true },
   { id: 'ar', label: 'Accounts Receivable', hasDocuments: true },
   { id: 'expensesreport', label: 'Expenses Report', hasDocuments: true },
+  { id: 'activity', label: 'Activity Log', hasDocuments: false },
+  { id: 'trash', label: 'Recycle Bin', hasDocuments: false },
   { id: 'checks', label: 'Checkbook', hasDocuments: true },
   { id: 'company', label: 'Company Info', hasDocuments: false },
   { id: 'users', label: 'System Users', hasDocuments: false },

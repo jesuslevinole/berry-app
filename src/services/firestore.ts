@@ -7,6 +7,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   getDocs,
   onSnapshot,
   query,
@@ -18,8 +19,59 @@ import {
   type QueryConstraint,
   type Unsubscribe,
 } from 'firebase/firestore';
-import { db } from '../firebase/config';
+import { auth, db } from '../firebase/config';
 import type { BaseDoc } from '../types/models';
+
+
+/* ---------- Registro de actividad + papelera (intercepcion central) ---------- */
+
+const ACTIVITY_COLLECTION = 'BD_ACTIVITYLOG';
+const TRASH_COLLECTION = 'BD_TRASH';
+/** Colecciones internas que no se registran ni pasan por la papelera (evita bucles). */
+const INTERNAL_COLLECTIONS = new Set([ACTIVITY_COLLECTION, TRASH_COLLECTION]);
+
+const currentUserEmail = (): string => auth.currentUser?.email ?? 'System';
+
+/**
+ * Registra una accion en el historial de actividad (mejor esfuerzo: nunca
+ * bloquea ni rompe la operacion principal). Patron del proyecto Roelca.
+ */
+export async function logActivity(
+  colName: string,
+  action: 'create' | 'update' | 'delete' | 'restore',
+  docId: string,
+  detail = '',
+): Promise<void> {
+  if (INTERNAL_COLLECTIONS.has(colName)) return;
+  try {
+    await addDoc(collection(db, ACTIVITY_COLLECTION), {
+      USER_EMAIL: currentUserEmail(),
+      COLLECTION: colName,
+      ACTION: action,
+      DOC_ID: docId,
+      DETAIL: detail,
+      DATE: new Date().toISOString(),
+      createdAt: serverTimestamp(),
+    });
+  } catch {
+    /* El historial nunca debe romper la operacion del usuario. */
+  }
+}
+
+/** Restaura un registro de la papelera a su coleccion original (mismo id). */
+export async function restoreFromTrash(trashId: string): Promise<void> {
+  const snap = await getDoc(doc(db, TRASH_COLLECTION, trashId));
+  if (!snap.exists()) throw new Error('Trash record not found');
+  const item = snap.data() as { ORIGIN_COLLECTION: string; ORIGIN_ID: string; DATA: Record<string, unknown> };
+  await setDoc(doc(db, item.ORIGIN_COLLECTION, item.ORIGIN_ID), { ...item.DATA, updatedAt: serverTimestamp() });
+  await deleteDoc(doc(db, TRASH_COLLECTION, trashId));
+  void logActivity(item.ORIGIN_COLLECTION, 'restore', item.ORIGIN_ID, 'Restored from recycle bin');
+}
+
+/** Elimina definitivamente un registro de la papelera. */
+export async function deleteFromTrashForever(trashId: string): Promise<void> {
+  await deleteDoc(doc(db, TRASH_COLLECTION, trashId));
+}
 
 export function subscribeToCollection<T extends BaseDoc>(
   colName: string,
@@ -52,6 +104,7 @@ export async function createDocument<T extends BaseDoc>(
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
+  void logActivity(colName, 'create', ref.id);
   return ref.id;
 }
 
@@ -61,10 +114,33 @@ export async function updateDocument<T extends BaseDoc>(
   data: Partial<Omit<T, 'id'>>,
 ): Promise<void> {
   await updateDoc(doc(db, colName, id), { ...data, updatedAt: serverTimestamp() });
+  void logActivity(colName, 'update', id);
 }
 
+/**
+ * Borrado suave: el registro se copia a la papelera (BD_TRASH) antes de
+ * eliminarse, para poder restaurarlo. Las colecciones internas se borran directo.
+ */
 export async function deleteDocument(colName: string, id: string): Promise<void> {
+  if (!INTERNAL_COLLECTIONS.has(colName)) {
+    try {
+      const snap = await getDoc(doc(db, colName, id));
+      if (snap.exists()) {
+        await addDoc(collection(db, TRASH_COLLECTION), {
+          ORIGIN_COLLECTION: colName,
+          ORIGIN_ID: id,
+          DATA: snap.data(),
+          DELETED_BY: currentUserEmail(),
+          DELETED_AT: new Date().toISOString(),
+          createdAt: serverTimestamp(),
+        });
+      }
+    } catch {
+      /* Si la papelera falla, el borrado continua igual. */
+    }
+  }
   await deleteDoc(doc(db, colName, id));
+  void logActivity(colName, 'delete', id);
 }
 
 /**

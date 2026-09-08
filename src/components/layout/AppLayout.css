@@ -228,6 +228,9 @@
 .sidebar__version-number { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; color: var(--green-100); }
 .sidebar__version-author { font-size: 10.5px; color: var(--green-100); opacity: 0.7; }
 .sidebar__link--group { cursor: pointer; }
+.sidebar__subnav--nested { padding-left: 18px; margin: 0 0 2px; }
+.sidebar__sublink--head { font-weight: 700; opacity: 0.95; }
+.sidebar__chevron--mini { padding: 0 4px 0 0; }
 .sidebar__chevron--inline { margin-left: auto; padding: 0; background: transparent; }
 .layout--collapsed .sidebar__subnav,
 .layout--collapsed .sidebar__chevron,

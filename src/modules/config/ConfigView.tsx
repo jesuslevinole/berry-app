@@ -52,7 +52,7 @@ export function ConfigView() {
     const modules = sortNav(MODULE_DEFS.map((m) => ({ key: m.id, label: navLabel(m.id, m.label), defaultLabel: m.label })));
     const rows: NavRow[] = [
       ...modules.map((m) => ({ kind: 'module' as const, key: m.key, label: m.label, defaultLabel: m.defaultLabel, parent: navParentOf(m.key) ?? '' })),
-      ...navGroups.map((g) => ({ kind: 'group' as const, key: g.id, label: g.label, defaultLabel: g.label, parent: '' })),
+      ...navGroups.map((g) => ({ kind: 'group' as const, key: g.id, label: g.label, defaultLabel: g.label, parent: navParentOf(g.id) ?? '' })),
     ];
     /* Respeta el orden guardado; lo no listado va al final en su orden natural. */
     const pos = new Map(navOrderList.map((k, i) => [k, i]));
@@ -174,6 +174,25 @@ export function ConfigView() {
                       )}
                     </span>
                     {item.kind === 'group' && <span className="config__nav-badge config__nav-badge--group">Submenu</span>}
+                    {item.kind === 'group' && (
+                      <label className="config__nav-parent">
+                        <span className="config__nav-parent-label">Inside of</span>
+                        <select
+                          className="input config__nav-parent-select"
+                          value={item.parent}
+                          onChange={(e) =>
+                            setNavDraft((prev) => prev.map((n, i) => (i === index ? { ...n, parent: e.target.value } : n)))
+                          }
+                        >
+                          <option value="">&#8212; Top level &#8212;</option>
+                          {navDraft
+                            .filter((n) => n.kind === 'group' && n.key !== item.key && !n.parent)
+                            .map((n) => (
+                              <option key={n.key} value={n.key}>{n.label} (submenu)</option>
+                            ))}
+                        </select>
+                      </label>
+                    )}
                     {item.kind !== 'group' && (
                       <label className="config__nav-parent">
                         <span className="config__nav-parent-label">Inside of</span>
@@ -223,6 +242,7 @@ export function ConfigView() {
                       const trimmed = item.label.trim();
                       if (item.kind === 'group') {
                         groups.push({ id: item.key, label: trimmed || 'Submenu' });
+                        if (item.parent && item.parent !== item.key) parents[item.key] = item.parent;
                         continue;
                       }
                       if (trimmed && trimmed !== item.defaultLabel) labels[item.key] = trimmed;

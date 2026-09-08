@@ -34,6 +34,8 @@ export const COLLECTIONS = {
   PAYMENT_METHOD: 'CAT_PAYMENTMETHOD',
   PAYMENTTERM: 'CAT_PAYMENTTERM',
   SYSTEM_USERS: 'system_users',
+  ACTIVITY_LOG: 'BD_ACTIVITYLOG',
+  TRASH: 'BD_TRASH',
   ROLES: 'settings_roles',
   APP_SETTINGS: 'settings_app',
   CHECKS: 'BD_CHECKS',
@@ -276,4 +278,22 @@ export interface CheckSettings {
   signatureText?: string;
   /** Numero fraccional del banco impreso bajo el numero de cheque (ej. 67-76890). */
   fractional?: string;
+}
+
+/* ---------- Historial de actividad y papelera ---------- */
+export interface ActivityLog extends BaseDoc {
+  USER_EMAIL: string;
+  COLLECTION: string;
+  ACTION: 'create' | 'update' | 'delete' | 'restore';
+  DOC_ID: string;
+  DETAIL: string;
+  DATE: string;
+}
+
+export interface TrashItem extends BaseDoc {
+  ORIGIN_COLLECTION: string;
+  ORIGIN_ID: string;
+  DATA: Record<string, unknown>;
+  DELETED_BY: string;
+  DELETED_AT: string;
 }
