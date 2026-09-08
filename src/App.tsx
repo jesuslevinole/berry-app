@@ -18,18 +18,11 @@ import { RolesView } from './modules/roles/RolesView';
 import { ConfigView } from './modules/config/ConfigView';
 import './App.css';
 
-const VIEW_ORDER: ViewKey[] = ['dashboard', 'purchases', 'sales', 'expenses', 'catalogs', 'lots', 'inventory', 'reports', 'checks', 'company', 'users', 'roles', 'config'];
+const VIEW_ORDER: ViewKey[] = ['dashboard', 'purchases', 'sales', 'expenses', 'catalogs', 'lots', 'inventory', 'queue', 'apgrowers', 'ap', 'ar', 'expensesreport', 'checks', 'company', 'users', 'roles', 'config'];
 
 function Shell() {
   const { firebaseUser, bypass, loading, can, logout } = useAuth();
   const [view, setView] = useState<ViewKey>('dashboard');
-  /** Sub-vista activa (pestana de Reports elegida desde el menu lateral). */
-  const [subview, setSubview] = useState<string | null>(null);
-
-  const handleNavigate = (key: ViewKey, sub?: string) => {
-    setView(key);
-    setSubview(sub ?? null);
-  };
 
   const allowedViews = VIEW_ORDER.filter((key) => can(key, 'view'));
 
@@ -65,7 +58,7 @@ function Shell() {
   }
 
   return (
-    <AppLayout view={view} subview={subview} onNavigate={handleNavigate}>
+    <AppLayout view={view} onNavigate={setView}>
       <div className="app-view">
         {view === 'dashboard' && <DashboardView onNavigate={setView} />}
         {view === 'purchases' && <PurchaseOrdersView />}
@@ -74,7 +67,11 @@ function Shell() {
         {view === 'catalogs' && <CatalogsView />}
         {view === 'lots' && <LotActivityView />}
         {view === 'inventory' && <InventoryView />}
-        {view === 'reports' && <ReportsView key={subview ?? 'default'} initialReport={subview} />}
+        {view === 'queue' && <ReportsView report="queue" />}
+        {view === 'apgrowers' && <ReportsView report="apgrowers" />}
+        {view === 'ap' && <ReportsView report="ap" />}
+        {view === 'ar' && <ReportsView report="ar" />}
+        {view === 'expensesreport' && <ReportsView report="expenses" />}
         {view === 'checks' && <ChecksView />}
         {view === 'company' && <CompanyView />}
         {view === 'users' && <UsersView />}

@@ -4,7 +4,6 @@ import { useAppConfig } from '../../context/AppConfigContext';
 import { useCollection } from '../../hooks/useCollection';
 import { MODULE_DEFS } from '../../config/modules';
 import { FORM_DEFS, isReportDef } from '../../config/formDefs';
-import { REPORT_SHORTCUTS } from '../../config/modules';
 import { COLLECTIONS, type CheckSettings, type FormFieldConfig, type SystemUser } from '../../types/models';
 import { SearchableSelect } from '../../components/ui/SearchableSelect';
 import { Toolbar } from '../../components/ui/Toolbar';
@@ -42,7 +41,7 @@ export function ConfigView() {
 
   /* ---- Navegacion: modulos + atajos de reportes + grupos de submenu ---- */
   interface NavRow {
-    kind: 'module' | 'shortcut' | 'group';
+    kind: 'module' | 'group';
     key: string;
     label: string;
     defaultLabel: string;
@@ -53,7 +52,6 @@ export function ConfigView() {
     const modules = sortNav(MODULE_DEFS.map((m) => ({ key: m.id, label: navLabel(m.id, m.label), defaultLabel: m.label })));
     const rows: NavRow[] = [
       ...modules.map((m) => ({ kind: 'module' as const, key: m.key, label: m.label, defaultLabel: m.defaultLabel, parent: navParentOf(m.key) ?? '' })),
-      ...REPORT_SHORTCUTS.map((sc) => ({ kind: 'shortcut' as const, key: sc.id, label: navLabel(sc.id, sc.label), defaultLabel: sc.label, parent: navParentOf(sc.id) ?? 'reports' })),
       ...navGroups.map((g) => ({ kind: 'group' as const, key: g.id, label: g.label, defaultLabel: g.label, parent: '' })),
     ];
     /* Respeta el orden guardado; lo no listado va al final en su orden natural. */
@@ -76,7 +74,7 @@ export function ConfigView() {
     setNavDraft((prev) =>
       prev
         .filter((row) => row.key !== groupKey)
-        .map((row) => (row.parent === groupKey ? { ...row, parent: row.kind === 'shortcut' ? 'reports' : '' } : row)),
+        .map((row) => (row.parent === groupKey ? { ...row, parent: '' } : row)),
     );
   };
 
@@ -176,7 +174,6 @@ export function ConfigView() {
                       )}
                     </span>
                     {item.kind === 'group' && <span className="config__nav-badge config__nav-badge--group">Submenu</span>}
-                    {item.kind === 'shortcut' && <span className="config__nav-badge">Report</span>}
                     {item.kind !== 'group' && (
                       <label className="config__nav-parent">
                         <span className="config__nav-parent-label">Inside of</span>
@@ -214,7 +211,7 @@ export function ConfigView() {
                 ))}
               </ul>
               <div className="config__actions">
-                <button type="button" className="btn btn--secondary" onClick={addGroup}>+ Add submenu</button>
+                <button type="button" className="btn btn--secondary" onClick={addGroup}>+ Create submenu</button>
                 <button
                   type="button"
                   className="btn btn--primary"

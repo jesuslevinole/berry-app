@@ -19,7 +19,11 @@ export const MODULE_DEFS: ModuleDef[] = [
   { id: 'catalogs', label: 'Catalogs', hasDocuments: true },
   { id: 'lots', label: 'Lot Activity', hasDocuments: false },
   { id: 'inventory', label: 'Inventory', hasDocuments: true },
-  { id: 'reports', label: 'Reports', hasDocuments: true },
+  { id: 'queue', label: 'Invoice Queue', hasDocuments: true },
+  { id: 'apgrowers', label: 'A/P Growers', hasDocuments: true },
+  { id: 'ap', label: 'Accounts Payable', hasDocuments: true },
+  { id: 'ar', label: 'Accounts Receivable', hasDocuments: true },
+  { id: 'expensesreport', label: 'Expenses Report', hasDocuments: true },
   { id: 'checks', label: 'Checkbook', hasDocuments: true },
   { id: 'company', label: 'Company Info', hasDocuments: false },
   { id: 'users', label: 'System Users', hasDocuments: false },
@@ -60,15 +64,3 @@ export const mergePermissions = (saved: ModulePermission[] | undefined): ModuleP
         };
   });
 
-/** Atajos de reportes: se comportan como modulos en el menu (renombrables y agrupables). */
-export interface ReportShortcut {
-  id: string;
-  sub: string;
-  label: string;
-}
-
-export const REPORT_SHORTCUTS: ReportShortcut[] = [
-  { id: 'reports:apgrowers', sub: 'apgrowers', label: 'A/P Growers' },
-  { id: 'reports:ar', sub: 'ar', label: 'Accounts Receivable' },
-  { id: 'reports:ap', sub: 'ap', label: 'Accounts Payable' },
-];

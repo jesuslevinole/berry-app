@@ -19,15 +19,16 @@ import {
 } from '../../types/models';
 import './ReportsView.css';
 
-type ReportId = 'queue' | 'apgrowers' | 'ap' | 'ar' | 'expenses';
+export type ReportId = 'queue' | 'apgrowers' | 'ap' | 'ar' | 'expenses';
 
-const REPORTS: { id: ReportId; label: string }[] = [
-  { id: 'queue', label: 'Invoice Queue' },
-  { id: 'apgrowers', label: 'A/P Growers' },
-  { id: 'ap', label: 'Accounts Payable' },
-  { id: 'ar', label: 'Accounts Receivable' },
-  { id: 'expenses', label: 'Expenses' },
-];
+/** Cada reporte es un modulo independiente: titulo y modulo de permisos propios. */
+const REPORT_META: Record<ReportId, { title: string; moduleId: string }> = {
+  queue: { title: 'Invoice Queue', moduleId: 'queue' },
+  apgrowers: { title: 'A/P Growers', moduleId: 'apgrowers' },
+  ap: { title: 'Accounts Payable', moduleId: 'ap' },
+  ar: { title: 'Accounts Receivable', moduleId: 'ar' },
+  expenses: { title: 'Expenses Report', moduleId: 'expensesreport' },
+};
 
 const fmtDate = (iso: string): string => {
   if (!iso) return '\u2014';
@@ -101,19 +102,13 @@ async function exportReport(title: string, columns: ExportColumn[]): Promise<voi
 }
 
 interface ReportsViewProps {
-  /** Pestana inicial desde el menu lateral ('ar' | 'ap' | 'apgrowers') o null para la cola. */
-  initialReport?: string | null;
+  /** Reporte que muestra esta vista (cada uno es su propio modulo del menu). */
+  report: ReportId;
 }
 
-const toReportId = (value?: string | null): ReportId | null =>
-  value === 'ar' || value === 'ap' || value === 'apgrowers' || value === 'queue' || value === 'expenses'
-    ? value
-    : null;
-
-export function ReportsView({ initialReport = null }: ReportsViewProps) {
+export function ReportsView({ report }: ReportsViewProps) {
   const { can } = useAuth();
   const { fieldsFor } = useAppConfig();
-  const [report, setReport] = useState<ReportId>(toReportId(initialReport) ?? 'queue');
   const [search, setSearch] = useState('');
 
   const { data: purchaseOrders } = useCollection<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER);
@@ -354,26 +349,18 @@ export function ReportsView({ initialReport = null }: ReportsViewProps) {
 
   return (
     <div className="reports">
-      <Toolbar title="Reports" subtitle="Live financial reports" searchValue={search} onSearchChange={setSearch}>
-        {can('reports', 'documents') && (
+      <Toolbar
+        title={REPORT_META[report].title}
+        subtitle="Live financial report"
+        searchValue={search}
+        onSearchChange={setSearch}
+      >
+        {can(REPORT_META[report].moduleId, 'documents') && (
           <button type="button" className="btn btn--secondary" onClick={handleExport}>
             Export Excel
           </button>
         )}
       </Toolbar>
-
-      <div className="reports__tabs">
-        {REPORTS.map((r) => (
-          <button
-            key={r.id}
-            type="button"
-            className={`reports__tab${report === r.id ? ' reports__tab--active' : ''}`}
-            onClick={() => setReport(r.id)}
-          >
-            {r.label}
-          </button>
-        ))}
-      </div>
 
       {report === 'queue' && (
         <>

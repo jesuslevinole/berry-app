@@ -2,11 +2,10 @@ import { Fragment, useState, type ReactNode } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useAppConfig } from '../../context/AppConfigContext';
 import { APP_VERSION, APP_AUTHOR } from '../../config/version';
-import { REPORT_SHORTCUTS } from '../../config/modules';
 import { useCompany } from '../../hooks/useCompany';
 import './AppLayout.css';
 
-export type ViewKey = 'dashboard' | 'purchases' | 'sales' | 'expenses' | 'catalogs' | 'lots' | 'inventory' | 'reports' | 'checks' | 'company' | 'users' | 'roles' | 'config';
+export type ViewKey = 'dashboard' | 'purchases' | 'sales' | 'expenses' | 'catalogs' | 'lots' | 'inventory' | 'queue' | 'apgrowers' | 'ap' | 'ar' | 'expensesreport' | 'checks' | 'company' | 'users' | 'roles' | 'config';
 
 export const VIEW_TITLES: Record<ViewKey, string> = {
   dashboard: 'Dashboard',
@@ -16,7 +15,11 @@ export const VIEW_TITLES: Record<ViewKey, string> = {
   catalogs: 'Catalogs',
   lots: 'Lot Activity',
   inventory: 'Inventory',
-  reports: 'Reports',
+  queue: 'Invoice Queue',
+  apgrowers: 'A/P Growers',
+  ap: 'Accounts Payable',
+  ar: 'Accounts Receivable',
+  expensesreport: 'Expenses Report',
   checks: 'Checkbook',
   company: 'Company Info',
   users: 'System Users',
@@ -91,8 +94,44 @@ const NAV_ITEMS: Array<{ key: ViewKey; label: string; icon: ReactNode }> = [
     ),
   },
   {
-    key: 'reports',
-    label: 'Reports',
+    key: 'queue',
+    label: 'Invoice Queue',
+    icon: (
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <path d="M3 3v18h18" /><path d="M7 15l4-5 3 3 5-7" />
+      </svg>
+    ),
+  },
+{
+    key: 'apgrowers',
+    label: 'A/P Growers',
+    icon: (
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <path d="M3 3v18h18" /><path d="M7 15l4-5 3 3 5-7" />
+      </svg>
+    ),
+  },
+{
+    key: 'ap',
+    label: 'Accounts Payable',
+    icon: (
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <path d="M3 3v18h18" /><path d="M7 15l4-5 3 3 5-7" />
+      </svg>
+    ),
+  },
+{
+    key: 'ar',
+    label: 'Accounts Receivable',
+    icon: (
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <path d="M3 3v18h18" /><path d="M7 15l4-5 3 3 5-7" />
+      </svg>
+    ),
+  },
+{
+    key: 'expensesreport',
+    label: 'Expenses Report',
     icon: (
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8">
         <path d="M3 3v18h18" /><path d="M7 15l4-5 3 3 5-7" />
@@ -149,13 +188,11 @@ const NAV_ITEMS: Array<{ key: ViewKey; label: string; icon: ReactNode }> = [
 
 interface AppLayoutProps {
   view: ViewKey;
-  /** Sub-vista activa (ej. pestana de Reports) o null. */
-  subview?: string | null;
-  onNavigate: (view: ViewKey, subview?: string) => void;
+  onNavigate: (view: ViewKey) => void;
   children: ReactNode;
 }
 
-export function AppLayout({ view, subview = null, onNavigate, children }: AppLayoutProps) {
+export function AppLayout({ view, onNavigate, children }: AppLayoutProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const { can, profile, firebaseUser, bypass, logout, viewAsProfile, setViewAs } = useAuth();
@@ -172,11 +209,8 @@ export function AppLayout({ view, subview = null, onNavigate, children }: AppLay
     if (!parent || parent === key) return null;
     return groupIds.has(parent) || visibleKeys.has(parent) ? parent : null;
   };
-  const shortcuts = can('reports', 'view') ? REPORT_SHORTCUTS : [];
-  const shortcutParent = (id: string): string => parentOf(id) ?? 'reports';
   const childModulesOf = (key: string) => visibleItems.filter((item) => parentOf(item.key) === key);
-  const childShortcutsOf = (key: string) => shortcuts.filter((sc) => shortcutParent(sc.id) === key);
-  const hasChildren = (key: string): boolean => childModulesOf(key).length > 0 || childShortcutsOf(key).length > 0;
+  const hasChildren = (key: string): boolean => childModulesOf(key).length > 0;
   /* Orden raiz: navOrder guardado (modulos + grupos), completado con lo que falte. */
   const topModules = visibleItems.filter((item) => !parentOf(item.key));
   const orderedTop: Array<{ kind: 'module'; key: ViewKey } | { kind: 'group'; id: string; label: string }> = [];
@@ -206,8 +240,8 @@ export function AppLayout({ view, subview = null, onNavigate, children }: AppLay
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   const toggleGroup = (key: string) => setOpenGroups((prev) => ({ ...prev, [key]: !prev[key] }));
 
-  const handleNavigate = (key: ViewKey, sub?: string) => {
-    onNavigate(key, sub);
+  const handleNavigate = (key: ViewKey) => {
+    onNavigate(key);
     setMobileOpen(false);
   };
 
@@ -245,8 +279,7 @@ export function AppLayout({ view, subview = null, onNavigate, children }: AppLay
               ? navLabel(entry.key, item?.label ?? entry.key)
               : navLabel(entry.id, entry.label);
             const childModules = childModulesOf(key);
-            const childShortcuts = childShortcutsOf(key);
-            const hasSub = childModules.length > 0 || childShortcuts.length > 0;
+            const hasSub = childModules.length > 0;
             const isOpen = !!openGroups[key];
             const subnav = hasSub && isOpen && (
               <div className="sidebar__subnav">
@@ -260,18 +293,6 @@ export function AppLayout({ view, subview = null, onNavigate, children }: AppLay
                   >
                     <span className="sidebar__subdot" aria-hidden="true" />
                     <span className="sidebar__label">{navLabel(child.key, child.label)}</span>
-                  </button>
-                ))}
-                {childShortcuts.map((sc) => (
-                  <button
-                    key={sc.id}
-                    type="button"
-                    className={`sidebar__sublink${view === 'reports' && subview === sc.sub ? ' sidebar__sublink--active' : ''}`}
-                    onClick={() => handleNavigate('reports', sc.sub)}
-                    title={navLabel(sc.id, sc.label)}
-                  >
-                    <span className="sidebar__subdot" aria-hidden="true" />
-                    <span className="sidebar__label">{navLabel(sc.id, sc.label)}</span>
                   </button>
                 ))}
               </div>
@@ -309,7 +330,7 @@ export function AppLayout({ view, subview = null, onNavigate, children }: AppLay
                 <div className={hasSub ? 'sidebar__linkrow' : undefined}>
                   <button
                     type="button"
-                    className={`sidebar__link${hasSub ? ' sidebar__link--grow' : ''}${view === key && !subview ? ' sidebar__link--active' : ''}`}
+                    className={`sidebar__link${hasSub ? ' sidebar__link--grow' : ''}${view === key ? ' sidebar__link--active' : ''}`}
                     onClick={() => handleNavigate(entry.key)}
                     title={label}
                   >
