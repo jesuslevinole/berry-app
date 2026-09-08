@@ -4,8 +4,8 @@ import './InventoryAndSalesView.css';
 
 /**
  * Vista combinada "Inventory and Sales":
- * - Inventario fijo arriba (no se mueve al scrollear; si crece mucho, scrollea internamente).
- * - Sales Desk abajo con su propio scroll independiente.
+ * - Inventario sticky arriba (queda pegado bajo el topbar al scrollear).
+ * - Sales Desk SIEMPRE renderizado debajo, scrolleando con la pagina.
  */
 export function InventoryAndSalesView() {
   return (

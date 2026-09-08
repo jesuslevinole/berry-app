@@ -280,6 +280,26 @@ export function InventoryView() {
     [commodities.options],
   );
 
+  /* Tabs Stock/Movements: se dibujan a la derecha de la fila de chips. */
+  const tabsControl = (
+    <div className="inventory__tabs">
+      <button
+        type="button"
+        className={`inventory__tab${(tab as InventoryTab) === 'stock' ? ' inventory__tab--active' : ''}`}
+        onClick={() => setTab('stock')}
+      >
+        Stock
+      </button>
+      <button
+        type="button"
+        className={`inventory__tab${(tab as InventoryTab) === 'movements' ? ' inventory__tab--active' : ''}`}
+        onClick={() => setTab('movements')}
+      >
+        Movements (In / Out)
+      </button>
+    </div>
+  );
+
   return (
     <div className="inventory">
       <Toolbar
@@ -299,25 +319,9 @@ export function InventoryView() {
         )}
       </Toolbar>
 
-      <div className="inventory__tabs">
-        <button
-          type="button"
-          className={`inventory__tab${tab === 'stock' ? ' inventory__tab--active' : ''}`}
-          onClick={() => setTab('stock')}
-        >
-          Stock
-        </button>
-        <button
-          type="button"
-          className={`inventory__tab${tab === 'movements' ? ' inventory__tab--active' : ''}`}
-          onClick={() => setTab('movements')}
-        >
-          Movements (In / Out)
-        </button>
-      </div>
-
       {tab === 'stock' && (
         <>
+          <div className="inventory__bar">
           <div className="inventory__chips">
             <span className="inventory__chip">{stockRows.length} products</span>
             <span className="inventory__chip">Stock <b className="num">{fmtQty(stockTotals.stock)}</b></span>
@@ -325,6 +329,8 @@ export function InventoryView() {
             <span className={`inventory__chip${stockTotals.available < 0 ? ' inventory__chip--bad' : ' inventory__chip--ok'}`}>
               Available <b className="num">{fmtQty(stockTotals.available)}</b>
             </span>
+          </div>
+          {tabsControl}
           </div>
 
           <div className="inventory__card">
@@ -407,11 +413,14 @@ export function InventoryView() {
             </div>
           </div>
 
+          <div className="inventory__bar">
           <div className="inventory__chips">
             <span className="inventory__chip">{movementRows.length} movements</span>
             <span className="inventory__chip inventory__chip--ok">In <b className="num">{fmtQty(movementTotals.totalIn)}</b></span>
             <span className="inventory__chip inventory__chip--bad">Out <b className="num">{fmtQty(movementTotals.totalOut)}</b></span>
             <span className="inventory__chip">Net <b className="num">{fmtQty(movementTotals.net)}</b></span>
+          </div>
+          {tabsControl}
           </div>
 
           <div className="inventory__card">

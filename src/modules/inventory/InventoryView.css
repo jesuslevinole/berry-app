@@ -60,6 +60,25 @@
   color: var(--muted);
 }
 
+/* Fila unica: chips a la izquierda, tabs Stock/Movements pegados a la derecha. */
+.inventory__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.inventory__bar .inventory__chips,
+.inventory__bar .inventory__tabs {
+  margin-bottom: 0;
+}
+
+.inventory__bar .inventory__tabs {
+  margin-left: auto;
+}
+
 .inventory__chips {
   display: flex;
   gap: 10px;

@@ -53,32 +53,20 @@ export async function printLiquidationReport(
   const expenses = deductible.length > 0
     ? deductible.reduce((acc, e) => acc + (e.AMOUNT ?? 0), 0)
     : (order.TOTAL_EXPENSES ?? order.EXPENSES ?? 0);
+
+  /* Gastos agrupados por categoria, como en la liquidacion de AppSheet. */
+  const catSnap = await getDocs(collection(db, COLLECTIONS.CATEGORY_BILL));
+  const catName = new Map(catSnap.docs.map((d) => [d.id, String((d.data() as { NAME?: string }).NAME ?? '')]));
+  const byCategory = new Map<string, number>();
+  for (const e of deductible) {
+    const label = catName.get(e.ID_CATEGORYBILL) || e.NOTE || e.INVOICE_NUMBER || 'Expense';
+    byCategory.set(label, (byCategory.get(label) ?? 0) + (e.AMOUNT ?? 0));
+  }
   const totalLiquidation = subtotal - commission - expenses;
   const totalPaid = order.AMOUNT_PAID ?? 0;
   const balance = totalLiquidation - totalPaid;
   const { company } = ctx;
 
-  /* Desglose de gastos deducidos (se imprime solo si hay). */
-  const expRowsHtml = deductible
-    .map(
-      (e) => `
-      <tr>
-        <td class="exp-td">${esc(e.INVOICE_NUMBER || '')}</td>
-        <td class="exp-td">${esc(e.NOTE || '')}</td>
-        <td class="exp-td exp-td--num">$${fmtUsd(e.AMOUNT ?? 0)}</td>
-      </tr>`,
-    )
-    .join('');
-  const expensesBlock = deductible.length > 0
-    ? `
-  <table class="exp-table">
-    <thead>
-      <tr><th class="exp-th" colspan="3">Expenses deducted</th></tr>
-      <tr><th class="exp-th2">Invoice #</th><th class="exp-th2">Note</th><th class="exp-th2 exp-td--num">Amount</th></tr>
-    </thead>
-    <tbody>${expRowsHtml}</tbody>
-  </table>`
-    : '';
 
   const rowsHtml = lines
     .map(
@@ -117,11 +105,6 @@ export async function printLiquidationReport(
   .td { padding: 9px 10px; font-size: 12.5px; }
   .num { text-align: right; }
   .center { text-align: center; }
-  .exp-table { margin-top: 34px; margin-left: auto; border-collapse: collapse; min-width: 55%; }
-  .exp-th { background: #6aa84f; color: #ffffff; font-size: 11px; font-weight: 700; padding: 6px 10px; text-align: center; }
-  .exp-th2 { background: #d9ead3; color: #1e4a38; font-size: 10px; font-weight: 700; padding: 5px 10px; text-align: left; }
-  .exp-td { font-size: 10.5px; padding: 5px 10px; border-bottom: 1px solid #e2e6e3; }
-  .exp-td--num { text-align: right; }
   .totals { margin-top: 26px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
   .t-row { display: flex; align-items: center; justify-content: flex-end; gap: 18px; padding: 5px 0; }
   .t-label { font-size: 12.5px; }
@@ -171,8 +154,6 @@ export async function printLiquidationReport(
       <tbody>${rowsHtml || '<tr><td class="td center" colspan="5" style="color:#777">No sales registered for this lot</td></tr>'}</tbody>
     </table>
 
-    ${expensesBlock}
-
     <div class="totals">
       <div class="t-row">
         <span class="t-label">SubTotal</span>
@@ -184,10 +165,27 @@ export async function printLiquidationReport(
         <span class="t-value">$${fmtUsd(commission)}</span>
       </div>
       <div class="t-gap"></div>
+      ${[...byCategory.entries()]
+        .map(
+          ([label, amount]) => `
+      <div class="t-row">
+        <span class="t-label">${esc(label)}</span>
+        <span class="t-value t-value--line">$${fmtUsd(amount)}</span>
+      </div>`,
+        )
+        .join('')}
+      ${byCategory.size === 0
+        ? `
       <div class="t-row">
         <span class="t-label">Expenses</span>
         <span class="t-value t-value--top">$${fmtUsd(expenses)}</span>
-      </div>
+      </div>`
+        : `
+      <div class="t-gap"></div>
+      <div class="t-row">
+        <span class="t-label"></span>
+        <span class="t-value t-value--top">$${fmtUsd(expenses)}</span>
+      </div>`}
       <div class="t-gap"></div>
       <div class="t-row">
         <span class="t-label">Total Liquidation</span>
