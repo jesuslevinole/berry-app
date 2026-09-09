@@ -168,6 +168,24 @@ export const PAYMENT_BILL_SCHEMA: EntitySchema = {
 };
 
 /** Esquemas agrupados por modulo: el template descarga una hoja por esquema. */
+export const CHECK_SCHEMA: EntitySchema = {
+  collection: COLLECTIONS.CHECKS,
+  label: 'Checks',
+  idField: 'ID_CHECKS',
+  fields: [
+    { key: 'CHECK_NUMBER', type: 'number', width: 14, aliases: ['CHECK #', 'CHECK NUMBER', 'NO', 'NUMBER'] },
+    { key: 'DATE', type: 'date', width: 14, aliases: ['CHECK DATE', 'FECHA'] },
+    { key: 'ACCOUNT', type: 'text', width: 26, aliases: ['COMPANY', 'ACCOUNT NAME'] },
+    { key: 'ID_BANK', type: 'text', width: 26, aliases: ['BANK', 'BANK ACCOUNT'] },
+    { key: 'ID_CUSTOMER', type: 'text', width: 26, ref: COLLECTIONS.CUSTOMER, aliases: ['CUSTOMER', 'PAY TO', 'PAYEE', 'VENDOR'] },
+    { key: 'MEMO', type: 'text', width: 30, aliases: ['NOTE', 'DESCRIPTION'] },
+    { key: 'REF', type: 'text', width: 20, aliases: ['REF #', 'REFERENCE'] },
+    { key: 'AMOUNT', type: 'number', width: 14, aliases: ['TOTAL', 'IMPORTE'] },
+  ],
+};
+
+export const CHECKS_SCHEMAS = [CHECK_SCHEMA];
+
 export const PURCHASES_SCHEMAS = [PURCHASE_ORDER_SCHEMA, PURCHASE_DETAIL_SCHEMA];
 export const SALES_SCHEMAS = [SALES_ORDER_SCHEMA, SALES_ORDER_DETAIL_SCHEMA, PAYMENT_SALES_SCHEMA];
 export const EXPENSES_SCHEMAS = [EXPENSE_SCHEMA, PAYMENT_BILL_SCHEMA];

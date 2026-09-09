@@ -238,11 +238,11 @@ export function UsersView() {
         <table className="users__table">
           <thead>
             <tr>
+              <th className="users__th users__th--actions">Actions</th>
               <th className="users__th">Name</th>
               <th className="users__th">Email</th>
               <th className="users__th">Role</th>
               <th className="users__th">Status</th>
-              <th className="users__th users__th--right">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -255,18 +255,7 @@ export function UsersView() {
               const sending = sendingId === user.id;
               return (
                 <tr key={user.id} className="users__row">
-                  <td className="users__td users__td--strong">{user.firstName} {user.lastName}</td>
-                  <td className="users__td users__td--muted">{user.email}</td>
-                  <td className="users__td">
-                    <span className="users__role-badge">{rolesById.get(user.roleId)?.name ?? '—'}</span>
-                  </td>
-                  <td className="users__td">
-                    <span className="users__status">
-                      <span className={`users__status-dot users__status-dot--${meta.className}`} />
-                      <span className={`users__status-text users__status-text--${meta.className}`}>{meta.label}</span>
-                    </span>
-                  </td>
-                  <td className="users__td users__td--right">
+                  <td className="users__td users__td--actions">
                     <span className="users__actions">
                       {can('users', 'edit') && (
                         <button
@@ -305,6 +294,17 @@ export function UsersView() {
                           </svg>
                         </button>
                       )}
+                    </span>
+                  </td>
+                  <td className="users__td users__td--strong">{user.firstName} {user.lastName}</td>
+                  <td className="users__td users__td--muted">{user.email}</td>
+                  <td className="users__td">
+                    <span className="users__role-badge">{rolesById.get(user.roleId)?.name ?? '—'}</span>
+                  </td>
+                  <td className="users__td">
+                    <span className="users__status">
+                      <span className={`users__status-dot users__status-dot--${meta.className}`} />
+                      <span className={`users__status-text users__status-text--${meta.className}`}>{meta.label}</span>
                     </span>
                   </td>
                 </tr>

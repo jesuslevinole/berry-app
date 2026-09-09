@@ -261,3 +261,7 @@
 .users__icon-btn--delete { color: var(--bad); }
 
 .users__icon-btn--delete:hover { background-color: var(--bad-bg); }
+
+/* Columna de acciones al inicio de la tabla. */
+.users__th--actions { width: 1%; white-space: nowrap; text-align: left; }
+.users__td--actions { white-space: nowrap; text-align: left; }

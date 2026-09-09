@@ -2,7 +2,10 @@ import { useMemo, useState } from 'react';
 import { useCollection } from '../../hooks/useCollection';
 import { useCatalog } from '../../hooks/useCatalog';
 import { SearchableSelect } from '../../components/ui/SearchableSelect';
+import { useAuth } from '../../context/AuthContext';
 import { Toolbar } from '../../components/ui/Toolbar';
+import { DataPortButtons } from '../../components/ui/DataPortButtons';
+import { PURCHASES_SCHEMAS } from '../../config/entitySchemas';
 import { fmtMoney, round2 } from '../../utils/format';
 import {
   COLLECTIONS,
@@ -22,6 +25,7 @@ const STATUS_CLASS: Record<string, string> = {
 };
 
 export function LotActivityView() {
+  const { can } = useAuth();
   const { data: purchaseOrders } = useCollection<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER);
   const { data: purchaseDetails } = useCollection<PurchaseDetail>(COLLECTIONS.PURCHASE_DETAILS);
   const { data: salesOrders } = useCollection<SalesOrder>(COLLECTIONS.SALES_ORDER);
@@ -107,7 +111,9 @@ export function LotActivityView() {
 
   return (
     <div className="lot-activity">
-      <Toolbar title="Lot Activity" subtitle="Purchases, sales and availability per lot" />
+      <Toolbar title="Lot Activity" subtitle="Purchases, sales and availability per lot">
+        {can('lots', 'documents') && <DataPortButtons schemas={PURCHASES_SCHEMAS} fileName="lot-activity" />}
+      </Toolbar>
 
       <div className="lot-activity__filter-card">
         <div className="lot-activity__filter-field">

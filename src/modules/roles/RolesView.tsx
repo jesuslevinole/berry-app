@@ -159,11 +159,11 @@ export function RolesView() {
         <table className="roles__table">
           <thead>
             <tr>
+              <th className="roles__th roles__th--actions">Actions</th>
               <th className="roles__th">Role</th>
               <th className="roles__th">Description</th>
               <th className="roles__th roles__th--center">Modules visible</th>
               <th className="roles__th roles__th--center">Users</th>
-              <th className="roles__th roles__th--right">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -179,11 +179,7 @@ export function RolesView() {
                 className="roles__row"
                 onClick={() => (can('roles', 'edit') || can('roles', 'view')) && openEdit(role)}
               >
-                <td className="roles__td roles__td--name">{role.name}</td>
-                <td className="roles__td roles__td--muted">{role.description || '—'}</td>
-                <td className="roles__td roles__td--center">{countGranted(role)} / {MODULE_DEFS.length}</td>
-                <td className="roles__td roles__td--center">{usersPerRole.get(role.id) ?? 0}</td>
-                <td className="roles__td roles__td--right">
+                <td className="roles__td roles__td--actions">
                   {can('roles', 'edit') && (
                     <button type="button" className="roles__action roles__action--edit" onClick={(e) => { e.stopPropagation(); openEdit(role); }}>Edit</button>
                   )}
@@ -191,6 +187,10 @@ export function RolesView() {
                     <button type="button" className="roles__action roles__action--delete" onClick={(e) => { e.stopPropagation(); handleDeleteRow(role); }}>Delete</button>
                   )}
                 </td>
+                <td className="roles__td roles__td--name">{role.name}</td>
+                <td className="roles__td roles__td--muted">{role.description || '—'}</td>
+                <td className="roles__td roles__td--center">{countGranted(role)} / {MODULE_DEFS.length}</td>
+                <td className="roles__td roles__td--center">{usersPerRole.get(role.id) ?? 0}</td>
               </tr>
             ))}
           </tbody>

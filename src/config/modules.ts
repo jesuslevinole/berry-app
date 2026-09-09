@@ -17,7 +17,7 @@ export const MODULE_DEFS: ModuleDef[] = [
   { id: 'sales', label: 'Sales Desk', hasDocuments: true },
   { id: 'expenses', label: 'Expenses', hasDocuments: true },
   { id: 'catalogs', label: 'Catalogs', hasDocuments: true },
-  { id: 'lots', label: 'Lot Activity', hasDocuments: false },
+  { id: 'lots', label: 'Lot Activity', hasDocuments: true },
   { id: 'inventory', label: 'Inventory', hasDocuments: true },
   { id: 'queue', label: 'Invoice Queue', hasDocuments: true },
   { id: 'apgrowers', label: 'A/P Growers', hasDocuments: true },

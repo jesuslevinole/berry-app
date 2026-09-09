@@ -104,11 +104,11 @@ export function TrashView() {
         <table className="trash__table">
           <thead>
             <tr>
+              <th className="trash__th trash__th--actions">Actions</th>
               <th className="trash__th">Deleted</th>
               <th className="trash__th">Module</th>
               <th className="trash__th">Record</th>
               <th className="trash__th">Deleted by</th>
-              <th className="trash__th trash__th--actions">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -117,10 +117,6 @@ export function TrashView() {
             )}
             {rows.map((item) => (
               <tr key={item.id}>
-                <td className="trash__td trash__td--muted">{fmtDateTime(item.DELETED_AT)}</td>
-                <td className="trash__td trash__td--strong">{COLLECTION_LABELS[item.ORIGIN_COLLECTION] ?? item.ORIGIN_COLLECTION}</td>
-                <td className="trash__td trash__td--mono">{summarize(item)}</td>
-                <td className="trash__td">{item.DELETED_BY || '\u2014'}</td>
                 <td className="trash__td trash__td--actions">
                   {can('trash', 'edit') && (
                     <button
@@ -143,6 +139,10 @@ export function TrashView() {
                     </button>
                   )}
                 </td>
+                <td className="trash__td trash__td--muted">{fmtDateTime(item.DELETED_AT)}</td>
+                <td className="trash__td trash__td--strong">{COLLECTION_LABELS[item.ORIGIN_COLLECTION] ?? item.ORIGIN_COLLECTION}</td>
+                <td className="trash__td trash__td--mono">{summarize(item)}</td>
+                <td className="trash__td">{item.DELETED_BY || '\u2014'}</td>
               </tr>
             ))}
           </tbody>

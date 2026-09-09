@@ -39,6 +39,10 @@ export function DataTable<T extends { id: string }>({
         <table className="data-table__table">
           <thead>
             <tr>
+              {/* Acciones siempre en la primera columna. */}
+              {hasActions && (
+                <th className="data-table__th data-table__cell--left data-table__actions-th">Actions</th>
+              )}
               {columns.map((col) => (
                 <th
                   key={col.key}
@@ -48,9 +52,6 @@ export function DataTable<T extends { id: string }>({
                   {col.header}
                 </th>
               ))}
-              {hasActions && (
-                <th className="data-table__th data-table__cell--right data-table__actions-th">Actions</th>
-              )}
             </tr>
           </thead>
           <tbody>
@@ -71,13 +72,8 @@ export function DataTable<T extends { id: string }>({
                   className={`data-table__row${onRowClick ? ' data-table__row--clickable' : ''}`}
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
                 >
-                  {columns.map((col) => (
-                    <td key={col.key} className={`data-table__td data-table__cell--${col.align ?? 'left'}`}>
-                      {col.render ? col.render(row) : String((row as Record<string, unknown>)[col.key] ?? '')}
-                    </td>
-                  ))}
                   {hasActions && (
-                    <td className="data-table__td data-table__cell--right data-table__actions">
+                    <td className="data-table__td data-table__cell--left data-table__actions">
                       {onEdit && (
                         <button
                           type="button"
@@ -112,6 +108,11 @@ export function DataTable<T extends { id: string }>({
                       )}
                     </td>
                   )}
+                  {columns.map((col) => (
+                    <td key={col.key} className={`data-table__td data-table__cell--${col.align ?? 'left'}`}>
+                      {col.render ? col.render(row) : String((row as Record<string, unknown>)[col.key] ?? '')}
+                    </td>
+                  ))}
                 </tr>
               ))}
           </tbody>

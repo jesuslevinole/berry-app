@@ -233,7 +233,7 @@ export function InventoryView() {
     return [...totals.entries()]
       .map(([commodityId, entry]) => ({
         commodityId,
-        name: commodities.nameOf(commodityId),
+        name: commodities.labelOf(commodityId),
         stock: entry.stock,
         committed: entry.committed,
         available: round2(entry.stock - entry.committed),
@@ -262,7 +262,7 @@ export function InventoryView() {
       .filter(
         (row) =>
           !term ||
-          [row.documentNumber, commodities.nameOf(row.commodityId), row.description, row.party]
+          [row.documentNumber, commodities.labelOf(row.commodityId), row.description, row.party]
             .join(' ')
             .toLowerCase()
             .includes(term),
@@ -315,7 +315,7 @@ export function InventoryView() {
           <button
             type="button"
             className="btn btn--secondary"
-            onClick={() => void exportMovements(movementRows, commodities.nameOf)}
+            onClick={() => void exportMovements(movementRows, commodities.labelOf)}
           >
             Export Excel
           </button>
@@ -461,7 +461,7 @@ export function InventoryView() {
                         {row.documentNumber}
                       </button>
                     </td>
-                    <td className="inventory__td inventory__td--strong">{commodities.nameOf(row.commodityId)}</td>
+                    <td className="inventory__td inventory__td--strong">{commodities.labelOf(row.commodityId)}</td>
                     <td className="inventory__td inventory__td--muted">{row.description || '\u2014'}</td>
                     <td className="inventory__td">{row.party || '\u2014'}</td>
                     <td className={`inventory__td inventory__td--num inventory__qty--${row.type}`}>

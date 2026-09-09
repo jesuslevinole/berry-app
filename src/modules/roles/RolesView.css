@@ -300,3 +300,7 @@
 .roles__action--delete { color: var(--bad); border-color: var(--bad-bg); }
 
 .roles__action--delete:hover { background-color: var(--bad); border-color: var(--bad); color: #ffffff; }
+
+/* Columna de acciones al inicio de la tabla. */
+.roles__th--actions { width: 1%; white-space: nowrap; text-align: left; }
+.roles__td--actions { white-space: nowrap; text-align: left; }

@@ -8,6 +8,8 @@ import { createDocument, deleteDocument, updateDocument } from '../../services/f
 import { printCheck } from '../../services/checkPrintService';
 import { COLLECTIONS, type Check } from '../../types/models';
 import { Toolbar } from '../../components/ui/Toolbar';
+import { DataPortButtons } from '../../components/ui/DataPortButtons';
+import { CHECKS_SCHEMAS } from '../../config/entitySchemas';
 import { confirmClose, Modal } from '../../components/ui/Modal';
 import { FormField, FormGrid } from '../../components/ui/FormField';
 import { CatalogSelect } from '../../components/ui/CatalogSelect';
@@ -160,6 +162,7 @@ export function ChecksView() {
   return (
     <div className="checks">
       <Toolbar title="Checkbook" subtitle={`${rows.length} checks · ${fmtMoney(total)}`} searchValue={search} onSearchChange={setSearch}>
+        {can('checks', 'documents') && <DataPortButtons schemas={CHECKS_SCHEMAS} fileName="checks" />}
         {can('checks', 'add') && (
           <button type="button" className="btn btn--primary" onClick={openCreate}>+ Add check</button>
         )}
