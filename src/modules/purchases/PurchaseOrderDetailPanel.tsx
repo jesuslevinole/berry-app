@@ -5,7 +5,7 @@ import { where } from '../../services/firestore';
 import { RecordDetail, DetailSection, type DetailField } from '../../components/ui/RecordDetail';
 import { FORM_DEFS } from '../../config/formDefs';
 import { COLLECTIONS, type PurchaseDetail, type PurchaseOrder } from '../../types/models';
-import { fmtMoney } from '../../utils/format';
+import { fmtMoney, round2 } from '../../utils/format';
 
 const fmtDate = (iso: string): string => {
   if (!iso) return '';
@@ -53,7 +53,16 @@ export function PurchaseOrderDetailPanel({ order, buyerName, onClose, onEdit }: 
     value: valueByKey[f.key] ?? '',
   }));
 
-  const balance = (order.TOTAL ?? 0) - (order.AMOUNT_PAID ?? 0);
+  /* Resumen EN VIVO desde las lineas: si el lote tiene detalle cargado (formulario
+     o Import CSV), los totales salen de las lineas y nunca quedan desfasados. */
+  const liveSubtotal = round2(lines.reduce((acc, l) => acc + (l.TOTAL ?? 0), 0));
+  const liveQuantity = round2(lines.reduce((acc, l) => acc + (l.QUANTITY ?? 0), 0));
+  const hasLines = !loading && lines.length > 0;
+  const subtotal = hasLines ? liveSubtotal : (order.SUBTOTAL ?? 0);
+  const commission = hasLines ? round2((liveSubtotal * (order.COMMISION_PERCENT ?? 0)) / 100) : (order.COMMISION_AMOUNT ?? 0);
+  const total = hasLines ? round2(subtotal + commission) : (order.TOTAL ?? 0);
+  const quantity = hasLines ? liveQuantity : (order.QUANTITY ?? 0);
+  const balance = round2(total - (order.AMOUNT_PAID ?? 0));
 
   return (
     <RecordDetail
@@ -64,13 +73,13 @@ export function PurchaseOrderDetailPanel({ order, buyerName, onClose, onEdit }: 
     >
       <DetailSection title="Financial summary">
         <div className="record-detail__stats">
-          <div className="record-detail__stat"><span className="record-detail__stat-label">Subtotal</span><span className="record-detail__stat-value">{fmtMoney(order.SUBTOTAL ?? 0)}</span></div>
-          <div className="record-detail__stat"><span className="record-detail__stat-label">Commission</span><span className="record-detail__stat-value">{fmtMoney(order.COMMISION_AMOUNT ?? 0)}</span></div>
+          <div className="record-detail__stat"><span className="record-detail__stat-label">Subtotal</span><span className="record-detail__stat-value">{fmtMoney(subtotal)}</span></div>
+          <div className="record-detail__stat"><span className="record-detail__stat-label">Commission</span><span className="record-detail__stat-value">{fmtMoney(commission)}</span></div>
           <div className="record-detail__stat"><span className="record-detail__stat-label">Expenses</span><span className="record-detail__stat-value">{fmtMoney(order.EXPENSES ?? 0)}</span></div>
-          <div className="record-detail__stat record-detail__stat--highlight"><span className="record-detail__stat-label">Total</span><span className="record-detail__stat-value">{fmtMoney(order.TOTAL ?? 0)}</span></div>
+          <div className="record-detail__stat record-detail__stat--highlight"><span className="record-detail__stat-label">Total</span><span className="record-detail__stat-value">{fmtMoney(total)}</span></div>
           <div className="record-detail__stat"><span className="record-detail__stat-label">Amount paid</span><span className="record-detail__stat-value">{fmtMoney(order.AMOUNT_PAID ?? 0)}</span></div>
           <div className={`record-detail__stat${balance > 0 ? ' record-detail__stat--bad' : ''}`}><span className="record-detail__stat-label">Balance</span><span className="record-detail__stat-value">{fmtMoney(balance)}</span></div>
-          <div className="record-detail__stat"><span className="record-detail__stat-label">Quantity</span><span className="record-detail__stat-value">{order.QUANTITY ?? 0}</span></div>
+          <div className="record-detail__stat"><span className="record-detail__stat-label">Quantity</span><span className="record-detail__stat-value">{quantity}</span></div>
         </div>
       </DetailSection>
 
@@ -93,7 +102,7 @@ export function PurchaseOrderDetailPanel({ order, buyerName, onClose, onEdit }: 
               )}
               {!loading && lines.map((line) => (
                 <tr key={line.id}>
-                  <td className="record-detail__td record-detail__td--strong">{commodities.nameOf(line.ID_COMMODITIES)}</td>
+                  <td className="record-detail__td record-detail__td--strong">{commodities.nameOf(line.ID_COMMODITIES) || line.ID_COMMODITIES || '\u2014'}</td>
                   <td className="record-detail__td record-detail__td--muted">{line.DESCRIPTION || '—'}</td>
                   <td className="record-detail__td record-detail__td--num">{line.QUANTITY}</td>
                   <td className="record-detail__td record-detail__td--num">{fmtMoney(line.PRICE)}</td>
@@ -105,9 +114,9 @@ export function PurchaseOrderDetailPanel({ order, buyerName, onClose, onEdit }: 
               <tfoot>
                 <tr>
                   <td className="record-detail__tf" colSpan={2}>Total</td>
-                  <td className="record-detail__tf record-detail__tf--num">{order.QUANTITY ?? 0}</td>
+                  <td className="record-detail__tf record-detail__tf--num">{quantity}</td>
                   <td className="record-detail__tf" />
-                  <td className="record-detail__tf record-detail__tf--num">{fmtMoney(order.SUBTOTAL ?? 0)}</td>
+                  <td className="record-detail__tf record-detail__tf--num">{fmtMoney(subtotal)}</td>
                 </tr>
               </tfoot>
             )}

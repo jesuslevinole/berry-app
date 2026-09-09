@@ -5,7 +5,9 @@
 import type { Workbook } from 'exceljs';
 import type { EntityField, EntitySchema } from '../config/entitySchemas';
 import type { BaseDoc } from '../types/models';
-import { bulkUpsert, listDocuments } from './firestore';
+import { bulkUpsert, listDocuments, updateDocument, where } from './firestore';
+import { round2 } from '../utils/format';
+import { COLLECTIONS, type PurchaseDetail, type PurchaseOrder, type SalesOrder, type SalesOrderDetail } from '../types/models';
 import {
   normalizeHeader,
   parseBooleanValue,
@@ -143,11 +145,20 @@ export async function importCsvFile(schema: EntitySchema, file: File): Promise<I
   }
 
   const headers = matrix[0].map(normalizeHeader);
+  /* Busca la columna por su clave o por cualquiera de sus alias (AppSheet). */
+  const indexOfField = (field: { key: string; aliases?: string[] }): number => {
+    const candidates = [field.key, ...(field.aliases ?? [])];
+    for (const name of candidates) {
+      const idx = headers.indexOf(normalizeHeader(name));
+      if (idx >= 0) return idx;
+    }
+    return -1;
+  };
   const indexOf = (key: string): number => headers.indexOf(normalizeHeader(key));
 
   const idIndex = indexOf(schema.idField);
   const fieldIndexes = schema.fields
-    .map((field) => ({ field, index: indexOf(field.key) }))
+    .map((field) => ({ field, index: indexOfField(field) }))
     .filter((entry) => entry.index >= 0);
 
   if (fieldIndexes.length === 0) {
@@ -161,7 +172,7 @@ export async function importCsvFile(schema: EntitySchema, file: File): Promise<I
   }
 
   const missing = schema.fields
-    .filter((field) => indexOf(field.key) < 0)
+    .filter((field) => indexOfField(field) < 0)
     .map((field) => field.key);
   if (missing.length > 0) {
     result.errors.push(`Columns not present in the file (saved as empty): ${missing.join(', ')}`);
@@ -171,6 +182,31 @@ export async function importCsvFile(schema: EntitySchema, file: File): Promise<I
       `Column ${schema.idField} is missing: all rows will get a new generated ID instead of the AppSheet one.`,
     );
   }
+
+  /* Resolucion de llaves foraneas: acepta el ID de Firestore o el nombre/numero
+     visible (nombre de commodity, # de lote, # de orden) y lo convierte al ID. */
+  const refFields = schema.fields.filter((f) => f.ref);
+  const refResolvers = new Map<string, Map<string, string>>();
+  for (const field of refFields) {
+    if (refResolvers.has(field.ref as string)) continue;
+    try {
+      const refDocs = await listDocuments<{ id: string } & Record<string, unknown>>(field.ref as string);
+      const lookup = new Map<string, string>();
+      for (const refDoc of refDocs) {
+        lookup.set(refDoc.id.trim().toLowerCase(), refDoc.id);
+        for (const value of Object.values(refDoc)) {
+          if (typeof value === 'string' && value.trim()) lookup.set(value.trim().toLowerCase(), refDoc.id);
+        }
+      }
+      refResolvers.set(field.ref as string, lookup);
+    } catch {
+      /* Sin resolver: se guarda el valor crudo. */
+    }
+  }
+  const resolveRef = (field: { ref?: string }, raw: string): string => {
+    if (!field.ref || !raw) return raw;
+    return refResolvers.get(field.ref)?.get(raw.trim().toLowerCase()) ?? raw;
+  };
 
   const docs: Array<{ id?: string } & Record<string, unknown>> = [];
 
@@ -192,7 +228,13 @@ export async function importCsvFile(schema: EntitySchema, file: File): Promise<I
       if (field.type === 'number') doc[field.key] = parseNumberValue(raw);
       else if (field.type === 'boolean') doc[field.key] = parseBooleanValue(raw);
       else if (field.type === 'date') doc[field.key] = parseDateValue(raw);
-      else doc[field.key] = raw;
+      else doc[field.key] = resolveRef(field, raw);
+    }
+
+    /* TOTAL de linea: si no vino en el archivo, se calcula qty x price. */
+    if ('QUANTITY' in doc && 'PRICE' in doc && !(doc.TOTAL as number)) {
+      const computed = round2(((doc.QUANTITY as number) ?? 0) * ((doc.PRICE as number) ?? 0));
+      if (computed > 0) doc.TOTAL = computed;
     }
 
     docs.push(doc);
@@ -202,9 +244,63 @@ export async function importCsvFile(schema: EntitySchema, file: File): Promise<I
     result.imported = await bulkUpsert(schema.collection, docs);
   } catch (error) {
     result.errors.push(error instanceof Error ? error.message : 'Unknown error while writing to Firestore.');
+    return result;
+  }
+
+  /* Totales del padre: al importar lineas, la orden recalcula sus montos. */
+  try {
+    if (schema.collection === COLLECTIONS.PURCHASE_DETAILS) {
+      const parentIds = [...new Set(docs.map((d) => String(d.ID_PURCHASEORDER ?? '')).filter(Boolean))];
+      await recomputePurchaseTotals(parentIds);
+    } else if (schema.collection === COLLECTIONS.SALES_ORDER_DETAIL) {
+      const parentIds = [...new Set(docs.map((d) => String(d.ID_SALESORDER ?? '')).filter(Boolean))];
+      await recomputeSalesTotals(parentIds);
+    }
+  } catch {
+    result.errors.push('Lines were imported, but order totals could not be recalculated automatically.');
   }
 
   return result;
+}
+
+/** Recalcula SUBTOTAL/QUANTITY/COMMISION/TOTAL/BALANCE de los lotes afectados. */
+async function recomputePurchaseTotals(orderIds: string[]): Promise<void> {
+  for (const orderId of orderIds) {
+    const lines = await listDocuments<PurchaseDetail>(COLLECTIONS.PURCHASE_DETAILS, [
+      where('ID_PURCHASEORDER', '==', orderId),
+    ]);
+    const orders = await listDocuments<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER);
+    const order = orders.find((o) => o.id === orderId);
+    if (!order) continue;
+    const subtotal = round2(lines.reduce((acc, l) => acc + (l.TOTAL ?? 0), 0));
+    const quantity = round2(lines.reduce((acc, l) => acc + (l.QUANTITY ?? 0), 0));
+    const commission = round2((subtotal * (order.COMMISION_PERCENT ?? 0)) / 100);
+    const total = round2(subtotal + commission);
+    await updateDocument<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER, orderId, {
+      SUBTOTAL: subtotal,
+      QUANTITY: quantity,
+      COMMISION_AMOUNT: commission,
+      TOTAL: total,
+      BALANCE: round2(total - (order.AMOUNT_PAID ?? 0)),
+    });
+  }
+}
+
+/** Recalcula TOTAL/BALANCE de las ordenes de venta afectadas. */
+async function recomputeSalesTotals(orderIds: string[]): Promise<void> {
+  for (const orderId of orderIds) {
+    const lines = await listDocuments<SalesOrderDetail>(COLLECTIONS.SALES_ORDER_DETAIL, [
+      where('ID_SALESORDER', '==', orderId),
+    ]);
+    const orders = await listDocuments<SalesOrder>(COLLECTIONS.SALES_ORDER);
+    const order = orders.find((o) => o.id === orderId);
+    if (!order) continue;
+    const total = round2(lines.reduce((acc, l) => acc + (l.TOTAL ?? 0), 0));
+    await updateDocument<SalesOrder>(COLLECTIONS.SALES_ORDER, orderId, {
+      TOTAL: total,
+      BALANCE: round2(total - (order.INCOMES ?? 0)),
+    });
+  }
 }
 
 function triggerDownload(blob: Blob, fileName: string): void {

@@ -8,6 +8,8 @@ export interface EntityField {
   width?: number;
   /** Coleccion a la que apunta el campo cuando es una llave foranea. */
   ref?: string;
+  /** Encabezados alternos aceptados al importar CSV (AppSheet u otros). */
+  aliases?: string[];
 }
 
 export interface EntitySchema {
@@ -54,11 +56,11 @@ export const PURCHASE_DETAIL_SCHEMA: EntitySchema = {
   label: 'Purchase Details',
   idField: 'ID_PURCHASEDETAILS',
   fields: [
-    { key: 'ID_PURCHASEORDER', type: 'text', width: 26, ref: COLLECTIONS.PURCHASE_ORDER },
-    { key: 'ID_COMMODITIES', type: 'text', width: 26, ref: COLLECTIONS.COMMODITIES },
-    { key: 'QUANTITY', type: 'number', width: 12 },
-    { key: 'PRICE', type: 'number', width: 12 },
-    { key: 'TOTAL', type: 'number', width: 14 },
+    { key: 'ID_PURCHASEORDER', type: 'text', width: 26, ref: COLLECTIONS.PURCHASE_ORDER, aliases: ['PURCHASE ORDER', 'PURCHASEORDER', 'LOT', 'LOT #', 'LOT NUMBER', 'ID PURCHASE ORDER'] },
+    { key: 'ID_COMMODITIES', type: 'text', width: 26, ref: COLLECTIONS.COMMODITIES, aliases: ['COMMODITY', 'COMMODITIES', 'PRODUCT', 'ITEM', 'ID COMMODITY'] },
+    { key: 'QUANTITY', type: 'number', width: 12, aliases: ['QTY', 'QTY RCVD', 'QUANTITY RECEIVED', 'CANTIDAD'] },
+    { key: 'PRICE', type: 'number', width: 12, aliases: ['UNIT PRICE', 'SALE PRICE', 'COST', 'PRECIO'] },
+    { key: 'TOTAL', type: 'number', width: 14, aliases: ['TOTAL SALES', 'AMOUNT', 'LINE TOTAL', 'IMPORTE'] },
   ],
 };
 
@@ -71,14 +73,17 @@ export const SALES_ORDER_SCHEMA: EntitySchema = {
     { key: 'DATE', type: 'date', width: 14 },
     { key: 'DUE_DATE', type: 'date', width: 14 },
     { key: 'STATUS', type: 'text', width: 14 },
-    { key: 'LOADED', type: 'boolean', width: 10 },
+    { key: 'SENT', type: 'boolean', width: 10 },
     { key: 'ID_CUSTOMER', type: 'text', width: 24, ref: COLLECTIONS.CUSTOMER },
     { key: 'BUYER', type: 'text', width: 18 },
     { key: 'ID_USERS', type: 'text', width: 24, ref: COLLECTIONS.USERS },
     { key: 'REF', type: 'text', width: 14 },
     { key: 'REF_PICKUP', type: 'text', width: 14 },
+    { key: 'PICK_UP_NUMBER', type: 'text', width: 16 },
+    { key: 'ADDRESS', type: 'text', width: 30 },
+    { key: 'CITY_STATE_ZIP', type: 'text', width: 24 },
+    { key: 'ID_SUPPLIERS', type: 'text', width: 24, ref: COLLECTIONS.SUPPLIERS },
     { key: 'ID_CARRIER', type: 'text', width: 24, ref: COLLECTIONS.CARRIER },
-    { key: 'ID_WAREHOUSE', type: 'text', width: 24, ref: COLLECTIONS.LOCATIONS },
     { key: 'ID_SHIPVIA', type: 'text', width: 24, ref: COLLECTIONS.SHIPVIA },
     { key: 'ID_TERMSHIPPING', type: 'text', width: 24, ref: COLLECTIONS.TERMSHIPPING },
     { key: 'TEMP_LOG', type: 'text', width: 14 },
@@ -86,6 +91,7 @@ export const SALES_ORDER_SCHEMA: EntitySchema = {
     { key: 'TOTAL', type: 'number', width: 14 },
     { key: 'INCOMES', type: 'number', width: 14 },
     { key: 'BALANCE', type: 'number', width: 14 },
+    { key: 'OD_DAY', type: 'number', width: 10 },
   ],
 };
 
@@ -94,13 +100,13 @@ export const SALES_ORDER_DETAIL_SCHEMA: EntitySchema = {
   label: 'Sales Details',
   idField: 'ID_SALESORDERDETAIL',
   fields: [
-    { key: 'ID_SALESORDER', type: 'text', width: 26, ref: COLLECTIONS.SALES_ORDER },
-    { key: 'ID_PURCHASEORDER', type: 'text', width: 26, ref: COLLECTIONS.PURCHASE_ORDER },
-    { key: 'ID_COMMODITIES', type: 'text', width: 26, ref: COLLECTIONS.COMMODITIES },
-    { key: 'DESCRIPTION', type: 'text', width: 30 },
-    { key: 'QUANTITY', type: 'number', width: 12 },
-    { key: 'PRICE', type: 'number', width: 12 },
-    { key: 'TOTAL', type: 'number', width: 14 },
+    { key: 'ID_SALESORDER', type: 'text', width: 26, ref: COLLECTIONS.SALES_ORDER, aliases: ['SALES ORDER', 'SALESORDER', '# SALES ORDER', 'ID SALES ORDER'] },
+    { key: 'ID_PURCHASEORDER', type: 'text', width: 26, ref: COLLECTIONS.PURCHASE_ORDER, aliases: ['PURCHASE ORDER', 'LOT', 'LOT #', 'LOT NUMBER'] },
+    { key: 'ID_COMMODITIES', type: 'text', width: 26, ref: COLLECTIONS.COMMODITIES, aliases: ['COMMODITY', 'PRODUCT', 'ITEM'] },
+    { key: 'DESCRIPTION', type: 'text', width: 30, aliases: ['DESC', 'DESCRIPCION'] },
+    { key: 'QUANTITY', type: 'number', width: 12, aliases: ['QTY', 'CANTIDAD'] },
+    { key: 'PRICE', type: 'number', width: 12, aliases: ['UNIT PRICE', 'SALE PRICE', 'PRECIO'] },
+    { key: 'TOTAL', type: 'number', width: 14, aliases: ['TOTAL SALES', 'AMOUNT', 'LINE TOTAL', 'IMPORTE'] },
   ],
 };
 
