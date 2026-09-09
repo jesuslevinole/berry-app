@@ -112,9 +112,11 @@ export async function updateDocument<T extends BaseDoc>(
   colName: string,
   id: string,
   data: Partial<Omit<T, 'id'>>,
+  options: { silent?: boolean } = {},
 ): Promise<void> {
   await updateDoc(doc(db, colName, id), { ...data, updatedAt: serverTimestamp() });
-  void logActivity(colName, 'update', id);
+  /* silent: recalculos automaticos de totales no se registran como accion del usuario. */
+  if (!options.silent) void logActivity(colName, 'update', id);
 }
 
 /**

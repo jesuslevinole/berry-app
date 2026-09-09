@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useCollection } from '../../hooks/useCollection';
 import { useCatalog } from '../../hooks/useCatalog';
 import { COLLECTIONS, type PurchaseOrder, type SystemUser, type SalesOrder } from '../../types/models';
 import { byNewest, fmtDate, fmtMoney } from '../../utils/format';
 import { deleteDocument, replaceChildren } from '../../services/firestore';
+import { syncAllPurchaseOrderTotals } from '../../services/orderTotalsService';
 import { DataTable, type Column } from '../../components/ui/DataTable';
 import { Toolbar } from '../../components/ui/Toolbar';
 import { DataPortButtons } from '../../components/ui/DataPortButtons';
@@ -17,12 +18,7 @@ import { useCompany } from '../../hooks/useCompany';
 import { DocumentPicker } from '../../components/ui/DocumentPicker';
 import './PurchaseOrdersView.css';
 
-interface PurchaseOrdersViewProps {
-  /** Abre el detalle de esta orden al montar (navegacion desde Inventory). */
-  initialOpenId?: string | null;
-}
-
-export function PurchaseOrdersView({ initialOpenId = null }: PurchaseOrdersViewProps) {
+export function PurchaseOrdersView() {
   const { can } = useAuth();
   const { data, loading } = useCollection<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER);
   const growers = useCatalog(COLLECTIONS.GROWER, 'NAME_GROWER');
@@ -47,17 +43,6 @@ export function PurchaseOrdersView({ initialOpenId = null }: PurchaseOrdersViewP
   const [search, setSearch] = useState('');
   const [formOpen, setFormOpen] = useState(false);
   const [viewing, setViewing] = useState<PurchaseOrder | null>(null);
-
-  /* Abre el detalle solicitado desde otra vista (una sola vez, cuando llegan los datos). */
-  const openedInitialRef = useRef(false);
-  useEffect(() => {
-    if (openedInitialRef.current || !initialOpenId) return;
-    const target = data.find((o) => o.id === initialOpenId);
-    if (!target) return;
-    openedInitialRef.current = true;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- apertura unica de detalle al navegar desde Inventory
-    setViewing(target);
-  }, [initialOpenId, data]);
   const [docsFor, setDocsFor] = useState<PurchaseOrder | null>(null);
   const [editing, setEditing] = useState<PurchaseOrder | null>(null);
 
@@ -162,6 +147,20 @@ export function PurchaseOrdersView({ initialOpenId = null }: PurchaseOrdersViewP
     );
   };
 
+  /** Repara en bloque los totales de todos los lotes desde sus lineas. */
+  const [recalcing, setRecalcing] = useState(false);
+  const handleRecalculate = async () => {
+    setRecalcing(true);
+    try {
+      const { checked, updated } = await syncAllPurchaseOrderTotals();
+      alert(`Totals recalculated from line items.\n\nLots checked: ${checked}\nLots updated: ${updated}`);
+    } catch {
+      alert('Could not recalculate totals. Try again.');
+    } finally {
+      setRecalcing(false);
+    }
+  };
+
   return (
     <div className="purchase-orders">
       <Toolbar
@@ -171,6 +170,17 @@ export function PurchaseOrdersView({ initialOpenId = null }: PurchaseOrdersViewP
         onSearchChange={setSearch}
       >
         {can('purchases', 'documents') && <DataPortButtons schemas={PURCHASES_SCHEMAS} fileName="purchase-orders" />}
+        {can('purchases', 'edit') && (
+          <button
+            type="button"
+            className="btn btn--secondary"
+            disabled={recalcing}
+            onClick={() => void handleRecalculate()}
+            title="Recalculate Subtotal, Quantity, Commission, Total and Balance of every lot from its line items"
+          >
+            {recalcing ? 'Recalculating\u2026' : 'Recalculate totals'}
+          </button>
+        )}
         {can('purchases', 'add') && (
           <button
             type="button"

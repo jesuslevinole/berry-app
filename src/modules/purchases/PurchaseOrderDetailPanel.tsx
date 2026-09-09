@@ -1,7 +1,9 @@
+import { useEffect, useRef } from 'react';
 import { useCollection } from '../../hooks/useCollection';
 import { useCatalog } from '../../hooks/useCatalog';
 import { useAppConfig } from '../../context/AppConfigContext';
 import { where } from '../../services/firestore';
+import { computePurchaseTotals, purchaseTotalsDiffer, syncPurchaseOrderTotals } from '../../services/orderTotalsService';
 import { RecordDetail, DetailSection, type DetailField } from '../../components/ui/RecordDetail';
 import { FORM_DEFS } from '../../config/formDefs';
 import { COLLECTIONS, type PurchaseDetail, type PurchaseOrder } from '../../types/models';
@@ -53,16 +55,27 @@ export function PurchaseOrderDetailPanel({ order, buyerName, onClose, onEdit }: 
     value: valueByKey[f.key] ?? '',
   }));
 
-  /* Resumen EN VIVO desde las lineas: si el lote tiene detalle cargado (formulario
-     o Import CSV), los totales salen de las lineas y nunca quedan desfasados. */
-  const liveSubtotal = round2(lines.reduce((acc, l) => acc + (l.TOTAL ?? 0), 0));
-  const liveQuantity = round2(lines.reduce((acc, l) => acc + (l.QUANTITY ?? 0), 0));
+  /* Resumen EN VIVO desde las lineas relacionadas por ID_PURCHASEORDER. */
   const hasLines = !loading && lines.length > 0;
-  const subtotal = hasLines ? liveSubtotal : (order.SUBTOTAL ?? 0);
-  const commission = hasLines ? round2((liveSubtotal * (order.COMMISION_PERCENT ?? 0)) / 100) : (order.COMMISION_AMOUNT ?? 0);
-  const total = hasLines ? round2(subtotal + commission) : (order.TOTAL ?? 0);
-  const quantity = hasLines ? liveQuantity : (order.QUANTITY ?? 0);
+  const live = computePurchaseTotals(order, lines);
+  const subtotal = hasLines ? live.SUBTOTAL : (order.SUBTOTAL ?? 0);
+  const commission = hasLines ? live.COMMISION_AMOUNT : (order.COMMISION_AMOUNT ?? 0);
+  const total = hasLines ? live.TOTAL : (order.TOTAL ?? 0);
+  const quantity = hasLines ? live.QUANTITY : (order.QUANTITY ?? 0);
   const balance = round2(total - (order.AMOUNT_PAID ?? 0));
+
+  /* Autocuracion: si BD_PURCHASEORDER tiene totales desfasados respecto a sus
+     lineas (datos importados o editados fuera del app), se corrigen una sola vez. */
+  const syncedRef = useRef('');
+  useEffect(() => {
+    if (!hasLines || syncedRef.current === order.id) return;
+    if (!purchaseTotalsDiffer(order, live)) return;
+    syncedRef.current = order.id;
+    void syncPurchaseOrderTotals([order.id]).catch(() => {
+      /* Sin permiso de escritura: el panel igual muestra los totales correctos. */
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasLines, order.id, live.SUBTOTAL, live.QUANTITY, live.TOTAL]);
 
   return (
     <RecordDetail

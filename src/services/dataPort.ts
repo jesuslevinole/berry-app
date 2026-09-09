@@ -5,9 +5,10 @@
 import type { Workbook } from 'exceljs';
 import type { EntityField, EntitySchema } from '../config/entitySchemas';
 import type { BaseDoc } from '../types/models';
-import { bulkUpsert, listDocuments, updateDocument, where } from './firestore';
+import { bulkUpsert, listDocuments } from './firestore';
+import { syncPurchaseOrderTotals, syncSalesOrderTotals } from './orderTotalsService';
 import { round2 } from '../utils/format';
-import { COLLECTIONS, type PurchaseDetail, type PurchaseOrder, type SalesOrder, type SalesOrderDetail } from '../types/models';
+import { COLLECTIONS } from '../types/models';
 import {
   normalizeHeader,
   parseBooleanValue,
@@ -251,10 +252,10 @@ export async function importCsvFile(schema: EntitySchema, file: File): Promise<I
   try {
     if (schema.collection === COLLECTIONS.PURCHASE_DETAILS) {
       const parentIds = [...new Set(docs.map((d) => String(d.ID_PURCHASEORDER ?? '')).filter(Boolean))];
-      await recomputePurchaseTotals(parentIds);
+      await syncPurchaseOrderTotals(parentIds);
     } else if (schema.collection === COLLECTIONS.SALES_ORDER_DETAIL) {
       const parentIds = [...new Set(docs.map((d) => String(d.ID_SALESORDER ?? '')).filter(Boolean))];
-      await recomputeSalesTotals(parentIds);
+      await syncSalesOrderTotals(parentIds);
     }
   } catch {
     result.errors.push('Lines were imported, but order totals could not be recalculated automatically.');
@@ -263,45 +264,7 @@ export async function importCsvFile(schema: EntitySchema, file: File): Promise<I
   return result;
 }
 
-/** Recalcula SUBTOTAL/QUANTITY/COMMISION/TOTAL/BALANCE de los lotes afectados. */
-async function recomputePurchaseTotals(orderIds: string[]): Promise<void> {
-  for (const orderId of orderIds) {
-    const lines = await listDocuments<PurchaseDetail>(COLLECTIONS.PURCHASE_DETAILS, [
-      where('ID_PURCHASEORDER', '==', orderId),
-    ]);
-    const orders = await listDocuments<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER);
-    const order = orders.find((o) => o.id === orderId);
-    if (!order) continue;
-    const subtotal = round2(lines.reduce((acc, l) => acc + (l.TOTAL ?? 0), 0));
-    const quantity = round2(lines.reduce((acc, l) => acc + (l.QUANTITY ?? 0), 0));
-    const commission = round2((subtotal * (order.COMMISION_PERCENT ?? 0)) / 100);
-    const total = round2(subtotal + commission);
-    await updateDocument<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER, orderId, {
-      SUBTOTAL: subtotal,
-      QUANTITY: quantity,
-      COMMISION_AMOUNT: commission,
-      TOTAL: total,
-      BALANCE: round2(total - (order.AMOUNT_PAID ?? 0)),
-    });
-  }
-}
 
-/** Recalcula TOTAL/BALANCE de las ordenes de venta afectadas. */
-async function recomputeSalesTotals(orderIds: string[]): Promise<void> {
-  for (const orderId of orderIds) {
-    const lines = await listDocuments<SalesOrderDetail>(COLLECTIONS.SALES_ORDER_DETAIL, [
-      where('ID_SALESORDER', '==', orderId),
-    ]);
-    const orders = await listDocuments<SalesOrder>(COLLECTIONS.SALES_ORDER);
-    const order = orders.find((o) => o.id === orderId);
-    if (!order) continue;
-    const total = round2(lines.reduce((acc, l) => acc + (l.TOTAL ?? 0), 0));
-    await updateDocument<SalesOrder>(COLLECTIONS.SALES_ORDER, orderId, {
-      TOTAL: total,
-      BALANCE: round2(total - (order.INCOMES ?? 0)),
-    });
-  }
-}
 
 function triggerDownload(blob: Blob, fileName: string): void {
   const url = URL.createObjectURL(blob);
