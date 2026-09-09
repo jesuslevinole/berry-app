@@ -5,7 +5,7 @@
 import type { Workbook } from 'exceljs';
 import type { EntityField, EntitySchema } from '../config/entitySchemas';
 import type { BaseDoc } from '../types/models';
-import { bulkUpsert, listDocuments } from './firestore';
+import { bulkUpsert, listDocuments, replaceChildren } from './firestore';
 import { syncPurchaseOrderTotals, syncSalesOrderTotals } from './orderTotalsService';
 import { round2 } from '../utils/format';
 import { COLLECTIONS } from '../types/models';
@@ -27,6 +27,43 @@ export interface ImportResult {
   withAppsheetId: number;
   generatedId: number;
   errors: string[];
+  /** Encabezados encontrados en el archivo (para diagnosticar mapeos). */
+  headers: string[];
+}
+
+/** Vista previa del CSV: encabezados y mapeo automatico propuesto por campo. */
+export interface CsvPreview {
+  headers: string[];
+  /** field.key -> indice de columna detectado (-1 si no se encontro). */
+  mapping: Record<string, number>;
+  idIndex: number;
+  rowCount: number;
+}
+
+const headerIndexFor = (
+  headers: string[],
+  field: { key: string; aliases?: string[] },
+): number => {
+  for (const name of [field.key, ...(field.aliases ?? [])]) {
+    const idx = headers.indexOf(normalizeHeader(name));
+    if (idx >= 0) return idx;
+  }
+  return -1;
+};
+
+/** Lee solo los encabezados para que el usuario confirme o corrija el mapeo. */
+export async function previewCsvFile(schema: EntitySchema, file: File): Promise<CsvPreview> {
+  const matrix = parseCsv(await file.text());
+  const rawHeaders = matrix[0] ?? [];
+  const normalized = rawHeaders.map(normalizeHeader);
+  const mapping: Record<string, number> = {};
+  for (const field of schema.fields) mapping[field.key] = headerIndexFor(normalized, field);
+  return {
+    headers: rawHeaders,
+    mapping,
+    idIndex: normalized.indexOf(normalizeHeader(schema.idField)),
+    rowCount: Math.max(matrix.length - 1, 0),
+  };
 }
 
 type AnyDoc = BaseDoc & Record<string, unknown>;
@@ -127,7 +164,20 @@ function addInstructionsSheet(workbook: Workbook, schemas: EntitySchema[]): void
  * Importa un CSV a una coleccion respetando el ID de AppSheet como ID de documento.
  * Las filas con ID existente se actualizan (merge), nunca se duplican.
  */
-export async function importCsvFile(schema: EntitySchema, file: File): Promise<ImportResult> {
+export interface ImportOptions {
+  /** Mapeo manual field.key -> indice de columna (sobreescribe la deteccion). */
+  mapping?: Record<string, number>;
+  /** Indice de la columna del ID primario (-1 = generar IDs nuevos). */
+  idIndex?: number;
+  /** Reemplaza las lineas existentes de cada padre en vez de agregar (evita duplicados). */
+  replaceChildrenByParent?: boolean;
+}
+
+export async function importCsvFile(
+  schema: EntitySchema,
+  file: File,
+  options: ImportOptions = {},
+): Promise<ImportResult> {
   const text = await file.text();
   const matrix = parseCsv(text);
 
@@ -138,6 +188,7 @@ export async function importCsvFile(schema: EntitySchema, file: File): Promise<I
     withAppsheetId: 0,
     generatedId: 0,
     errors: [],
+    headers: [],
   };
 
   if (matrix.length < 2) {
@@ -145,6 +196,7 @@ export async function importCsvFile(schema: EntitySchema, file: File): Promise<I
     return result;
   }
 
+  result.headers = matrix[0] ?? [];
   const headers = matrix[0].map(normalizeHeader);
   /* Busca la columna por su clave o por cualquiera de sus alias (AppSheet). */
   const indexOfField = (field: { key: string; aliases?: string[] }): number => {
@@ -157,9 +209,12 @@ export async function importCsvFile(schema: EntitySchema, file: File): Promise<I
   };
   const indexOf = (key: string): number => headers.indexOf(normalizeHeader(key));
 
-  const idIndex = indexOf(schema.idField);
+  const idIndex = options.idIndex !== undefined ? options.idIndex : indexOf(schema.idField);
+  /* El mapeo manual (si el usuario lo ajusto) manda sobre la deteccion automatica. */
+  const columnFor = (field: { key: string; aliases?: string[] }): number =>
+    options.mapping && options.mapping[field.key] !== undefined ? options.mapping[field.key] : indexOfField(field);
   const fieldIndexes = schema.fields
-    .map((field) => ({ field, index: indexOfField(field) }))
+    .map((field) => ({ field, index: columnFor(field) }))
     .filter((entry) => entry.index >= 0);
 
   if (fieldIndexes.length === 0) {
@@ -172,11 +227,11 @@ export async function importCsvFile(schema: EntitySchema, file: File): Promise<I
     return result;
   }
 
-  const missing = schema.fields
-    .filter((field) => indexOfField(field) < 0)
-    .map((field) => field.key);
+  const missing = schema.fields.filter((field) => columnFor(field) < 0).map((field) => field.key);
   if (missing.length > 0) {
-    result.errors.push(`Columns not present in the file (saved as empty): ${missing.join(', ')}`);
+    result.errors.push(
+      `Columns not mapped (saved as empty): ${missing.join(', ')}. File headers: ${result.headers.join(' | ')}`,
+    );
   }
   if (idIndex < 0) {
     result.errors.push(
@@ -242,7 +297,27 @@ export async function importCsvFile(schema: EntitySchema, file: File): Promise<I
   }
 
   try {
-    result.imported = await bulkUpsert(schema.collection, docs);
+    if (options.replaceChildrenByParent && schema.parentField) {
+      /* Reemplazo por padre: borra las lineas previas de cada orden del archivo
+         antes de escribir, para que reimportar no duplique registros. */
+      const byParent = new Map<string, typeof docs>();
+      for (const row of docs) {
+        const parentId = String(row[schema.parentField] ?? '');
+        if (!parentId) continue;
+        byParent.set(parentId, [...(byParent.get(parentId) ?? []), row]);
+      }
+      for (const [parentId, rows] of byParent) {
+        await replaceChildren(schema.collection, schema.parentField, parentId, rows);
+        result.imported += rows.length;
+      }
+      const orphans = docs.filter((row) => !String(row[schema.parentField as string] ?? ''));
+      if (orphans.length > 0) {
+        result.imported += await bulkUpsert(schema.collection, orphans);
+        result.errors.push(`${orphans.length} row(s) had no ${schema.parentField} and were added without replacing.`);
+      }
+    } else {
+      result.imported = await bulkUpsert(schema.collection, docs);
+    }
   } catch (error) {
     result.errors.push(error instanceof Error ? error.message : 'Unknown error while writing to Firestore.');
     return result;

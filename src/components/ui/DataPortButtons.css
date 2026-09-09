@@ -53,3 +53,30 @@
 .data-port__list li { margin-bottom: 3px; }
 .data-port__warnings { color: var(--warn); }
 .data-port__warnings li { margin-bottom: 3px; }
+
+/* Paso de mapeo de columnas del CSV. */
+.data-port__mapping {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  padding: 14px;
+  margin-top: 12px;
+}
+.data-port__hint-small { font-size: 0.8rem; color: var(--muted); margin: 0 0 4px; }
+.data-port__map-row { display: flex; align-items: center; gap: 10px; }
+.data-port__map-label {
+  flex: 0 0 190px;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  font-size: 0.78rem;
+  color: var(--ink);
+}
+.data-port__replace {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin-top: 4px;
+}

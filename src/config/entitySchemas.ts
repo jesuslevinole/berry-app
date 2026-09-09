@@ -13,6 +13,9 @@ export interface EntityField {
 }
 
 export interface EntitySchema {
+  /** Campo que apunta al documento padre (lineas de una orden). Habilita el
+   *  reemplazo de lineas al importar sin duplicar registros. */
+  parentField?: string;
   collection: string;
   /** Etiqueta legible; tambien es el nombre de la hoja en el Excel. */
   label: string;
@@ -55,6 +58,7 @@ export const PURCHASE_DETAIL_SCHEMA: EntitySchema = {
   collection: COLLECTIONS.PURCHASE_DETAILS,
   label: 'Purchase Details',
   idField: 'ID_PURCHASEDETAILS',
+  parentField: 'ID_PURCHASEORDER',
   fields: [
     { key: 'ID_PURCHASEORDER', type: 'text', width: 26, ref: COLLECTIONS.PURCHASE_ORDER, aliases: ['PURCHASE ORDER', 'PURCHASEORDER', 'LOT', 'LOT #', 'LOT NUMBER', 'ID PURCHASE ORDER'] },
     { key: 'ID_COMMODITIES', type: 'text', width: 26, ref: COLLECTIONS.COMMODITIES, aliases: ['COMMODITY', 'COMMODITIES', 'PRODUCT', 'ITEM', 'ID COMMODITY'] },
@@ -99,6 +103,7 @@ export const SALES_ORDER_DETAIL_SCHEMA: EntitySchema = {
   collection: COLLECTIONS.SALES_ORDER_DETAIL,
   label: 'Sales Details',
   idField: 'ID_SALESORDERDETAIL',
+  parentField: 'ID_SALESORDER',
   fields: [
     { key: 'ID_SALESORDER', type: 'text', width: 26, ref: COLLECTIONS.SALES_ORDER, aliases: ['SALES ORDER', 'SALESORDER', '# SALES ORDER', 'ID SALES ORDER'] },
     { key: 'ID_PURCHASEORDER', type: 'text', width: 26, ref: COLLECTIONS.PURCHASE_ORDER, aliases: ['PURCHASE ORDER', 'LOT', 'LOT #', 'LOT NUMBER'] },

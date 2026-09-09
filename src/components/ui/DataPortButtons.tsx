@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { SearchableSelect } from './SearchableSelect';
 import type { EntitySchema } from '../../config/entitySchemas';
-import { downloadTemplate, importCsvFile, type ImportResult } from '../../services/dataPort';
+import { downloadTemplate, importCsvFile, previewCsvFile, type CsvPreview, type ImportResult } from '../../services/dataPort';
 import { Modal } from './Modal';
 import { FormField } from './FormField';
 import './DataPortButtons.css';
@@ -25,6 +25,12 @@ export function DataPortButtons({ schemas, fileName }: DataPortButtonsProps) {
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /* Paso de mapeo: el usuario confirma que columna del CSV va a cada campo. */
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<CsvPreview | null>(null);
+  const [mapping, setMapping] = useState<Record<string, number>>({});
+  const [idIndex, setIdIndex] = useState(-1);
+  const [replaceLines, setReplaceLines] = useState(true);
 
   const selectedSchema = schemas.find((s) => s.collection === targetCollection) ?? schemas[0];
 
@@ -39,22 +45,57 @@ export function DataPortButtons({ schemas, fileName }: DataPortButtonsProps) {
     }
   };
 
-  const openImport = () => {
-    setTargetCollection(schemas[0]?.collection ?? '');
+  const resetImport = () => {
     setResult(null);
     setError(null);
+    setPendingFile(null);
+    setPreview(null);
+    setMapping({});
+    setIdIndex(-1);
+  };
+
+  const openImport = () => {
+    setTargetCollection(schemas[0]?.collection ?? '');
+    resetImport();
     setImportOpen(true);
   };
 
+  /** Paso 1: leer encabezados y proponer el mapeo automatico. */
   const handleFile = async (file: File | undefined) => {
     if (!file || !selectedSchema) return;
     setImporting(true);
     setResult(null);
     setError(null);
     try {
-      setResult(await importCsvFile(selectedSchema, file));
+      const csv = await previewCsvFile(selectedSchema, file);
+      setPendingFile(file);
+      setPreview(csv);
+      setMapping(csv.mapping);
+      setIdIndex(csv.idIndex);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'The file could not be read.');
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  /** Paso 2: importar con el mapeo confirmado por el usuario. */
+  const runImport = async () => {
+    if (!pendingFile || !selectedSchema) return;
+    setImporting(true);
+    setError(null);
+    try {
+      setResult(
+        await importCsvFile(selectedSchema, pendingFile, {
+          mapping,
+          idIndex,
+          replaceChildrenByParent: !!selectedSchema.parentField && replaceLines,
+        }),
+      );
+      setPendingFile(null);
+      setPreview(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'The file could not be imported.');
     } finally {
       setImporting(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -140,7 +181,58 @@ export function DataPortButtons({ schemas, fileName }: DataPortButtonsProps) {
             />
           </FormField>
 
-          {importing && <p className="data-port__status">Importing…</p>}
+          {preview && selectedSchema && (
+            <div className="data-port__mapping">
+              <h4 className="data-port__result-title">Match the columns ({preview.rowCount} rows)</h4>
+              <p className="data-port__hint-small">
+                Pick which column of your file feeds each field. Anything left as "Not in file" is saved empty.
+              </p>
+
+              <label className="data-port__map-row">
+                <span className="data-port__map-label">{selectedSchema.idField} (primary key)</span>
+                <select className="input" value={idIndex} onChange={(e) => setIdIndex(Number(e.target.value))}>
+                  <option value={-1}>Generate new IDs</option>
+                  {preview.headers.map((header, i) => (
+                    <option key={`${header}-${i}`} value={i}>{header}</option>
+                  ))}
+                </select>
+              </label>
+
+              {selectedSchema.fields.map((field) => (
+                <label className="data-port__map-row" key={field.key}>
+                  <span className="data-port__map-label">{field.key}</span>
+                  <select
+                    className="input"
+                    value={mapping[field.key] ?? -1}
+                    onChange={(e) => setMapping((prev) => ({ ...prev, [field.key]: Number(e.target.value) }))}
+                  >
+                    <option value={-1}>Not in file</option>
+                    {preview.headers.map((header, i) => (
+                      <option key={`${header}-${i}`} value={i}>{header}</option>
+                    ))}
+                  </select>
+                </label>
+              ))}
+
+              {selectedSchema.parentField && (
+                <label className="data-port__replace">
+                  <input
+                    type="checkbox"
+                    checked={replaceLines}
+                    onChange={(e) => setReplaceLines(e.target.checked)}
+                  />
+                  Replace the existing line items of every order in this file (recommended: avoids duplicates when
+                  re-importing)
+                </label>
+              )}
+
+              <button type="button" className="btn btn--primary" disabled={importing} onClick={() => void runImport()}>
+                {importing ? 'Importing\u2026' : 'Import with this mapping'}
+              </button>
+            </div>
+          )}
+
+          {importing && <p className="data-port__status">Working…</p>}
           {error && <p className="data-port__error">{error}</p>}
 
           {result && (
