@@ -41,7 +41,7 @@ const TENANT_COLLECTIONS: string[] = [
 const emptyDraft = (): Omit<Company, 'id'> => ({ name: '', code: '', status: 'Active', notes: '' });
 
 export function CompaniesView() {
-  const { isPlatformAdmin, companyId, switchCompany, profile } = useAuth();
+  const { isPlatformAdmin, companyId, switchCompany, profile, needsCompanySetup } = useAuth();
   const { data: companies, loading } = useCollection<Company>(COLLECTIONS.COMPANIES);
   const { data: users } = useCollection<SystemUser>(COLLECTIONS.SYSTEM_USERS);
 
@@ -163,6 +163,18 @@ export function CompaniesView() {
           + Add company
         </button>
       </Toolbar>
+
+      {needsCompanySetup && (
+        <div className="companies__onboarding">
+          <h4 className="companies__onboarding-title">Set up your first company</h4>
+          <ol className="companies__steps">
+            <li>Create the company (for the current data, use <b>Berry Source, LC</b>).</li>
+            <li>Press <b>Import legacy data</b> on that company: it copies every existing record
+              into it and assigns the users. Nothing is deleted.</li>
+            <li>Press <b>Open</b> to work inside it. From then on the app behaves exactly as before.</li>
+          </ol>
+        </div>
+      )}
 
       <div className="companies__card">
         <table className="companies__table">

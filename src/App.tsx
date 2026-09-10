@@ -24,7 +24,7 @@ import './App.css';
 const VIEW_ORDER: ViewKey[] = ['dashboard', 'purchases', 'sales', 'expenses', 'catalogs', 'lots', 'inventory', 'queue', 'apgrowers', 'ap', 'ar', 'expensesreport', 'activity', 'trash', 'companies', 'checks', 'company', 'users', 'roles', 'config'];
 
 function Shell() {
-  const { firebaseUser, bypass, loading, can, logout, isPlatformAdmin } = useAuth();
+  const { firebaseUser, bypass, loading, can, logout, isPlatformAdmin, needsCompanySetup } = useAuth();
   const [view, setView] = useState<ViewKey>('dashboard');
 
   /** Navegar siempre muestra la vista desde arriba (evita entrar con el scroll a medias). */
@@ -35,8 +35,15 @@ function Shell() {
 
   const allowedViews = VIEW_ORDER.filter((key) => (key === 'companies' ? isPlatformAdmin : can(key, 'view')));
 
+  /* Sin empresa activa, el admin de plataforma arranca en Companies para crearla o abrirla. */
+  useEffect(() => {
+    if (needsCompanySetup && view !== 'companies') setView('companies');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [needsCompanySetup]);
+
   /* Si el rol no permite la vista actual, saltar a la primera permitida. */
   useEffect(() => {
+    if (needsCompanySetup) return;
     if (!loading && (firebaseUser || bypass) && allowedViews.length > 0 && !allowedViews.includes(view)) {
       setView(allowedViews[0]);
     }
@@ -54,7 +61,7 @@ function Shell() {
 
   if (!firebaseUser && !bypass) return <LoginView />;
 
-  if (allowedViews.length === 0) {
+  if (allowedViews.length === 0 && !isPlatformAdmin) {
     return (
       <div className="app-gate">
         <h2 className="app-gate__title">No access</h2>

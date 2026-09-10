@@ -6,6 +6,18 @@
  * distinta; no depende de acordarse de filtrar por un campo en cada query.
  */
 
+/**
+ * Administradores de la plataforma por email. Sirven de llave maestra: entran
+ * aunque su perfil todavia no tenga empresa asignada, para poder crear la
+ * primera compania y migrar los datos.
+ */
+export const PLATFORM_ADMIN_EMAILS = ['jesuslevinole@gmail.com'];
+
+/** true si el email administra la plataforma (independiente del flag en Firestore). */
+export function isPlatformAdminEmail(email?: string | null): boolean {
+  return !!email && PLATFORM_ADMIN_EMAILS.includes(email.trim().toLowerCase());
+}
+
 /** Colecciones globales de la plataforma (viven en la raiz, fuera de toda empresa). */
 export const GLOBAL_COLLECTIONS = new Set<string>(['companies', 'system_users']);
 

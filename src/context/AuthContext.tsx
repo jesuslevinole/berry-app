@@ -17,7 +17,7 @@ import {
 } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
 import { resendPasswordReset } from '../services/userAuthService';
-import { getActiveCompanyId, setActiveCompanyId, tenantPath } from '../services/tenant';
+import { getActiveCompanyId, isPlatformAdminEmail, setActiveCompanyId, tenantPath } from '../services/tenant';
 import { COLLECTIONS, type AdminCapability, type AppRole, type PermissionAction, type SystemUser } from '../types/models';
 
 interface AuthContextValue {
@@ -42,6 +42,8 @@ interface AuthContextValue {
   companyId: string;
   /** true si el usuario administra la plataforma (crea empresas, cambia entre ellas). */
   isPlatformAdmin: boolean;
+  /** true cuando el admin de plataforma aun no tiene empresa activa: debe elegir una. */
+  needsCompanySetup: boolean;
   /** Cambia de empresa (solo admin de plataforma). */
   switchCompany: (companyId: string) => void;
   login: (email: string, password: string) => Promise<void>;
@@ -99,8 +101,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const d = snap.docs[0];
           const nextProfile = { id: d.id, ...d.data() } as SystemUser;
           /* Empresa activa: toda consulta posterior vive en companies/{companyId}. */
-          const nextCompany =
-            (nextProfile.isPlatformAdmin && overrideCompanyId) || nextProfile.companyId || '';
+          const canOverride = nextProfile.isPlatformAdmin || isPlatformAdminEmail(nextProfile.email);
+          const nextCompany = (canOverride && overrideCompanyId) || nextProfile.companyId || '';
           if (getActiveCompanyId() !== nextCompany) setActiveCompanyId(nextCompany);
           setCompanyId(nextCompany);
           setProfile(nextProfile);
@@ -213,7 +215,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       profile,
       role,
       companyId,
-      isPlatformAdmin: bypass || isBootstrapAdmin || !!profile?.isPlatformAdmin,
+      isPlatformAdmin:
+        bypass ||
+        isBootstrapAdmin ||
+        !!profile?.isPlatformAdmin ||
+        isPlatformAdminEmail(firebaseUser?.email),
+      needsCompanySetup:
+        !companyId &&
+        (bypass ||
+          isBootstrapAdmin ||
+          !!profile?.isPlatformAdmin ||
+          isPlatformAdminEmail(firebaseUser?.email)),
       switchCompany: (next: string) => {
         /* El admin de plataforma cambia de empresa; se recarga para limpiar suscripciones. */
         if (next) localStorage.setItem('berry-company-override', next);

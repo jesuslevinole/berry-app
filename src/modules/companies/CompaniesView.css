@@ -54,3 +54,14 @@
   color: var(--muted);
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
 }
+
+/* Guia de arranque del SaaS (sin empresa activa). */
+.companies__onboarding {
+  border: 1px solid var(--green-500);
+  background-color: var(--green-50);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+}
+.companies__onboarding-title { margin: 0 0 8px; font-size: 0.95rem; color: var(--green-700); }
+.companies__steps { margin: 0; padding-left: 20px; font-size: 0.86rem; color: var(--ink); line-height: 1.7; }
