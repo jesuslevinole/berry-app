@@ -272,21 +272,13 @@
   margin-bottom: 10px;
 }
 
-/* Toggle Loaded del detalle de venta. */
-.record-detail__loaded {
+/* Resumen bajo las lineas editables del detalle. */
+.record-detail__lines-total {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  cursor: pointer;
-  font-size: 0.9rem;
+  justify-content: flex-end;
+  gap: 22px;
+  padding: 10px 4px 0;
+  font-size: 0.88rem;
+  color: var(--muted);
 }
-.record-detail__loaded input {
-  width: 17px;
-  height: 17px;
-  accent-color: var(--green-600);
-  cursor: pointer;
-}
-.record-detail__loaded-text {
-  color: var(--ink);
-  font-weight: 600;
-}
+.record-detail__lines-total b { color: var(--ink); margin-left: 6px; }

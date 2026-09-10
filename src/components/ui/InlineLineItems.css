@@ -1,0 +1,37 @@
+/* Edicion de lineas dentro del panel de detalle. */
+.inline-lines__add { margin-bottom: 10px; }
+
+.inline-lines__th-actions { width: 1%; white-space: nowrap; }
+
+.inline-lines__actions {
+  white-space: nowrap;
+  display: flex;
+  gap: 6px;
+}
+
+.inline-lines__btn {
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--ink);
+  border-radius: 7px;
+  padding: 4px 10px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.inline-lines__btn:hover:not(:disabled) { border-color: var(--green-500); color: var(--green-600); }
+.inline-lines__btn:disabled { opacity: 0.5; cursor: default; }
+
+.inline-lines__btn--delete { color: var(--bad); }
+.inline-lines__btn--delete:hover:not(:disabled) { border-color: var(--bad); color: var(--bad); }
+
+.inline-lines__btn--save {
+  background: var(--green-600);
+  border-color: var(--green-600);
+  color: #ffffff;
+}
+.inline-lines__btn--save:hover:not(:disabled) { background: var(--green-700); color: #ffffff; }
+
+.inline-lines__row--editing td { background: var(--green-50); vertical-align: middle; }
+
+.inline-lines__num { max-width: 110px; text-align: right; }

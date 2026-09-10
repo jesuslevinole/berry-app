@@ -1,10 +1,10 @@
-import { useState } from 'react';
-import { useAuth } from '../../context/AuthContext';
 import { useCollection } from '../../hooks/useCollection';
 import { useCatalog } from '../../hooks/useCatalog';
 import { useAppConfig } from '../../context/AppConfigContext';
-import { updateDocument, where } from '../../services/firestore';
+import { where } from '../../services/firestore';
 import { RecordDetail, DetailSection, type DetailField } from '../../components/ui/RecordDetail';
+import { InlineLineItems } from '../../components/ui/InlineLineItems';
+import { syncSalesOrderTotals } from '../../services/orderTotalsService';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { FORM_DEFS } from '../../config/formDefs';
 import {
@@ -32,23 +32,6 @@ interface Props {
 
 export function SalesOrderDetailPanel({ order, purchaseOrders, buyerName, onClose, onEdit }: Props) {
   const { fieldsFor } = useAppConfig();
-  const { can } = useAuth();
-  /* Palomeado local optimista del Loaded (persiste en Firestore al togglear). */
-  const [loaded, setLoaded] = useState<boolean>(!!order.LOADED);
-  const [savingLoaded, setSavingLoaded] = useState(false);
-
-  const toggleLoaded = async (checked: boolean) => {
-    setLoaded(checked);
-    setSavingLoaded(true);
-    try {
-      await updateDocument<SalesOrder>(COLLECTIONS.SALES_ORDER, order.id, { LOADED: checked });
-    } catch {
-      setLoaded(!checked);
-      alert('Could not update Loaded. Try again.');
-    } finally {
-      setSavingLoaded(false);
-    }
-  };
   const { data: lines, loading } = useCollection<SalesOrderDetail>(
     COLLECTIONS.SALES_ORDER_DETAIL,
     [where('ID_SALESORDER', '==', order.id)],
@@ -60,15 +43,13 @@ export function SalesOrderDetailPanel({ order, purchaseOrders, buyerName, onClos
     `${COLLECTIONS.PAYMENT_SALES}:${order.id}`,
   );
   const customers = useCatalog(COLLECTIONS.CUSTOMER, 'NAME_CUSTOMER');
+  const suppliers = useCatalog(COLLECTIONS.SUPPLIERS, 'NAME_SUPPLIERS');
   const carriers = useCatalog(COLLECTIONS.CARRIER, 'NAME_CARRIER');
-  const locations = useCatalog(COLLECTIONS.LOCATIONS, 'NAME_LOCATIONS');
-  const { data: locationDocs } = useCollection<{ id: string; ADDRESS_LOCATIONS?: string }>(COLLECTIONS.LOCATIONS);
   const shipVia = useCatalog(COLLECTIONS.SHIPVIA, 'NAME_SHIPVIA');
   const termShipping = useCatalog(COLLECTIONS.TERMSHIPPING, 'NAME_TERMSHIPPING');
-  const commodities = useCatalog(COLLECTIONS.COMMODITIES, 'NAME_COMMODITIES');
+  const paymentTerms = useCatalog(COLLECTIONS.PAYMENTTERM, 'NAME_PAYMENTTERM');
   const paymentMethods = useCatalog(COLLECTIONS.PAYMENT_METHOD, 'NAME');
 
-  const lotOf = new Map(purchaseOrders.map((po) => [po.id, po.LOT_NUMBER ?? '']));
 
   const valueByKey: Record<string, string> = {
     '# Sales order': order.SALES_ORDER_NUMBER ?? '',
@@ -78,15 +59,20 @@ export function SalesOrderDetailPanel({ order, purchaseOrders, buyerName, onClos
     'Customer': customers.nameOf(order.ID_CUSTOMER),
     'Buyer': order.BUYER ?? '',
     'Salesperson': buyerName(order.ID_USERS),
+    'Supplier': suppliers.nameOf(order.ID_SUPPLIERS),
     'Ref': order.REF ?? '',
     'Ref pickup': order.REF_PICKUP ?? '',
+    'Pick up #': order.PICK_UP_NUMBER ?? '',
+    'OD day': String(order.OD_DAY ?? ''),
+    'Address': order.ADDRESS ?? '',
+    'City / State / ZIP': order.CITY_STATE_ZIP ?? '',
     'Carrier': carriers.nameOf(order.ID_CARRIER),
-    'Warehouse': order.ID_WAREHOUSE ? locations.nameOf(order.ID_WAREHOUSE) : '',
-    'Warehouse address': locationDocs.find((l) => l.id === order.ID_WAREHOUSE)?.ADDRESS_LOCATIONS ?? '',
     'Ship via': shipVia.nameOf(order.ID_SHIPVIA),
     'Shipping terms': termShipping.nameOf(order.ID_TERMSHIPPING),
     'Temp log': order.TEMP_LOG ?? '',
-    'Special instructions': order.DESCRIPTION ?? '',
+    'Description': order.DESCRIPTION ?? '',
+    'Sent': order.SENT ? 'Yes' : 'No',
+    'Payment term': order.ID_PAYMENTTERM ? paymentTerms.nameOf(order.ID_PAYMENTTERM) : '',
   };
   const defaults = FORM_DEFS.find((f) => f.id === 'sales')?.fields ?? [];
   const fields: DetailField[] = fieldsFor('sales', defaults).map((f) => ({
@@ -113,59 +99,25 @@ export function SalesOrderDetailPanel({ order, purchaseOrders, buyerName, onClos
         </div>
       </DetailSection>
 
-      <DetailSection title="Loaded">
-        <label className="record-detail__loaded">
-          <input
-            type="checkbox"
-            checked={loaded}
-            disabled={savingLoaded || !can('sales', 'edit')}
-            onChange={(e) => void toggleLoaded(e.target.checked)}
-          />
-          <span className="record-detail__loaded-text">
-            {loaded ? 'Yes \u2014 order loaded' : 'No \u2014 pending to load (shows in Invoice Queue)'}
-          </span>
-        </label>
-      </DetailSection>
-
       <DetailSection title={`Line items (${lines.length})`}>
-        <div className="record-detail__table-wrap">
-          <table className="record-detail__table">
-            <thead>
-              <tr>
-                <th className="record-detail__th">Lot #</th>
-                <th className="record-detail__th">Commodity</th>
-                <th className="record-detail__th">Description</th>
-                <th className="record-detail__th record-detail__th--num">Quantity</th>
-                <th className="record-detail__th record-detail__th--num">Price</th>
-                <th className="record-detail__th record-detail__th--num">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading && <tr><td className="record-detail__empty" colSpan={6}>Loading…</td></tr>}
-              {!loading && lines.length === 0 && (
-                <tr><td className="record-detail__empty" colSpan={6}>No line items.</td></tr>
-              )}
-              {!loading && lines.map((line) => (
-                <tr key={line.id}>
-                  <td className="record-detail__td record-detail__td--muted">{lotOf.get(line.ID_PURCHASEORDER) || '—'}</td>
-                  <td className="record-detail__td record-detail__td--strong">{commodities.nameOf(line.ID_COMMODITIES)}</td>
-                  <td className="record-detail__td record-detail__td--muted">{line.DESCRIPTION || '—'}</td>
-                  <td className="record-detail__td record-detail__td--num">{line.QUANTITY}</td>
-                  <td className="record-detail__td record-detail__td--num">{fmtMoney(line.PRICE)}</td>
-                  <td className="record-detail__td record-detail__td--num record-detail__td--strong">{fmtMoney(line.TOTAL)}</td>
-                </tr>
-              ))}
-            </tbody>
-            {!loading && lines.length > 0 && (
-              <tfoot>
-                <tr>
-                  <td className="record-detail__tf" colSpan={5}>Total</td>
-                  <td className="record-detail__tf record-detail__tf--num">{fmtMoney(linesTotal)}</td>
-                </tr>
-              </tfoot>
-            )}
-          </table>
-        </div>
+        <InlineLineItems
+          collection={COLLECTIONS.SALES_ORDER_DETAIL}
+          parentField="ID_SALESORDER"
+          parentId={order.id}
+          lines={lines}
+          loading={loading}
+          moduleId="sales"
+          showLot
+          lotOptions={purchaseOrders
+            .map((po) => ({ id: po.id, name: po.LOT_NUMBER ?? po.REF_NUMBER ?? po.id }))
+            .sort((a, b) => b.name.localeCompare(a.name))}
+          onChanged={() => void syncSalesOrderTotals([order.id])}
+        />
+        {!loading && lines.length > 0 && (
+          <div className="record-detail__lines-total">
+            <span>Order total <b className="num">{fmtMoney(linesTotal)}</b></span>
+          </div>
+        )}
       </DetailSection>
 
       <DetailSection title={`Payments (${payments.length})`}>

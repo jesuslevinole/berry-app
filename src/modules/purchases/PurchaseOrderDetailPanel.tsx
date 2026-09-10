@@ -5,6 +5,7 @@ import { useAppConfig } from '../../context/AppConfigContext';
 import { where } from '../../services/firestore';
 import { computePurchaseTotals, purchaseTotalsDiffer, syncPurchaseOrderTotals } from '../../services/orderTotalsService';
 import { RecordDetail, DetailSection, type DetailField } from '../../components/ui/RecordDetail';
+import { InlineLineItems } from '../../components/ui/InlineLineItems';
 import { FORM_DEFS } from '../../config/formDefs';
 import { COLLECTIONS, type PurchaseDetail, type PurchaseOrder } from '../../types/models';
 import { fmtMoney, round2 } from '../../utils/format';
@@ -34,7 +35,6 @@ export function PurchaseOrderDetailPanel({ order, buyerName, onClose, onEdit }: 
   const locations = useCatalog(COLLECTIONS.LOCATIONS, 'NAME_LOCATIONS');
   const carriers = useCatalog(COLLECTIONS.CARRIER, 'NAME_CARRIER');
   const paymentTerms = useCatalog(COLLECTIONS.PAYMENTTERM, 'NAME_PAYMENTTERM');
-  const commodities = useCatalog(COLLECTIONS.COMMODITIES, 'NAME_COMMODITIES');
 
   const valueByKey: Record<string, string> = {
     'Lot #': order.LOT_NUMBER ?? '',
@@ -97,44 +97,21 @@ export function PurchaseOrderDetailPanel({ order, buyerName, onClose, onEdit }: 
       </DetailSection>
 
       <DetailSection title={`Line items (${lines.length})`}>
-        <div className="record-detail__table-wrap">
-          <table className="record-detail__table">
-            <thead>
-              <tr>
-                <th className="record-detail__th">Commodity</th>
-                <th className="record-detail__th">Description</th>
-                <th className="record-detail__th record-detail__th--num">Quantity</th>
-                <th className="record-detail__th record-detail__th--num">Price</th>
-                <th className="record-detail__th record-detail__th--num">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading && <tr><td className="record-detail__empty" colSpan={5}>Loading…</td></tr>}
-              {!loading && lines.length === 0 && (
-                <tr><td className="record-detail__empty" colSpan={5}>No line items.</td></tr>
-              )}
-              {!loading && lines.map((line) => (
-                <tr key={line.id}>
-                  <td className="record-detail__td record-detail__td--strong">{commodities.nameOf(line.ID_COMMODITIES) || line.ID_COMMODITIES || '\u2014'}</td>
-                  <td className="record-detail__td record-detail__td--muted">{line.DESCRIPTION || '—'}</td>
-                  <td className="record-detail__td record-detail__td--num">{line.QUANTITY}</td>
-                  <td className="record-detail__td record-detail__td--num">{fmtMoney(line.PRICE)}</td>
-                  <td className="record-detail__td record-detail__td--num record-detail__td--strong">{fmtMoney(line.TOTAL)}</td>
-                </tr>
-              ))}
-            </tbody>
-            {!loading && lines.length > 0 && (
-              <tfoot>
-                <tr>
-                  <td className="record-detail__tf" colSpan={2}>Total</td>
-                  <td className="record-detail__tf record-detail__tf--num">{quantity}</td>
-                  <td className="record-detail__tf" />
-                  <td className="record-detail__tf record-detail__tf--num">{fmtMoney(subtotal)}</td>
-                </tr>
-              </tfoot>
-            )}
-          </table>
-        </div>
+        <InlineLineItems
+          collection={COLLECTIONS.PURCHASE_DETAILS}
+          parentField="ID_PURCHASEORDER"
+          parentId={order.id}
+          lines={lines}
+          loading={loading}
+          moduleId="purchases"
+          onChanged={() => void syncPurchaseOrderTotals([order.id])}
+        />
+        {!loading && lines.length > 0 && (
+          <div className="record-detail__lines-total">
+            <span>Quantity <b className="num">{quantity}</b></span>
+            <span>Subtotal <b className="num">{fmtMoney(subtotal)}</b></span>
+          </div>
+        )}
       </DetailSection>
     </RecordDetail>
   );
