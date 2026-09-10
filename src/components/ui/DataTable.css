@@ -88,3 +88,29 @@
   border-color: var(--bad);
   color: #ffffff;
 }
+
+/* Paginador: 50 filas por pagina. */
+.data-table__pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  border-top: 1px solid var(--line);
+}
+.data-table__pager-info { font-size: 0.82rem; color: var(--muted); }
+.data-table__pager-actions { display: flex; align-items: center; gap: 10px; }
+.data-table__pager-page { font-size: 0.8rem; color: var(--muted); }
+.data-table__pager-btn {
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--ink);
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.data-table__pager-btn:hover:not(:disabled) { border-color: var(--green-500); color: var(--green-600); }
+.data-table__pager-btn:disabled { opacity: 0.45; cursor: default; }

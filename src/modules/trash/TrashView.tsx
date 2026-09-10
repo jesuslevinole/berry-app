@@ -3,6 +3,7 @@ import { limit, orderBy } from 'firebase/firestore';
 import { deleteFromTrashForever, restoreFromTrash, subscribeToCollection } from '../../services/firestore';
 import { useAuth } from '../../context/AuthContext';
 import { Toolbar } from '../../components/ui/Toolbar';
+import { PAGE_SIZE } from '../../config/limits';
 import { COLLECTIONS, type TrashItem } from '../../types/models';
 import './TrashView.css';
 
@@ -87,6 +88,14 @@ export function TrashView() {
     }
   };
 
+  /* Paginacion: hasta PAGE_SIZE filas visibles a la vez. */
+  const [page, setPage] = useState(1);
+  const pageCount = Math.max(Math.ceil(rows.length / PAGE_SIZE), 1);
+  const visibleRows = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  useEffect(() => {
+    if (page > pageCount) setPage(1);
+  }, [page, pageCount]);
+
   return (
     <div className="trash">
       <Toolbar
@@ -112,10 +121,10 @@ export function TrashView() {
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 && (
+            {visibleRows.length === 0 && (
               <tr><td className="trash__empty" colSpan={5}>The recycle bin is empty.</td></tr>
             )}
-            {rows.map((item) => (
+            {visibleRows.map((item) => (
               <tr key={item.id}>
                 <td className="trash__td trash__td--actions">
                   {can('trash', 'edit') && (
@@ -148,6 +157,23 @@ export function TrashView() {
           </tbody>
         </table>
       </div>
+
+      {rows.length > PAGE_SIZE && (
+        <div className="trash__pager">
+          <span className="trash__pager-info">
+            Showing <b>{(page - 1) * PAGE_SIZE + 1}\u2013{Math.min(page * PAGE_SIZE, rows.length)}</b> of <b>{rows.length}</b>
+          </span>
+          <span className="trash__pager-actions">
+            <button type="button" className="btn btn--secondary" disabled={page === 1} onClick={() => setPage((p) => Math.max(p - 1, 1))}>
+              Previous
+            </button>
+            <span className="trash__pager-page">Page {page} of {pageCount}</span>
+            <button type="button" className="btn btn--secondary" disabled={page >= pageCount} onClick={() => setPage((p) => Math.min(p + 1, pageCount))}>
+              Next
+            </button>
+          </span>
+        </div>
+      )}
     </div>
   );
 }

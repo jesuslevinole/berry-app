@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useAppConfig } from '../../context/AppConfigContext';
+import { limit, orderBy } from 'firebase/firestore';
+import { READ_LIMIT } from '../../config/limits';
 import { useCollection } from '../../hooks/useCollection';
 import { useCatalog } from '../../hooks/useCatalog';
 import { useCompany } from '../../hooks/useCompany';
@@ -26,7 +28,10 @@ const fmtDate = (iso: string): string => {
 export function ChecksView() {
   const { can } = useAuth();
   const { checkSettings } = useAppConfig();
-  const { data: checks } = useCollection<Check>(COLLECTIONS.CHECKS);
+  const { data: checks } = useCollection<Check>(COLLECTIONS.CHECKS, [
+    orderBy('updatedAt', 'desc'),
+    limit(READ_LIMIT),
+  ]);
   const customers = useCatalog(COLLECTIONS.CUSTOMER, 'NAME_CUSTOMER');
   const { company } = useCompany();
 
@@ -66,7 +71,10 @@ export function ChecksView() {
 
   const rows = useMemo(() => {
     const term = search.trim().toLowerCase();
-    const sorted = [...checks].sort((a, b) => (b.CHECK_NUMBER ?? 0) - (a.CHECK_NUMBER ?? 0));
+    /* Mas reciente primero: por fecha del cheque, luego por numero. */
+    const sorted = [...checks].sort(
+      (a, b) => (b.DATE ?? '').localeCompare(a.DATE ?? '') || (b.CHECK_NUMBER ?? 0) - (a.CHECK_NUMBER ?? 0),
+    );
     if (!term) return sorted;
     return sorted.filter((c) =>
       [String(c.CHECK_NUMBER ?? ''), customers.nameOf(c.ID_CUSTOMER), c.MEMO ?? '', c.REF ?? '', bankLabel.get(c.ID_BANK) ?? '']

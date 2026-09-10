@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { limit, orderBy } from 'firebase/firestore';
 import { subscribeToCollection } from '../../services/firestore';
 import { Toolbar } from '../../components/ui/Toolbar';
+import { PAGE_SIZE } from '../../config/limits';
 import { COLLECTIONS, type ActivityLog } from '../../types/models';
 import { MODULE_DEFS } from '../../config/modules';
 import './ActivityLogView.css';
@@ -69,6 +70,14 @@ export function ActivityLogView() {
       );
   }, [logs, search, userFilter, actionFilter, dateFilter]);
 
+  /* Paginacion: hasta PAGE_SIZE filas visibles a la vez. */
+  const [page, setPage] = useState(1);
+  const pageCount = Math.max(Math.ceil(rows.length / PAGE_SIZE), 1);
+  const visibleRows = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  useEffect(() => {
+    if (page > pageCount) setPage(1);
+  }, [page, pageCount]);
+
   return (
     <div className="activity">
       <Toolbar
@@ -118,10 +127,10 @@ export function ActivityLogView() {
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 && (
+            {visibleRows.length === 0 && (
               <tr><td className="activity__empty" colSpan={6}>No activity matches the current filters.</td></tr>
             )}
-            {rows.map((log) => (
+            {visibleRows.map((log) => (
               <tr key={log.id}>
                 <td className="activity__td activity__td--muted">{fmtDateTime(log.DATE)}</td>
                 <td className="activity__td">{log.USER_EMAIL}</td>
@@ -136,6 +145,23 @@ export function ActivityLogView() {
           </tbody>
         </table>
       </div>
+
+      {rows.length > PAGE_SIZE && (
+        <div className="activity__pager">
+          <span className="activity__pager-info">
+            Showing <b>{(page - 1) * PAGE_SIZE + 1}\u2013{Math.min(page * PAGE_SIZE, rows.length)}</b> of <b>{rows.length}</b>
+          </span>
+          <span className="activity__pager-actions">
+            <button type="button" className="btn btn--secondary" disabled={page === 1} onClick={() => setPage((p) => Math.max(p - 1, 1))}>
+              Previous
+            </button>
+            <span className="activity__pager-page">Page {page} of {pageCount}</span>
+            <button type="button" className="btn btn--secondary" disabled={page >= pageCount} onClick={() => setPage((p) => Math.min(p + 1, pageCount))}>
+              Next
+            </button>
+          </span>
+        </div>
+      )}
     </div>
   );
 }

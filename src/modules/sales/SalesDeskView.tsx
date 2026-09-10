@@ -1,5 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { limit, orderBy } from 'firebase/firestore';
+import { READ_LIMIT } from '../../config/limits';
 import { useCollection } from '../../hooks/useCollection';
 import { useCatalog, type CatalogOption } from '../../hooks/useCatalog';
 import { deleteDocument, replaceChildren, updateDocument } from '../../services/firestore';
@@ -19,14 +21,12 @@ import { useCompany } from '../../hooks/useCompany';
 import { DocumentPicker } from '../../components/ui/DocumentPicker';
 import './SalesDeskView.css';
 
-interface SalesDeskViewProps {
-  /** Abre el detalle de esta orden al montar (navegacion desde Inventory). */
-  initialOpenId?: string | null;
-}
-
-export function SalesDeskView({ initialOpenId = null }: SalesDeskViewProps) {
+export function SalesDeskView() {
   const { can } = useAuth();
-  const { data, loading } = useCollection<SalesOrder>(COLLECTIONS.SALES_ORDER);
+  const { data, loading } = useCollection<SalesOrder>(COLLECTIONS.SALES_ORDER, [
+    orderBy('updatedAt', 'desc'),
+    limit(READ_LIMIT),
+  ]);
   const { data: purchaseOrders } = useCollection<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER);
   const customers = useCatalog(COLLECTIONS.CUSTOMER, 'NAME_CUSTOMER');
   const legacyUsers = useCatalog(COLLECTIONS.USERS, 'EMAIL_USERS');
@@ -39,8 +39,6 @@ export function SalesDeskView({ initialOpenId = null }: SalesDeskViewProps) {
   const commodities = useCatalog(COLLECTIONS.COMMODITIES, 'NAME_COMMODITIES');
   const { data: customerDocs } = useCollection<{ id: string; ADDRESS_CUSTOMER?: string; CITY_CUSTOMER?: string }>(COLLECTIONS.CUSTOMER);
   const { data: supplierDocs } = useCollection<{ id: string; ADDRESS_SUPPLIERS?: string; PHONE_SUPPLIERS?: string }>(COLLECTIONS.SUPPLIERS);
-  const locations = useCatalog(COLLECTIONS.LOCATIONS, 'NAME_LOCATIONS');
-  const { data: locationDocs } = useCollection<{ id: string; ADDRESS_LOCATIONS?: string; PHONE_LOCATIONS?: string }>(COLLECTIONS.LOCATIONS);
   const { company } = useCompany();
   const [docsFor, setDocsFor] = useState<SalesOrder | null>(null);
   /** Resuelve buyer: usuarios del sistema primero, catalogo legado para registros viejos. */
@@ -54,17 +52,6 @@ export function SalesDeskView({ initialOpenId = null }: SalesDeskViewProps) {
   const [search, setSearch] = useState('');
   const [formOpen, setFormOpen] = useState(false);
   const [viewing, setViewing] = useState<SalesOrder | null>(null);
-
-  /* Abre el detalle solicitado desde otra vista (una sola vez, cuando llegan los datos). */
-  const openedInitialRef = useRef(false);
-  useEffect(() => {
-    if (openedInitialRef.current || !initialOpenId) return;
-    const target = data.find((o) => o.id === initialOpenId);
-    if (!target) return;
-    openedInitialRef.current = true;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- apertura unica de detalle al navegar desde Inventory
-    setViewing(target);
-  }, [initialOpenId, data]);
   const [editing, setEditing] = useState<SalesOrder | null>(null);
   const [paymentsFor, setPaymentsFor] = useState<SalesOrder | null>(null);
 
@@ -77,7 +64,13 @@ export function SalesDeskView({ initialOpenId = null }: SalesDeskViewProps) {
   );
 
   const rows = useMemo(() => {
-    const sorted = [...data].sort(byNewest);
+    /* Mas reciente primero: por fecha de la orden, luego por numero. */
+    const sorted = [...data].sort(
+      (a, b) =>
+        (b.DATE ?? '').localeCompare(a.DATE ?? '') ||
+        (b.SALES_ORDER_NUMBER ?? '').localeCompare(a.SALES_ORDER_NUMBER ?? '') ||
+        byNewest(a, b),
+    );
     const term = search.trim().toLowerCase();
     if (!term) return sorted;
     return sorted.filter((so) =>
@@ -120,9 +113,9 @@ export function SalesDeskView({ initialOpenId = null }: SalesDeskViewProps) {
     { key: 'DUE_DATE', header: 'Due Date', render: (so) => fmtDate(so.DUE_DATE) },
     { key: 'STATUS', header: 'Status', render: (so) => <StatusBadge value={so.STATUS ?? 'Draft'} /> },
     {
-      key: 'LOADED',
-      header: 'Loaded',
-      render: (so) => <span className={so.LOADED ? 'text-ok' : 'muted'}>{so.LOADED ? 'Yes' : 'No'}</span>,
+      key: 'SENT',
+      header: 'Sent',
+      render: (so) => <span className={so.SENT ? 'text-ok' : 'muted'}>{so.SENT ? 'Yes' : 'No'}</span>,
     },
     { key: 'ID_USERS', header: 'Salesperson', render: (so) => buyerName(so.ID_USERS) },
     { key: 'BUYER', header: 'Buyer', render: (so) => so.BUYER || '—' },
@@ -161,7 +154,6 @@ export function SalesDeskView({ initialOpenId = null }: SalesDeskViewProps) {
   const docContext = (so: SalesOrder): SalesDocContext => {
     const customerDoc = customerDocs.find((c) => c.id === so.ID_CUSTOMER);
     const supplierDoc = supplierDocs.find((s) => s.id === so.ID_SUPPLIERS);
-    const locationDoc = locationDocs.find((l) => l.id === so.ID_WAREHOUSE);
     const lotMap = new Map(purchaseOrders.map((po) => [po.id, po.LOT_NUMBER ?? '']));
     return {
       company,
@@ -172,12 +164,10 @@ export function SalesDeskView({ initialOpenId = null }: SalesDeskViewProps) {
       carrierName: carriers.nameOf(so.ID_CARRIER),
       shipViaName: shipVia.nameOf(so.ID_SHIPVIA),
       shippingTermsName: termShipping.nameOf(so.ID_TERMSHIPPING),
-      /* Payment terms: registro unico del catalogo (respeta el legado si la orden trae uno). */
-      paymentTermName: so.ID_PAYMENTTERM ? paymentTermsCat.nameOf(so.ID_PAYMENTTERM) : (paymentTermsCat.options[0]?.name ?? ''),
-      /* Warehouse del catalogo Locations; ordenes viejas caen al supplier legado. */
-      warehouseName: so.ID_WAREHOUSE ? locations.nameOf(so.ID_WAREHOUSE) : suppliers.nameOf(so.ID_SUPPLIERS),
-      warehouseAddress: (so.ID_WAREHOUSE ? locationDoc?.ADDRESS_LOCATIONS : supplierDoc?.ADDRESS_SUPPLIERS) ?? '',
-      warehousePhone: (so.ID_WAREHOUSE ? locationDoc?.PHONE_LOCATIONS : supplierDoc?.PHONE_SUPPLIERS) ?? '',
+      paymentTermName: so.ID_PAYMENTTERM ? paymentTermsCat.nameOf(so.ID_PAYMENTTERM) : '',
+      supplierName: suppliers.nameOf(so.ID_SUPPLIERS),
+      supplierAddress: supplierDoc?.ADDRESS_SUPPLIERS ?? '',
+      supplierPhone: supplierDoc?.PHONE_SUPPLIERS ?? '',
       lotOf: (id) => lotMap.get(id) ?? '',
       commodityName: (id) => commodities.nameOf(id),
     };

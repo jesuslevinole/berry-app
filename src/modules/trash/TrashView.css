@@ -34,3 +34,16 @@
 .trash__td--mono { font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace; font-size: 0.82rem; }
 .trash__td--actions { text-align: right; white-space: nowrap; display: flex; gap: 8px; justify-content: flex-end; }
 .trash__empty { padding: 26px 14px; text-align: center; color: var(--muted); font-size: 0.88rem; }
+
+/* Paginador de la tabla. */
+.trash__pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.trash__pager-info,
+.trash__pager-page { font-size: 0.82rem; color: var(--muted); }
+.trash__pager-actions { display: flex; align-items: center; gap: 10px; }

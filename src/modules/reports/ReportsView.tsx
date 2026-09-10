@@ -9,6 +9,7 @@ import { StatusBadge } from '../../components/ui/StatusBadge';
 import { SalesOrderDetailPanel } from '../sales/SalesOrderDetailPanel';
 import { PurchaseOrderDetailPanel } from '../purchases/PurchaseOrderDetailPanel';
 import { fmtMoney, round2, todayISO } from '../../utils/format';
+import { PAGE_SIZE } from '../../config/limits';
 import {
   COLLECTIONS,
   type Expense,
@@ -110,6 +111,25 @@ export function ReportsView({ report }: ReportsViewProps) {
   const { can } = useAuth();
   const { fieldsFor } = useAppConfig();
   const [search, setSearch] = useState('');
+  /* Paginacion: hasta PAGE_SIZE filas por tabla. */
+  const [page, setPage] = useState(1);
+  const paginate = <R,>(list: R[]): R[] => list.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const pagerFor = (total: number) => {
+    const pageCount = Math.max(Math.ceil(total / PAGE_SIZE), 1);
+    if (total <= PAGE_SIZE) return null;
+    return (
+      <div className="reports__pager">
+        <span className="reports__pager-info">
+          Showing <b>{(page - 1) * PAGE_SIZE + 1}\u2013{Math.min(page * PAGE_SIZE, total)}</b> of <b>{total}</b>
+        </span>
+        <span className="reports__pager-actions">
+          <button type="button" className="btn btn--secondary" disabled={page === 1} onClick={() => setPage((p) => Math.max(p - 1, 1))}>Previous</button>
+          <span className="reports__pager-page">Page {page} of {pageCount}</span>
+          <button type="button" className="btn btn--secondary" disabled={page >= pageCount} onClick={() => setPage((p) => Math.min(p + 1, pageCount))}>Next</button>
+        </span>
+      </div>
+    );
+  };
 
   const { data: purchaseOrders } = useCollection<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER);
   const { data: salesOrders } = useCollection<SalesOrder>(COLLECTIONS.SALES_ORDER);
@@ -386,7 +406,7 @@ export function ReportsView({ report }: ReportsViewProps) {
                 {queueRows.length === 0 && (
                   <tr><td className="reports__empty" colSpan={8}>No sales orders pending. All caught up.</td></tr>
                 )}
-                {queueRows.map((so) => (
+                {paginate(queueRows).map((so) => (
                   <tr key={so.id} className="reports__row--click" onClick={() => setViewingSale(so)} title="Open sales order detail">
                     <td className="reports__td reports__td--muted">{fmtDate(so.DATE ?? '')}</td>
                     <td className="reports__td">{customers.nameOf(so.ID_CUSTOMER)}</td>
@@ -401,6 +421,7 @@ export function ReportsView({ report }: ReportsViewProps) {
               </tbody>
             </table>
           </div>
+          {pagerFor(queueRows.length)}
         </>
       )}
 
@@ -471,7 +492,7 @@ export function ReportsView({ report }: ReportsViewProps) {
                 {apRows.length === 0 && (
                   <tr><td className="reports__empty" colSpan={Math.max(apVisible.length, 1)}>No pending bills. All caught up.</td></tr>
                 )}
-                {apRows.map((r) => (
+                {paginate(apRows).map((r) => (
                   <tr key={r.e.id} className="reports__row--click" onClick={() => openPurchase(r.e.ID_PURCHASEORDER)} title="Open purchase order detail">
                     {apVisible.map((f) => (
                       <td key={f.key} className={`reports__td${AP_COLUMNS[f.key].numeric ? ' reports__td--num' : ''}`}>{AP_COLUMNS[f.key].render(r)}</td>
@@ -481,6 +502,7 @@ export function ReportsView({ report }: ReportsViewProps) {
               </tbody>
             </table>
           </div>
+          {pagerFor(apRows.length)}
         </>
       )}
 
@@ -504,7 +526,7 @@ export function ReportsView({ report }: ReportsViewProps) {
                 {arRows.length === 0 && (
                   <tr><td className="reports__empty" colSpan={Math.max(arVisible.length, 1)}>Nothing pending to collect. All caught up.</td></tr>
                 )}
-                {arRows.map((r) => (
+                {paginate(arRows).map((r) => (
                   <tr key={r.so.id} className="reports__row--click" onClick={() => setViewingSale(r.so)} title="Open sales order detail">
                     {arVisible.map((f) => (
                       <td key={f.key} className={`reports__td${AR_COLUMNS[f.key].numeric ? ' reports__td--num' : ''}`}>{AR_COLUMNS[f.key].render(r)}</td>
@@ -514,6 +536,7 @@ export function ReportsView({ report }: ReportsViewProps) {
               </tbody>
             </table>
           </div>
+          {pagerFor(arRows.length)}
         </>
       )}
 
@@ -546,7 +569,7 @@ export function ReportsView({ report }: ReportsViewProps) {
                 {expenseRows.length === 0 && (
                   <tr><td className="reports__empty" colSpan={10}>No expenses recorded.</td></tr>
                 )}
-                {expenseRows.map((r) => (
+                {paginate(expenseRows).map((r) => (
                   <tr key={r.e.id} className="reports__row--click" onClick={() => openPurchase(r.e.ID_PURCHASEORDER)} title="Open purchase order detail">
                     <td className="reports__td reports__td--muted">{fmtDate(r.e.DATE ?? '')}</td>
                     <td className="reports__td reports__td--mono">{r.lot}</td>
@@ -567,6 +590,7 @@ export function ReportsView({ report }: ReportsViewProps) {
               </tbody>
             </table>
           </div>
+          {pagerFor(expenseRows.length)}
         </>
       )}
 

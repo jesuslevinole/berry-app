@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { limit, orderBy } from 'firebase/firestore';
+import { READ_LIMIT } from '../../config/limits';
 import { useCollection } from '../../hooks/useCollection';
 import { useCatalog, type CatalogOption } from '../../hooks/useCatalog';
 import { deleteDocument, replaceChildren, updateDocument } from '../../services/firestore';
@@ -17,7 +19,10 @@ import './ExpensesView.css';
 
 export function ExpensesView() {
   const { can } = useAuth();
-  const { data, loading } = useCollection<Expense>(COLLECTIONS.EXPENSES);
+  const { data, loading } = useCollection<Expense>(COLLECTIONS.EXPENSES, [
+    orderBy('updatedAt', 'desc'),
+    limit(READ_LIMIT),
+  ]);
   const { data: purchaseOrders } = useCollection<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER);
   const suppliers = useCatalog(COLLECTIONS.SUPPLIERS, 'NAME_SUPPLIERS');
   const categories = useCatalog(COLLECTIONS.CATEGORY_BILL, 'NAME');
@@ -42,7 +47,10 @@ export function ExpensesView() {
   );
 
   const rows = useMemo(() => {
-    const sorted = [...data].sort(byNewest);
+    /* Mas reciente primero: por fecha del gasto. */
+    const sorted = [...data].sort(
+      (a, b) => (b.DATE ?? '').localeCompare(a.DATE ?? '') || byNewest(a, b),
+    );
     const term = search.trim().toLowerCase();
     if (!term) return sorted;
     return sorted.filter((exp) =>

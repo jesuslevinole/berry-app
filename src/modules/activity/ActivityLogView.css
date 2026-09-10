@@ -54,3 +54,16 @@
 .activity__badge--update { background-color: #fdf3d7; color: #8a6d1a; }
 .activity__badge--delete { background-color: var(--bad-bg); color: var(--bad); }
 .activity__badge--restore { background-color: #dde8f7; color: #23538f; }
+
+/* Paginador de la tabla. */
+.activity__pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.activity__pager-info,
+.activity__pager-page { font-size: 0.82rem; color: var(--muted); }
+.activity__pager-actions { display: flex; align-items: center; gap: 10px; }

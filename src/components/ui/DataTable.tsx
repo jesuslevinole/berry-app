@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { PAGE_SIZE } from '../../config/limits';
 import './DataTable.css';
 
 export interface Column<T> {
@@ -19,6 +20,8 @@ interface DataTableProps<T extends { id: string }> {
   onEdit?: (row: T) => void;
   /** Muestra el boton "Delete" en la columna final (gatear con can(modulo,'delete')). */
   onDelete?: (row: T) => void;
+  /** Filas por pagina (por defecto 50, definido en config/limits). */
+  pageSize?: number;
 }
 
 /** Tabla generica reutilizada por todos los modulos (compras, ventas, gastos, catalogos, pagos). */
@@ -30,9 +33,23 @@ export function DataTable<T extends { id: string }>({
   onRowClick,
   onEdit,
   onDelete,
+  pageSize = PAGE_SIZE,
 }: DataTableProps<T>) {
   const hasActions = !!onEdit || !!onDelete;
   const colCount = columns.length + (hasActions ? 1 : 0);
+
+  /* Paginacion: nunca se pintan mas de pageSize filas a la vez. */
+  const [page, setPage] = useState(1);
+  const pageCount = Math.max(Math.ceil(rows.length / pageSize), 1);
+  useEffect(() => {
+    if (page > pageCount) setPage(1);
+  }, [page, pageCount]);
+  const visibleRows = useMemo(
+    () => rows.slice((page - 1) * pageSize, page * pageSize),
+    [rows, page, pageSize],
+  );
+  const firstShown = rows.length === 0 ? 0 : (page - 1) * pageSize + 1;
+  const lastShown = Math.min(page * pageSize, rows.length);
   return (
     <div className="data-table">
       <div className="data-table__scroll">
@@ -66,7 +83,7 @@ export function DataTable<T extends { id: string }>({
               </tr>
             )}
             {!loading &&
-              rows.map((row) => (
+              visibleRows.map((row) => (
                 <tr
                   key={row.id}
                   className={`data-table__row${onRowClick ? ' data-table__row--clickable' : ''}`}
@@ -118,6 +135,33 @@ export function DataTable<T extends { id: string }>({
           </tbody>
         </table>
       </div>
+
+      {!loading && rows.length > pageSize && (
+        <div className="data-table__pager">
+          <span className="data-table__pager-info">
+            Showing <b>{firstShown}–{lastShown}</b> of <b>{rows.length}</b>
+          </span>
+          <span className="data-table__pager-actions">
+            <button
+              type="button"
+              className="data-table__pager-btn"
+              disabled={page === 1}
+              onClick={() => setPage((p) => Math.max(p - 1, 1))}
+            >
+              Previous
+            </button>
+            <span className="data-table__pager-page">Page {page} of {pageCount}</span>
+            <button
+              type="button"
+              className="data-table__pager-btn"
+              disabled={page >= pageCount}
+              onClick={() => setPage((p) => Math.min(p + 1, pageCount))}
+            >
+              Next
+            </button>
+          </span>
+        </div>
+      )}
     </div>
   );
 }
