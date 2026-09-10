@@ -173,6 +173,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loading = !authReady || (!!firebaseUser && (!profileReady || !roleReady));
 
   const value = useMemo<AuthContextValue>(() => {
+    /* Dueno del SaaS: por flag en su perfil o por email (llave maestra). */
+    const platformAdmin =
+      bypass || isBootstrapAdmin || !!profile?.isPlatformAdmin || isPlatformAdminEmail(firebaseUser?.email);
     const viewingAs = !!viewAsUserId && !!viewAsProfile;
     const can = (moduleId: string, action: PermissionAction): boolean => {
       /* Suplantacion activa: evaluar EXACTAMENTE lo que ve el otro usuario. */
@@ -192,6 +195,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (bypass) return true;
       if (!firebaseUser) return false;
       if (isBootstrapAdmin) return true;
+      /* Admin de la plataforma: acceso total en cualquier empresa que abra,
+         incluso antes de que exista un rol dentro de esa empresa. */
+      if (platformAdmin) return true;
       if (!profile || profile.status === 'Inactive') return false;
       const perm = role?.permissions?.find((p) => p.module === moduleId);
       if (!perm) return false;
@@ -215,17 +221,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       profile,
       role,
       companyId,
-      isPlatformAdmin:
-        bypass ||
-        isBootstrapAdmin ||
-        !!profile?.isPlatformAdmin ||
-        isPlatformAdminEmail(firebaseUser?.email),
-      needsCompanySetup:
-        !companyId &&
-        (bypass ||
-          isBootstrapAdmin ||
-          !!profile?.isPlatformAdmin ||
-          isPlatformAdminEmail(firebaseUser?.email)),
+      isPlatformAdmin: platformAdmin,
+      needsCompanySetup: !companyId && platformAdmin,
       switchCompany: (next: string) => {
         /* El admin de plataforma cambia de empresa; se recarga para limpiar suscripciones. */
         if (next) localStorage.setItem('berry-company-override', next);
@@ -243,7 +240,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
       can,
       canAdmin: (cap) => {
-        if (bypass || isBootstrapAdmin) return true;
+        if (bypass || isBootstrapAdmin || platformAdmin) return true;
         if (!firebaseUser || !profile || profile.status === 'Inactive') return false;
         return !!role?.adminPerms?.[cap];
       },

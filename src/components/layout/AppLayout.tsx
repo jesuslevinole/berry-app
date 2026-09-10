@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useAppConfig } from '../../context/AppConfigContext';
 import { APP_VERSION, APP_AUTHOR } from '../../config/version';
 import { NotificationsBell } from './NotificationsBell';
+import { CompanySwitcher } from './CompanySwitcher';
 import { useCompany } from '../../hooks/useCompany';
 import './AppLayout.css';
 
@@ -466,6 +467,7 @@ export function AppLayout({ view, onNavigate, children }: AppLayoutProps) {
             </svg>
           </button>
           <h1 className="topbar__title">{navLabel(view, VIEW_TITLES[view])}</h1>
+          {isPlatformAdmin && <CompanySwitcher />}
           <NotificationsBell />
           <div className="topbar__user">
             <span className="topbar__avatar">{initials}</span>

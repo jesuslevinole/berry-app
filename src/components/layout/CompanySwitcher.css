@@ -1,0 +1,27 @@
+/* Selector de empresa activa (admin de plataforma). */
+.company-switch { display: flex; align-items: center; gap: 8px; }
+.company-switch__label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+.company-switch__select {
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 6px 10px;
+  max-width: 190px;
+  cursor: pointer;
+}
+.company-switch__select:hover { border-color: var(--green-500); }
+
+@media (max-width: 900px) {
+  .company-switch__label { display: none; }
+  .company-switch__select { max-width: 130px; }
+}
