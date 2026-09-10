@@ -17,6 +17,7 @@ import {
 } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
 import { resendPasswordReset } from '../services/userAuthService';
+import { getActiveCompanyId, setActiveCompanyId, tenantPath } from '../services/tenant';
 import { COLLECTIONS, type AdminCapability, type AppRole, type PermissionAction, type SystemUser } from '../types/models';
 
 interface AuthContextValue {
@@ -37,6 +38,12 @@ interface AuthContextValue {
   /** Perfil que se esta suplantando con "View as" (null = ninguno). */
   viewAsProfile: SystemUser | null;
   setViewAs: (userId: string | null) => void;
+  /** Empresa activa de la sesion (SaaS). */
+  companyId: string;
+  /** true si el usuario administra la plataforma (crea empresas, cambia entre ellas). */
+  isPlatformAdmin: boolean;
+  /** Cambia de empresa (solo admin de plataforma). */
+  switchCompany: (companyId: string) => void;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
@@ -52,6 +59,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<AppRole | null>(null);
   const [roleReady, setRoleReady] = useState(true);
   const [isBootstrapAdmin, setIsBootstrapAdmin] = useState(false);
+  /* Empresa activa de la sesion (SaaS multi-empresa). */
+  const [companyId, setCompanyId] = useState('');
+  const [overrideCompanyId, setOverrideCompanyId] = useState<string>(
+    () => localStorage.getItem('berry-company-override') ?? '',
+  );
   const [viewAsUserId, setViewAsUserId] = useState<string | null>(
     () => sessionStorage.getItem('berry-view-as') || null,
   );
@@ -85,7 +97,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       (snap) => {
         if (!snap.empty) {
           const d = snap.docs[0];
-          setProfile({ id: d.id, ...d.data() } as SystemUser);
+          const nextProfile = { id: d.id, ...d.data() } as SystemUser;
+          /* Empresa activa: toda consulta posterior vive en companies/{companyId}. */
+          const nextCompany =
+            (nextProfile.isPlatformAdmin && overrideCompanyId) || nextProfile.companyId || '';
+          if (getActiveCompanyId() !== nextCompany) setActiveCompanyId(nextCompany);
+          setCompanyId(nextCompany);
+          setProfile(nextProfile);
           setIsBootstrapAdmin(false);
           setProfileReady(true);
           return;
@@ -98,7 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       () => setProfileReady(true),
     );
     return unsubscribe;
-  }, [firebaseUser]);
+  }, [firebaseUser, overrideCompanyId]);
 
   /* Primer inicio de sesion: pasa de "Pending Invite" a "Active" */
   useEffect(() => {
@@ -118,7 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setRoleReady(false);
     const unsubscribe = onSnapshot(
-      doc(db, COLLECTIONS.ROLES, profile.roleId),
+      doc(db, tenantPath(COLLECTIONS.ROLES), profile.roleId),
       (snap) => {
         setRole(snap.exists() ? ({ id: snap.id, ...snap.data() } as AppRole) : null);
         setRoleReady(true);
@@ -144,7 +162,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setViewAsRole(null);
     if (!viewAsProfile?.roleId) return;
     return onSnapshot(
-      doc(db, COLLECTIONS.ROLES, viewAsProfile.roleId),
+      doc(db, tenantPath(COLLECTIONS.ROLES), viewAsProfile.roleId),
       (snap) => setViewAsRole(snap.exists() ? ({ id: snap.id, ...snap.data() } as AppRole) : null),
       () => setViewAsRole(null),
     );
@@ -194,6 +212,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       firebaseUser,
       profile,
       role,
+      companyId,
+      isPlatformAdmin: bypass || isBootstrapAdmin || !!profile?.isPlatformAdmin,
+      switchCompany: (next: string) => {
+        /* El admin de plataforma cambia de empresa; se recarga para limpiar suscripciones. */
+        if (next) localStorage.setItem('berry-company-override', next);
+        else localStorage.removeItem('berry-company-override');
+        setOverrideCompanyId(next);
+        setActiveCompanyId(next);
+        window.location.reload();
+      },
       loading: bypass ? false : loading,
       isBootstrapAdmin,
       bypass,
@@ -227,7 +255,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await resendPasswordReset(email.trim());
       },
     };
-  }, [firebaseUser, profile, role, loading, isBootstrapAdmin, bypass, viewAsUserId, viewAsProfile, viewAsRole]);
+  }, [firebaseUser, profile, role, loading, isBootstrapAdmin, bypass, companyId, viewAsUserId, viewAsProfile, viewAsRole]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

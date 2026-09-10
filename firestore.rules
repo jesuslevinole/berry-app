@@ -1,0 +1,99 @@
+rules_version = '2';
+
+// ============================================================================
+// Berry Source SaaS - aislamiento por empresa
+//
+// Modelo de datos:
+//   /companies/{companyId}                -> ficha de la empresa
+//   /companies/{companyId}/<COLECCION>    -> TODOS los datos de esa empresa
+//   /system_users/{uid}                   -> global: email, roleId, companyId
+//
+// Regla de oro: un usuario solo puede leer o escribir bajo el companyId que
+// tiene grabado en su documento de system_users. La ruta hace imposible el
+// cruce de informacion incluso si el cliente pidiera otra coleccion.
+// ============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---- Helpers ----------------------------------------------------------
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // Documento del usuario que hace la peticion (id del doc = uid de Auth).
+    function me() {
+      return get(/databases/$(database)/documents/system_users/$(request.auth.uid)).data;
+    }
+
+    function myProfileExists() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/system_users/$(request.auth.uid));
+    }
+
+    function isActive() {
+      return myProfileExists() && me().status != 'Inactive';
+    }
+
+    // Administrador de la plataforma (Anthropic del SaaS: crea empresas).
+    function isPlatformAdmin() {
+      return myProfileExists() && me().isPlatformAdmin == true;
+    }
+
+    // El usuario pertenece a esa empresa.
+    function belongsTo(companyId) {
+      return isActive() && me().companyId == companyId;
+    }
+
+    // ---- Empresas ---------------------------------------------------------
+
+    match /companies/{companyId} {
+      // La ficha la ve quien pertenece a la empresa; solo la plataforma la crea o edita.
+      allow read: if belongsTo(companyId) || isPlatformAdmin();
+      allow create, update, delete: if isPlatformAdmin();
+
+      // ---- TODOS los datos de negocio de la empresa ----
+      // Compras, ventas, gastos, catalogos, cheques, roles, configuracion,
+      // historial de actividad y papelera cuelgan de aqui.
+      match /{document=**} {
+        allow read, write: if belongsTo(companyId) || isPlatformAdmin();
+      }
+    }
+
+    // ---- Usuarios del sistema (global, pero acotado por empresa) -----------
+
+    match /system_users/{userId} {
+      // Cada quien lee su propio perfil (necesario para resolver su empresa)
+      // y los perfiles de su misma empresa.
+      allow read: if signedIn()
+        && (
+          request.auth.uid == userId
+          || isPlatformAdmin()
+          || (myProfileExists() && resource.data.companyId == me().companyId)
+        );
+
+      // Alta de usuarios: solo dentro de la propia empresa.
+      allow create: if isPlatformAdmin()
+        || (isActive() && request.resource.data.companyId == me().companyId);
+
+      // Edicion y baja: el usuario no puede cambiarse de empresa a si mismo.
+      allow update: if isPlatformAdmin()
+        || (
+          isActive()
+          && resource.data.companyId == me().companyId
+          && request.resource.data.companyId == resource.data.companyId
+        );
+
+      allow delete: if isPlatformAdmin()
+        || (isActive() && resource.data.companyId == me().companyId);
+    }
+
+    // ---- Todo lo demas queda cerrado --------------------------------------
+    // Las colecciones legadas en la raiz (BD_*, CAT_*, settings_*) dejan de ser
+    // accesibles una vez migradas: nadie puede leerlas ni escribirlas.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -21,6 +21,7 @@ import {
 } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
 import type { BaseDoc } from '../types/models';
+import { tenantPath } from './tenant';
 
 
 /* ---------- Registro de actividad + papelera (intercepcion central) ---------- */
@@ -44,7 +45,7 @@ export async function logActivity(
 ): Promise<void> {
   if (INTERNAL_COLLECTIONS.has(colName)) return;
   try {
-    await addDoc(collection(db, ACTIVITY_COLLECTION), {
+    await addDoc(collection(db, tenantPath(ACTIVITY_COLLECTION)), {
       USER_EMAIL: currentUserEmail(),
       COLLECTION: colName,
       ACTION: action,
@@ -60,17 +61,17 @@ export async function logActivity(
 
 /** Restaura un registro de la papelera a su coleccion original (mismo id). */
 export async function restoreFromTrash(trashId: string): Promise<void> {
-  const snap = await getDoc(doc(db, TRASH_COLLECTION, trashId));
+  const snap = await getDoc(doc(db, tenantPath(TRASH_COLLECTION), trashId));
   if (!snap.exists()) throw new Error('Trash record not found');
   const item = snap.data() as { ORIGIN_COLLECTION: string; ORIGIN_ID: string; DATA: Record<string, unknown> };
-  await setDoc(doc(db, item.ORIGIN_COLLECTION, item.ORIGIN_ID), { ...item.DATA, updatedAt: serverTimestamp() });
-  await deleteDoc(doc(db, TRASH_COLLECTION, trashId));
+  await setDoc(doc(db, tenantPath(item.ORIGIN_COLLECTION), item.ORIGIN_ID), { ...item.DATA, updatedAt: serverTimestamp() });
+  await deleteDoc(doc(db, tenantPath(TRASH_COLLECTION), trashId));
   void logActivity(item.ORIGIN_COLLECTION, 'restore', item.ORIGIN_ID, 'Restored from recycle bin');
 }
 
 /** Elimina definitivamente un registro de la papelera. */
 export async function deleteFromTrashForever(trashId: string): Promise<void> {
-  await deleteDoc(doc(db, TRASH_COLLECTION, trashId));
+  await deleteDoc(doc(db, tenantPath(TRASH_COLLECTION), trashId));
 }
 
 export function subscribeToCollection<T extends BaseDoc>(
@@ -79,7 +80,7 @@ export function subscribeToCollection<T extends BaseDoc>(
   onError?: (error: Error) => void,
   constraints: QueryConstraint[] = [],
 ): Unsubscribe {
-  const q = query(collection(db, colName), ...constraints);
+  const q = query(collection(db, tenantPath(colName)), ...constraints);
   return onSnapshot(
     q,
     (snap) => onData(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as T)),
@@ -91,7 +92,7 @@ export async function listDocuments<T extends BaseDoc>(
   colName: string,
   constraints: QueryConstraint[] = [],
 ): Promise<T[]> {
-  const snap = await getDocs(query(collection(db, colName), ...constraints));
+  const snap = await getDocs(query(collection(db, tenantPath(colName)), ...constraints));
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as T);
 }
 
@@ -99,7 +100,7 @@ export async function createDocument<T extends BaseDoc>(
   colName: string,
   data: Omit<T, 'id'>,
 ): Promise<string> {
-  const ref = await addDoc(collection(db, colName), {
+  const ref = await addDoc(collection(db, tenantPath(colName)), {
     ...data,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -114,7 +115,7 @@ export async function updateDocument<T extends BaseDoc>(
   data: Partial<Omit<T, 'id'>>,
   options: { silent?: boolean } = {},
 ): Promise<void> {
-  await updateDoc(doc(db, colName, id), { ...data, updatedAt: serverTimestamp() });
+  await updateDoc(doc(db, tenantPath(colName), id), { ...data, updatedAt: serverTimestamp() });
   /* silent: recalculos automaticos de totales no se registran como accion del usuario. */
   if (!options.silent) void logActivity(colName, 'update', id);
 }
@@ -126,9 +127,9 @@ export async function updateDocument<T extends BaseDoc>(
 export async function deleteDocument(colName: string, id: string): Promise<void> {
   if (!INTERNAL_COLLECTIONS.has(colName)) {
     try {
-      const snap = await getDoc(doc(db, colName, id));
+      const snap = await getDoc(doc(db, tenantPath(colName), id));
       if (snap.exists()) {
-        await addDoc(collection(db, TRASH_COLLECTION), {
+        await addDoc(collection(db, tenantPath(TRASH_COLLECTION)), {
           ORIGIN_COLLECTION: colName,
           ORIGIN_ID: id,
           DATA: snap.data(),
@@ -141,7 +142,7 @@ export async function deleteDocument(colName: string, id: string): Promise<void>
       /* Si la papelera falla, el borrado continua igual. */
     }
   }
-  await deleteDoc(doc(db, colName, id));
+  await deleteDoc(doc(db, tenantPath(colName), id));
   void logActivity(colName, 'delete', id);
 }
 
@@ -160,11 +161,11 @@ export async function replaceChildren(
   const batch = writeBatch(db);
 
   for (const ex of existing) {
-    if (!keep.has(ex.id)) batch.delete(doc(db, colName, ex.id));
+    if (!keep.has(ex.id)) batch.delete(doc(db, tenantPath(colName), ex.id));
   }
   for (const row of rows) {
     const { id, ...data } = row;
-    const ref = id ? doc(db, colName, id) : doc(collection(db, colName));
+    const ref = id ? doc(db, tenantPath(colName), id) : doc(collection(db, tenantPath(colName)));
     batch.set(ref, { ...data, [parentField]: parentId, updatedAt: serverTimestamp() }, { merge: true });
   }
   await batch.commit();
@@ -189,7 +190,7 @@ export async function bulkUpsert(
 
     for (const row of chunk) {
       const { id, ...data } = row;
-      const ref = id ? doc(db, colName, id) : doc(collection(db, colName));
+      const ref = id ? doc(db, tenantPath(colName), id) : doc(collection(db, tenantPath(colName)));
       batch.set(ref, { ...data, updatedAt: serverTimestamp() }, { merge: true });
     }
 
@@ -206,7 +207,7 @@ export async function setDocumentWithId(
   id: string,
   data: Record<string, unknown>,
 ): Promise<void> {
-  await setDoc(doc(db, colName, id), { ...data, updatedAt: serverTimestamp() }, { merge: true });
+  await setDoc(doc(db, tenantPath(colName), id), { ...data, updatedAt: serverTimestamp() }, { merge: true });
 }
 
 /**
@@ -218,7 +219,7 @@ export function createDocumentLocalFirst(
   data: Record<string, unknown>,
   onError?: (error: Error) => void,
 ): string {
-  const ref = doc(collection(db, colName));
+  const ref = doc(collection(db, tenantPath(colName)));
   setDoc(ref, { ...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp() }).catch(
     (error: Error) => onError?.(error),
   );

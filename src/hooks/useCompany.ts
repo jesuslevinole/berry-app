@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
+import { tenantPath } from '../services/tenant';
 import { COLLECTIONS, type CompanyInfo } from '../types/models';
 
 const COMPANY_DOC_ID = 'company';
@@ -22,7 +23,7 @@ export function useCompany() {
 
   useEffect(() => {
     return onSnapshot(
-      doc(db, COLLECTIONS.COMPANY, COMPANY_DOC_ID),
+      doc(db, tenantPath(COLLECTIONS.COMPANY), COMPANY_DOC_ID),
       (snap) => {
         setCompany(
           snap.exists()
@@ -36,7 +37,7 @@ export function useCompany() {
   }, []);
 
   const save = (data: Partial<Omit<CompanyInfo, 'id'>>) => {
-    setDoc(doc(db, COLLECTIONS.COMPANY, COMPANY_DOC_ID), data, { merge: true }).catch(
+    setDoc(doc(db, tenantPath(COLLECTIONS.COMPANY), COMPANY_DOC_ID), data, { merge: true }).catch(
       (error: Error) => alert(`Failed to save company info: ${error.message}`),
     );
   };

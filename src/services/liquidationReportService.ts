@@ -7,6 +7,7 @@
  */
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase/config';
+import { tenantPath } from './tenant';
 import { COLLECTIONS, type CompanyInfo, type Expense, type PurchaseOrder, type SalesOrderDetail } from '../types/models';
 
 const GREEN = '#6aa84f';
@@ -37,7 +38,7 @@ export async function printLiquidationReport(
 ): Promise<void> {
   /* Ventas del lote: lineas de sales orders que vendieron de esta PO. */
   const snap = await getDocs(
-    query(collection(db, COLLECTIONS.SALES_ORDER_DETAIL), where('ID_PURCHASEORDER', '==', order.id)),
+    query(collection(db, tenantPath(COLLECTIONS.SALES_ORDER_DETAIL)), where('ID_PURCHASEORDER', '==', order.id)),
   );
   const lines: SalesOrderDetail[] = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as SalesOrderDetail);
 
@@ -46,7 +47,7 @@ export async function printLiquidationReport(
 
   /* Gastos del lote marcados como Deduct: se consultan en vivo (el total del PO no se mantiene). */
   const expSnap = await getDocs(
-    query(collection(db, COLLECTIONS.EXPENSES), where('ID_PURCHASEORDER', '==', order.id)),
+    query(collection(db, tenantPath(COLLECTIONS.EXPENSES)), where('ID_PURCHASEORDER', '==', order.id)),
   );
   const expenseDocs: Expense[] = expSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Expense);
   const deductible = expenseDocs.filter((e) => e.DEDUCT);
@@ -55,7 +56,7 @@ export async function printLiquidationReport(
     : (order.TOTAL_EXPENSES ?? order.EXPENSES ?? 0);
 
   /* Gastos agrupados por categoria, como en la liquidacion de AppSheet. */
-  const catSnap = await getDocs(collection(db, COLLECTIONS.CATEGORY_BILL));
+  const catSnap = await getDocs(collection(db, tenantPath(COLLECTIONS.CATEGORY_BILL)));
   const catName = new Map(catSnap.docs.map((d) => [d.id, String((d.data() as { NAME?: string }).NAME ?? '')]));
   const byCategory = new Map<string, number>();
   for (const e of deductible) {

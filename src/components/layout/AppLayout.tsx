@@ -6,7 +6,7 @@ import { NotificationsBell } from './NotificationsBell';
 import { useCompany } from '../../hooks/useCompany';
 import './AppLayout.css';
 
-export type ViewKey = 'dashboard' | 'purchases' | 'sales' | 'expenses' | 'catalogs' | 'lots' | 'inventory' | 'queue' | 'apgrowers' | 'ap' | 'ar' | 'expensesreport' | 'activity' | 'trash' | 'checks' | 'company' | 'users' | 'roles' | 'config';
+export type ViewKey = 'dashboard' | 'purchases' | 'sales' | 'expenses' | 'catalogs' | 'lots' | 'inventory' | 'queue' | 'apgrowers' | 'ap' | 'ar' | 'expensesreport' | 'activity' | 'trash' | 'checks' | 'company' | 'users' | 'roles' | 'config' | 'companies';
 
 export const VIEW_TITLES: Record<ViewKey, string> = {
   dashboard: 'Dashboard',
@@ -28,6 +28,7 @@ export const VIEW_TITLES: Record<ViewKey, string> = {
   users: 'System Users',
   roles: 'Roles & Permissions',
   config: 'Configurator',
+  companies: 'Companies',
 };
 
 const NAV_ITEMS: Array<{ key: ViewKey; label: string; icon: ReactNode }> = [
@@ -206,6 +207,16 @@ const NAV_ITEMS: Array<{ key: ViewKey; label: string; icon: ReactNode }> = [
       </svg>
     ),
   },
+  {
+    key: 'companies',
+    label: 'Companies',
+    icon: (
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-5h6v5" />
+        <path d="M9 10h1M14 10h1M9 13h1M14 13h1" />
+      </svg>
+    ),
+  },
 ];
 
 interface AppLayoutProps {
@@ -217,11 +228,16 @@ interface AppLayoutProps {
 export function AppLayout({ view, onNavigate, children }: AppLayoutProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { can, profile, firebaseUser, bypass, logout, viewAsProfile, setViewAs } = useAuth();
+  const { can, profile, firebaseUser, bypass, logout, viewAsProfile, setViewAs, isPlatformAdmin } = useAuth();
 
   const { sortNav, navLabel, navParentOf, navGroups, navOrderList } = useAppConfig();
   const { company } = useCompany();
-  const visibleItems = sortNav(NAV_ITEMS.filter((item) => can(item.key, 'view')));
+  const visibleItems = sortNav(
+    NAV_ITEMS.filter((item) =>
+      /* Companies es de la plataforma, no de las empresas cliente. */
+      item.key === 'companies' ? isPlatformAdmin : can(item.key, 'view'),
+    ),
+  );
 
   /* Submenus configurables: grupos nombrados + modulos anidados + atajos de reportes. */
   const visibleKeys = new Set<string>(visibleItems.map((i) => i.key));

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { byNewest } from '../../utils/format';
-import { doc, deleteDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, deleteDoc, setDoc, updateDoc, where } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import { confirmClose } from '../../components/ui/Modal';
@@ -31,8 +31,12 @@ const STATUS_META: Record<SystemUserStatus, { label: string; className: string }
 };
 
 export function UsersView() {
-  const { can, firebaseUser } = useAuth();
-  const { data: users, loading } = useCollection<SystemUser>(COLLECTIONS.SYSTEM_USERS);
+  const { can, firebaseUser, companyId } = useAuth();
+  /* Usuarios de ESTA empresa: system_users es global, se filtra por companyId. */
+  const { data: allUsers, loading } = useCollection<SystemUser>(COLLECTIONS.SYSTEM_USERS, [
+    where('companyId', '==', companyId),
+  ], companyId);
+  const users = allUsers;
   const { data: roles } = useCollection<AppRole>(COLLECTIONS.ROLES);
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
@@ -114,7 +118,7 @@ export function UsersView() {
           const newId = emailToPendingId(email);
           const { id: _omit, ...base } = editing;
           void _omit;
-          await setDoc(doc(db, COLLECTIONS.SYSTEM_USERS, newId), { ...base, ...payload });
+          await setDoc(doc(db, COLLECTIONS.SYSTEM_USERS, newId), { ...base, ...payload, companyId });
           await deleteDoc(doc(db, COLLECTIONS.SYSTEM_USERS, editing.id));
           return;
         }
@@ -187,6 +191,7 @@ export function UsersView() {
           const { id: _omit, ...base } = user;
           void _omit;
           await setDoc(doc(db, COLLECTIONS.SYSTEM_USERS, result.uid), {
+            companyId,
             ...base,
             inviteSent: true,
             inviteSentAt: new Date().toISOString(),

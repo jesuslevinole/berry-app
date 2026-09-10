@@ -1,0 +1,56 @@
+.companies__card {
+  background-color: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow-x: auto;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+.companies__table { width: 100%; border-collapse: collapse; min-width: 720px; }
+.companies__th {
+  text-align: left;
+  padding: 11px 14px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  border-bottom: 1px solid var(--line-strong);
+  white-space: nowrap;
+}
+.companies__th--actions { width: 1%; }
+.companies__th--num { text-align: right; }
+.companies__td { padding: 10px 14px; font-size: 0.88rem; color: var(--ink); border-bottom: 1px solid var(--line); }
+.companies__td--actions { white-space: nowrap; display: flex; gap: 8px; }
+.companies__td--strong { font-weight: 600; }
+.companies__td--muted { color: var(--muted); }
+.companies__td--num { text-align: right; font-variant-numeric: tabular-nums; }
+.companies__row--current td { background-color: var(--green-50); }
+.companies__badge {
+  margin-left: 8px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--green-700);
+  background-color: var(--green-100);
+  border-radius: 8px;
+  padding: 2px 8px;
+}
+.companies__empty { padding: 26px 14px; text-align: center; color: var(--muted); font-size: 0.88rem; }
+.companies__denied { padding: 26px 0; color: var(--muted); }
+.companies__hint { margin-top: 14px; font-size: 0.82rem; color: var(--muted); }
+.companies__log {
+  margin-top: 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  padding: 12px 14px;
+  background-color: var(--surface);
+}
+.companies__log-title { margin: 0 0 6px; font-size: 0.86rem; }
+.companies__log-list {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 0.82rem;
+  color: var(--muted);
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+}

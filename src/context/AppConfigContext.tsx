@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
+import { tenantPath } from '../services/tenant';
 import { COLLECTIONS, type AppConfigDoc, type CheckSettings, type FormFieldConfig } from '../types/models';
 
 const CONFIG_DOC_ID = 'config';
@@ -41,7 +42,7 @@ export function AppConfigProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     return onSnapshot(
-      doc(db, COLLECTIONS.APP_SETTINGS, CONFIG_DOC_ID),
+      doc(db, tenantPath(COLLECTIONS.APP_SETTINGS), CONFIG_DOC_ID),
       (snap) => {
         setConfig(snap.exists() ? ({ id: snap.id, ...snap.data() } as AppConfigDoc) : null);
         setLoading(false);
@@ -52,7 +53,7 @@ export function AppConfigProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<AppConfigValue>(() => {
     const persist = (partial: Partial<AppConfigDoc>) => {
-      setDoc(doc(db, COLLECTIONS.APP_SETTINGS, CONFIG_DOC_ID), partial, { merge: true }).catch(
+      setDoc(doc(db, tenantPath(COLLECTIONS.APP_SETTINGS), CONFIG_DOC_ID), partial, { merge: true }).catch(
         (error: Error) => alert(`Failed to save configuration: ${error.message}`),
       );
     };

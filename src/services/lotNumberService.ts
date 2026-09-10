@@ -10,6 +10,7 @@
  */
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase/config';
+import { tenantPath } from './tenant';
 import { COLLECTIONS } from '../types/models';
 
 const PAD_LENGTH = 5;
@@ -30,7 +31,7 @@ const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\
  */
 export async function nextLotForGrower(growerId: string, prefix: string): Promise<string> {
   const snap = await getDocs(
-    query(collection(db, COLLECTIONS.PURCHASE_ORDER), where('ID_GROWER', '==', growerId)),
+    query(collection(db, tenantPath(COLLECTIONS.PURCHASE_ORDER)), where('ID_GROWER', '==', growerId)),
   );
   let max = 0;
   const pattern = new RegExp(`^${escapeRegExp(prefix)}(\\d+)$`);

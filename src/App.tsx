@@ -12,6 +12,7 @@ import { LotActivityView } from './modules/lots/LotActivityView';
 import { InventoryView } from './modules/inventory/InventoryView';
 import { ActivityLogView } from './modules/activity/ActivityLogView';
 import { TrashView } from './modules/trash/TrashView';
+import { CompaniesView } from './modules/companies/CompaniesView';
 import { ReportsView } from './modules/reports/ReportsView';
 import { ChecksView } from './modules/checks/ChecksView';
 import { CompanyView } from './modules/company/CompanyView';
@@ -20,10 +21,10 @@ import { RolesView } from './modules/roles/RolesView';
 import { ConfigView } from './modules/config/ConfigView';
 import './App.css';
 
-const VIEW_ORDER: ViewKey[] = ['dashboard', 'purchases', 'sales', 'expenses', 'catalogs', 'lots', 'inventory', 'queue', 'apgrowers', 'ap', 'ar', 'expensesreport', 'activity', 'trash', 'checks', 'company', 'users', 'roles', 'config'];
+const VIEW_ORDER: ViewKey[] = ['dashboard', 'purchases', 'sales', 'expenses', 'catalogs', 'lots', 'inventory', 'queue', 'apgrowers', 'ap', 'ar', 'expensesreport', 'activity', 'trash', 'companies', 'checks', 'company', 'users', 'roles', 'config'];
 
 function Shell() {
-  const { firebaseUser, bypass, loading, can, logout } = useAuth();
+  const { firebaseUser, bypass, loading, can, logout, isPlatformAdmin } = useAuth();
   const [view, setView] = useState<ViewKey>('dashboard');
 
   /** Navegar siempre muestra la vista desde arriba (evita entrar con el scroll a medias). */
@@ -32,7 +33,7 @@ function Shell() {
     window.scrollTo({ top: 0 });
   };
 
-  const allowedViews = VIEW_ORDER.filter((key) => can(key, 'view'));
+  const allowedViews = VIEW_ORDER.filter((key) => (key === 'companies' ? isPlatformAdmin : can(key, 'view')));
 
   /* Si el rol no permite la vista actual, saltar a la primera permitida. */
   useEffect(() => {
@@ -82,6 +83,7 @@ function Shell() {
         {view === 'expensesreport' && <ReportsView report="expenses" />}
         {view === 'activity' && <ActivityLogView />}
         {view === 'trash' && <TrashView />}
+        {view === 'companies' && <CompaniesView />}
         {view === 'checks' && <ChecksView />}
         {view === 'company' && <CompanyView />}
         {view === 'users' && <UsersView />}

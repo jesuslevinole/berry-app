@@ -40,6 +40,8 @@ export const COLLECTIONS = {
   APP_SETTINGS: 'settings_app',
   CHECKS: 'BD_CHECKS',
   COMPANY: 'settings_company',
+  /** Global: catalogo de empresas del SaaS. */
+  COMPANIES: 'companies',
 } as const;
 
 export type CollectionName = (typeof COLLECTIONS)[keyof typeof COLLECTIONS];
@@ -175,6 +177,10 @@ export interface SystemUser extends BaseDoc {
   email: string;
   roleId: ID;
   status: SystemUserStatus;
+  /** Empresa a la que pertenece el usuario (aislamiento SaaS). */
+  companyId?: ID;
+  /** Administrador de la plataforma: puede crear empresas y cambiar entre ellas. */
+  isPlatformAdmin?: boolean;
   inviteSent?: boolean;
   inviteSentAt?: string;
 }
@@ -296,4 +302,13 @@ export interface TrashItem extends BaseDoc {
   DATA: Record<string, unknown>;
   DELETED_BY: string;
   DELETED_AT: string;
+}
+
+/* ---------- SaaS: empresas de la plataforma ---------- */
+export interface Company extends BaseDoc {
+  name: string;
+  /** Identificador corto visible (ej. BERRY, GATOR). */
+  code?: string;
+  status: 'Active' | 'Suspended';
+  notes?: string;
 }
