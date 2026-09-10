@@ -181,6 +181,8 @@ export interface SystemUser extends BaseDoc {
   companyId?: ID;
   /** Administrador de la plataforma: puede crear empresas y cambiar entre ellas. */
   isPlatformAdmin?: boolean;
+  /** Creo la empresa en el auto-registro (primer usuario, rol Owner). */
+  isCompanyOwner?: boolean;
   inviteSent?: boolean;
   inviteSentAt?: string;
 }
@@ -311,4 +313,18 @@ export interface Company extends BaseDoc {
   code?: string;
   status: 'Active' | 'Suspended';
   notes?: string;
+
+  /* ---- Suscripcion (pasarela de pago pendiente: por ahora se registra a mano) ---- */
+  /** Empresa fundadora: nunca se le cobra ni se le bloquea. */
+  exempt?: boolean;
+  /** Inicio y fin de la prueba gratuita (ISO yyyy-mm-dd). */
+  trialStartsAt?: string;
+  trialEndsAt?: string;
+  /** Fin del periodo pagado vigente (ISO yyyy-mm-dd). */
+  paidThrough?: string;
+  /** Ultimo pago registrado. */
+  lastPaymentAt?: string;
+  lastPaymentAmount?: number;
+  /** Contacto de facturacion. */
+  billingEmail?: string;
 }

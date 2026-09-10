@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useCompany } from '../../hooks/useCompany';
 import { useAuth } from '../../context/AuthContext';
+import { SignupView } from './SignupView';
 import './LoginView.css';
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -13,6 +14,8 @@ const ERROR_MESSAGES: Record<string, string> = {
 };
 
 export function LoginView() {
+  /* Alta publica de empresas nuevas. */
+  const [signingUp, setSigningUp] = useState(false);
   const { company } = useCompany();
   const { login, resetPassword, enterAsGuest } = useAuth();
   const [email, setEmail] = useState('');
@@ -52,6 +55,8 @@ export function LoginView() {
       setError('Could not send the reset email. Check the address and try again.');
     }
   };
+
+  if (signingUp) return <SignupView onBack={() => setSigningUp(false)} />;
 
   return (
     <div className="login">
@@ -98,6 +103,10 @@ export function LoginView() {
             onClick={() => void handleSubmit()}
           >
             {busy ? 'Signing in…' : 'Sign In'}
+          </button>
+
+          <button type="button" className="login__signup" onClick={() => setSigningUp(true)}>
+            Don&apos;t have an account? Register your company
           </button>
 
           <button type="button" className="login__bypass" onClick={enterAsGuest}>

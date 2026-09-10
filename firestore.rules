@@ -56,9 +56,23 @@ service cloud.firestore {
     // ---- Empresas ---------------------------------------------------------
 
     match /companies/{companyId} {
-      // La ficha la ve quien pertenece a la empresa; solo la plataforma la crea o edita.
+      // La ficha (incluida la suscripcion: trial, pagos, exempt) la LEE quien
+      // pertenece a la empresa, pero solo la plataforma la crea o modifica:
+      // ninguna empresa puede extenderse su propia prueba ni marcarse pagada.
       allow read: if belongsTo(companyId) || isPlatformAdmin();
-      allow create, update, delete: if isPlatformAdmin();
+
+      // Auto-registro: cualquier usuario autenticado puede crear SU empresa,
+      // pero nunca exenta ni con periodo pagado: eso solo lo otorga la plataforma.
+      allow create: if isPlatformAdmin()
+        || (
+          signedIn()
+          && request.resource.data.exempt != true
+          && !('paidThrough' in request.resource.data)
+          && request.resource.data.status == 'Active'
+        );
+
+      // La suscripcion (trial, pagos, exencion) solo la modifica la plataforma.
+      allow update, delete: if isPlatformAdmin();
 
       // ---- TODOS los datos de negocio de la empresa ----
       // Compras, ventas, gastos, catalogos, cheques, roles, configuracion,
@@ -80,16 +94,31 @@ service cloud.firestore {
           || (myProfileExists() && resource.data.companyId == me().companyId)
         );
 
-      // Alta de usuarios: solo dentro de la propia empresa.
+      // Alta de usuarios: dentro de la propia empresa, o el perfil propio al
+      // registrarse (auto-registro: el dueno crea su primer usuario).
       allow create: if isPlatformAdmin()
-        || (isActive() && request.resource.data.companyId == me().companyId);
+        || (isActive() && request.resource.data.companyId == me().companyId)
+        || (
+          signedIn()
+          && request.auth.uid == userId
+          && request.resource.data.isPlatformAdmin != true
+          && exists(/databases/$(database)/documents/companies/$(request.resource.data.companyId))
+        );
 
       // Edicion y baja: el usuario no puede cambiarse de empresa a si mismo.
+      // Nadie se cambia de empresa ni se asciende a admin de plataforma a si mismo.
       allow update: if isPlatformAdmin()
         || (
           isActive()
           && resource.data.companyId == me().companyId
           && request.resource.data.companyId == resource.data.companyId
+          && request.resource.data.isPlatformAdmin != true
+        )
+        || (
+          signedIn()
+          && request.auth.uid == userId
+          && request.resource.data.companyId == resource.data.companyId
+          && request.resource.data.isPlatformAdmin != true
         );
 
       allow delete: if isPlatformAdmin()

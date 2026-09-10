@@ -1,0 +1,106 @@
+.signup {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: var(--canvas);
+  padding: 28px 16px;
+}
+
+.signup__card {
+  width: 100%;
+  max-width: 620px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 30px 32px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08);
+}
+
+.signup__title { margin: 0 0 6px; font-size: 1.5rem; color: var(--ink); }
+.signup__hint { margin: 0 0 22px; font-size: 0.88rem; color: var(--muted); line-height: 1.5; }
+
+.signup__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.signup__field { display: flex; flex-direction: column; gap: 6px; }
+.signup__field--wide { grid-column: 1 / -1; }
+
+.signup__label {
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.signup__input {
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  padding: 10px 12px;
+  font-family: inherit;
+  font-size: 0.92rem;
+  color: var(--ink);
+  background: var(--surface);
+}
+.signup__input:focus { outline: none; border-color: var(--green-500); }
+.signup__input--file { padding: 8px 10px; font-size: 0.82rem; }
+
+.signup__logo-preview {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed var(--line-strong);
+  border-radius: 10px;
+  padding: 10px;
+}
+.signup__logo-preview img { max-height: 64px; max-width: 180px; object-fit: contain; }
+
+.signup__message {
+  margin-top: 16px;
+  border-radius: 9px;
+  padding: 10px 12px;
+  font-size: 0.85rem;
+  background: var(--bad-bg);
+  color: var(--bad);
+}
+
+.signup__submit {
+  width: 100%;
+  margin-top: 20px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--green-600);
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 700;
+  padding: 13px 16px;
+  cursor: pointer;
+}
+.signup__submit:hover:not(:disabled) { background: var(--green-700); }
+.signup__submit:disabled { opacity: 0.6; cursor: default; }
+
+.signup__back {
+  width: 100%;
+  margin-top: 10px;
+  border: 0;
+  background: transparent;
+  color: var(--green-600);
+  font-family: inherit;
+  font-size: 0.86rem;
+  font-weight: 600;
+  padding: 8px;
+  cursor: pointer;
+}
+.signup__back:hover { text-decoration: underline; }
+
+.signup__note { margin: 16px 0 0; font-size: 0.78rem; color: var(--muted); line-height: 1.5; }
+
+@media (max-width: 620px) {
+  .signup__grid { grid-template-columns: 1fr; }
+  .signup__card { padding: 24px 20px; }
+}

@@ -251,3 +251,19 @@
   object-fit: contain;
   display: block;
 }
+
+/* Enlace al alta publica de empresas. */
+.login__signup {
+  width: 100%;
+  margin-top: 12px;
+  border: 1px solid var(--green-500);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--green-600);
+  font-family: inherit;
+  font-size: 0.86rem;
+  font-weight: 700;
+  padding: 11px 14px;
+  cursor: pointer;
+}
+.login__signup:hover { background: var(--green-50); }
