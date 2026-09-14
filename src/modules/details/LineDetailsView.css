@@ -1,0 +1,28 @@
+.line-details__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.line-details__chips { display: flex; gap: 10px; flex-wrap: wrap; }
+.line-details__chip {
+  background-color: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.line-details__chip .num { color: var(--ink); margin-left: 6px; }
+.line-details__filter { display: flex; align-items: center; gap: 8px; min-width: 240px; }
+.line-details__filter-label {
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  white-space: nowrap;
+}

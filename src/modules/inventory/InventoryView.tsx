@@ -4,6 +4,7 @@ import { useCollection } from '../../hooks/useCollection';
 import { useCatalog } from '../../hooks/useCatalog';
 import { Toolbar } from '../../components/ui/Toolbar';
 import { SearchableSelect } from '../../components/ui/SearchableSelect';
+import { Modal } from '../../components/ui/Modal';
 import { SalesOrderDetailPanel } from '../sales/SalesOrderDetailPanel';
 import { PurchaseOrderDetailPanel } from '../purchases/PurchaseOrderDetailPanel';
 import { SalesDeskView } from '../sales/SalesDeskView';
@@ -129,6 +130,8 @@ export function InventoryView() {
   const [dateTo, setDateTo] = useState('');
   /* Detalle abierto dentro de la vista de inventario (sin salir de ella). */
   const [viewingSale, setViewingSale] = useState<SalesOrder | null>(null);
+  /* Desglose: producto y fila (stock / committed / available) que se explica. */
+  const [breakdown, setBreakdown] = useState<{ commodityId: string; row: 'stock' | 'committed' | 'available' } | null>(null);
   const [viewingPurchase, setViewingPurchase] = useState<PurchaseOrder | null>(null);
 
   /** Resuelve salesperson: usuarios del sistema primero, catalogo legado despues. */
@@ -194,6 +197,29 @@ export function InventoryView() {
           const so = salesById.get(line.ID_SALESORDER);
           return {
             id: `out-${line.id}`,
+            type: 'out' as const,
+            sourceId: line.ID_SALESORDER,
+            date: so?.DATE ?? '',
+            documentNumber: so?.SALES_ORDER_NUMBER || '(no order #)',
+            commodityId: line.ID_COMMODITIES,
+            description: line.DESCRIPTION ?? '',
+            party: customers.nameOf(so?.ID_CUSTOMER ?? ''),
+            quantity: round2(line.QUANTITY ?? 0),
+          };
+        }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [salesDetails, salesById, customers],
+  );
+
+  /** Reservado con detalle: lineas de ordenes NO cargadas (pendientes de salir). */
+  const committedRows = useMemo<MovementRow[]>(
+    () =>
+      salesDetails
+        .filter((line) => line.ID_COMMODITIES && !isCancelled(line.ID_SALESORDER) && !isLoaded(line.ID_SALESORDER))
+        .map((line) => {
+          const so = salesById.get(line.ID_SALESORDER);
+          return {
+            id: `com-${line.id}`,
             type: 'out' as const,
             sourceId: line.ID_SALESORDER,
             date: so?.DATE ?? '',
@@ -362,14 +388,34 @@ export function InventoryView() {
                   <tr>
                     <td className="inventory__pivot-label">STOCK</td>
                     {stockRows.map((row) => (
-                      <td key={row.commodityId} className="inventory__pivot-cell">{fmtQty(row.stock)}</td>
+                      <td key={row.commodityId} className="inventory__pivot-cell">
+                        <button
+                          type="button"
+                          className="inventory__pivot-btn"
+                          onClick={() => setBreakdown({ commodityId: row.commodityId, row: 'stock' })}
+                          title="See where this number comes from"
+                        >
+                          {fmtQty(row.stock)}
+                        </button>
+                      </td>
                     ))}
                   </tr>
                   <tr>
                     <td className="inventory__pivot-label">COMMITTED</td>
                     {stockRows.map((row) => (
                       <td key={row.commodityId} className="inventory__pivot-cell inventory__pivot-cell--muted">
-                        {row.committed !== 0 ? fmtQty(row.committed) : ''}
+                        {row.committed !== 0 ? (
+                          <button
+                            type="button"
+                            className="inventory__pivot-btn"
+                            onClick={() => setBreakdown({ commodityId: row.commodityId, row: 'committed' })}
+                            title="See which orders reserve this product"
+                          >
+                            {fmtQty(row.committed)}
+                          </button>
+                        ) : (
+                          ''
+                        )}
                       </td>
                     ))}
                   </tr>
@@ -380,7 +426,14 @@ export function InventoryView() {
                         key={row.commodityId}
                         className={`inventory__pivot-cell inventory__pivot-cell--available${row.available < 0 ? ' inventory__pivot-cell--bad' : row.available === 0 ? ' inventory__pivot-cell--zero' : ''}`}
                       >
-                        {fmtQty(row.available)}
+                        <button
+                          type="button"
+                          className="inventory__pivot-btn"
+                          onClick={() => setBreakdown({ commodityId: row.commodityId, row: 'available' })}
+                          title="See how this number is calculated"
+                        >
+                          {fmtQty(row.available)}
+                        </button>
                       </td>
                     ))}
                   </tr>
@@ -490,6 +543,109 @@ export function InventoryView() {
       <section className="inventory__sales">
         <SalesDeskView />
       </section>
+
+      {breakdown && (() => {
+        const row = stockRows.find((r) => r.commodityId === breakdown.commodityId);
+        const entries = inRows.filter((r) => r.commodityId === breakdown.commodityId);
+        const exits = shippedRows.filter((r) => r.commodityId === breakdown.commodityId);
+        const reserved = committedRows.filter((r) => r.commodityId === breakdown.commodityId);
+        const sum = (list: MovementRow[]): number => round2(list.reduce((acc, r) => acc + r.quantity, 0));
+        const title = `${commodities.labelOf(breakdown.commodityId)} \u2014 ${breakdown.row === 'stock' ? 'Stock' : breakdown.row === 'committed' ? 'Committed' : 'Available'}`;
+
+        /* Que listas se muestran segun la fila que se hizo clic. */
+        const showEntries = breakdown.row !== 'committed';
+        const showExits = breakdown.row !== 'committed';
+        const showReserved = breakdown.row !== 'stock';
+
+        const section = (label: string, list: MovementRow[], sign: '+' | '\u2212') => (
+          <div className="inventory__bd-block">
+            <div className="inventory__bd-head">
+              <span className="inventory__bd-title">{label}</span>
+              <span className={`inventory__bd-sum inventory__bd-sum--${sign === '+' ? 'in' : 'out'}`}>
+                {sign}{fmtQty(sum(list))}
+              </span>
+            </div>
+            {list.length === 0 ? (
+              <p className="inventory__bd-empty">Nothing here.</p>
+            ) : (
+              <table className="inventory__bd-table">
+                <thead>
+                  <tr>
+                    <th className="inventory__bd-th">Document</th>
+                    <th className="inventory__bd-th">Date</th>
+                    <th className="inventory__bd-th">From / To</th>
+                    <th className="inventory__bd-th inventory__bd-th--num">Quantity</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {list.map((item) => (
+                    <tr key={item.id}>
+                      <td className="inventory__bd-td">
+                        <button
+                          type="button"
+                          className="inventory__doclink"
+                          onClick={() => { openDocument(item); setBreakdown(null); }}
+                        >
+                          {item.documentNumber}
+                        </button>
+                      </td>
+                      <td className="inventory__bd-td inventory__bd-td--muted">{fmtDate(item.date)}</td>
+                      <td className="inventory__bd-td">{item.party || '\u2014'}</td>
+                      <td className="inventory__bd-td inventory__bd-td--num">{sign}{fmtQty(item.quantity)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        );
+
+        return (
+          <Modal title={title} open onClose={() => setBreakdown(null)} wide confirmOnClose={false}>
+            <div className="inventory__bd">
+              <div className="inventory__bd-formula">
+                {breakdown.row === 'stock' && (
+                  <>
+                    <span>Purchases <b>{fmtQty(sum(entries))}</b></span>
+                    <span className="inventory__bd-op">\u2212</span>
+                    <span>Shipped sales <b>{fmtQty(sum(exits))}</b></span>
+                    <span className="inventory__bd-op">=</span>
+                    <span>Stock <b>{fmtQty(row?.stock ?? 0)}</b></span>
+                  </>
+                )}
+                {breakdown.row === 'committed' && (
+                  <>
+                    <span>Sales orders pending to load</span>
+                    <span className="inventory__bd-op">=</span>
+                    <span>Committed <b>{fmtQty(row?.committed ?? 0)}</b></span>
+                  </>
+                )}
+                {breakdown.row === 'available' && (
+                  <>
+                    <span>Stock <b>{fmtQty(row?.stock ?? 0)}</b></span>
+                    <span className="inventory__bd-op">\u2212</span>
+                    <span>Committed <b>{fmtQty(row?.committed ?? 0)}</b></span>
+                    <span className="inventory__bd-op">=</span>
+                    <span>Available <b>{fmtQty(row?.available ?? 0)}</b></span>
+                  </>
+                )}
+              </div>
+
+              {(row?.stock ?? 0) < 0 && breakdown.row !== 'committed' && (
+                <p className="inventory__bd-warn">
+                  Stock is negative: this product has more shipped sales than purchase entries. Check
+                  whether a purchase order is missing its line items, or a sales order points to the
+                  wrong product.
+                </p>
+              )}
+
+              {showEntries && section(`Purchase entries (${entries.length})`, entries, '+')}
+              {showExits && section(`Shipped sales (${exits.length})`, exits, '\u2212')}
+              {showReserved && section(`Committed \u2014 pending to load (${reserved.length})`, reserved, '\u2212')}
+            </div>
+          </Modal>
+        );
+      })()}
 
       {viewingSale && (
         <SalesOrderDetailPanel
