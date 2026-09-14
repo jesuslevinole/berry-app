@@ -61,17 +61,31 @@ export function ConfigView() {
   }, [sortNav, navLabel, navParentOf, navGroups, navOrderList]);
 
   const [navDraft, setNavDraft] = useState<NavRow[]>([]);
-  useEffect(() => setNavDraft(navItems), [navItems]);
+  /* Cambios sin guardar: mientras existan, los snapshots de Firestore no pisan el borrador
+     (onSnapshot dispara varias veces —cache y servidor— y borraba lo que el usuario movia). */
+  const [navDirty, setNavDirty] = useState(false);
+  const [navSaved, setNavSaved] = useState<string | null>(null);
+  useEffect(() => {
+    if (navDirty) return;
+    setNavDraft(navItems);
+  }, [navItems, navDirty]);
+
+  /** Toda edicion del menu pasa por aqui para marcar el borrador como sucio. */
+  const editNav = (updater: (prev: NavRow[]) => NavRow[]) => {
+    setNavDirty(true);
+    setNavSaved(null);
+    setNavDraft(updater);
+  };
 
   /** Crea un grupo de submenu nuevo, listo para renombrar y asignarle modulos. */
   const addGroup = () => {
     const id = `group-${Date.now().toString(36)}`;
-    setNavDraft((prev) => [...prev, { kind: 'group', key: id, label: 'New submenu', defaultLabel: 'New submenu', parent: '' }]);
+    editNav((prev) => [...prev, { kind: 'group', key: id, label: 'New submenu', defaultLabel: 'New submenu', parent: '' }]);
   };
 
   /** Elimina un grupo: sus hijos vuelven al nivel raiz. */
   const removeGroup = (groupKey: string) => {
-    setNavDraft((prev) =>
+    editNav((prev) =>
       prev
         .filter((row) => row.key !== groupKey)
         .map((row) => (row.parent === groupKey ? { ...row, parent: '' } : row)),
@@ -130,14 +144,27 @@ export function ConfigView() {
     if (target < 0 || target >= navDraft.length) return;
     const next = [...navDraft];
     [next[index], next[target]] = [next[target], next[index]];
-    setNavDraft(next);
+    editNav(() => next);
   };
 
   /* ---- Campos de formularios ---- */
   const formDef = FORM_DEFS.find((f) => f.id === section) ?? null;
   const [fieldsDraft, setFieldsDraft] = useState<FormFieldConfig[]>([]);
+  const [fieldsDirty, setFieldsDirty] = useState(false);
+  const [fieldsSaved, setFieldsSaved] = useState<string | null>(null);
+
+  /** Toda edicion de campos marca el borrador como sucio. */
+  const editFields = (updater: (prev: FormFieldConfig[]) => FormFieldConfig[]) => {
+    setFieldsDirty(true);
+    setFieldsSaved(null);
+    setFieldsDraft(updater);
+  };
   useEffect(() => {
-    if (formDef) setFieldsDraft(fieldsFor(formDef.id, formDef.fields));
+    if (formDef) {
+      setFieldsDraft(fieldsFor(formDef.id, formDef.fields));
+      setFieldsDirty(false);
+      setFieldsSaved(null);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [section]);
 
@@ -146,11 +173,11 @@ export function ConfigView() {
     if (target < 0 || target >= fieldsDraft.length) return;
     const next = [...fieldsDraft];
     [next[index], next[target]] = [next[target], next[index]];
-    setFieldsDraft(next);
+    editFields(() => next);
   };
 
   const patchField = (index: number, patch: Partial<FormFieldConfig>) => {
-    setFieldsDraft((prev) => prev.map((f, i) => (i === index ? { ...f, ...patch } : f)));
+    editFields((prev) => prev.map((f, i) => (i === index ? { ...f, ...patch } : f)));
   };
 
   /* ---- View as ---- */
@@ -165,7 +192,16 @@ export function ConfigView() {
 
   /* ---- Personalizacion de cheques ---- */
   const [checksDraft, setChecksDraft] = useState<CheckSettings>({});
-  useEffect(() => setChecksDraft({ ...checkSettings }), [checkSettings]);
+  const [checksDirty, setChecksDirty] = useState(false);
+  /** Edicion de la configuracion de cheques: marca el borrador como sucio. */
+  const editChecks = (updater: (prev: CheckSettings) => CheckSettings) => {
+    setChecksDirty(true);
+    setChecksDraft(updater);
+  };
+  useEffect(() => {
+    if (checksDirty) return;
+    setChecksDraft({ ...checkSettings });
+  }, [checkSettings, checksDirty]);
 
   if (sections.length === 0) {
     return (
@@ -208,7 +244,7 @@ export function ConfigView() {
                   <li
                     className={`config__row config__row--draggable${dragClass(index)}`}
                     key={item.key}
-                    {...dragProps(index, (from, to) => setNavDraft((prev) => reorder(prev, from, to)))}
+                    {...dragProps(index, (from, to) => editNav((prev) => reorder(prev, from, to)))}
                   >
                     <span className="config__grip" aria-hidden="true" title="Drag to reorder">
                       <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
@@ -224,7 +260,7 @@ export function ConfigView() {
                         value={item.label}
                         title={`Rename (default: ${item.defaultLabel})`}
                         onChange={(e) =>
-                          setNavDraft((prev) => prev.map((n, i) => (i === index ? { ...n, label: e.target.value } : n)))
+                          editNav((prev) => prev.map((n, i) => (i === index ? { ...n, label: e.target.value } : n)))
                         }
                       />
                       {item.label !== item.defaultLabel && (
@@ -239,7 +275,7 @@ export function ConfigView() {
                           className="input config__nav-parent-select"
                           value={item.parent}
                           onChange={(e) =>
-                            setNavDraft((prev) => prev.map((n, i) => (i === index ? { ...n, parent: e.target.value } : n)))
+                            editNav((prev) => prev.map((n, i) => (i === index ? { ...n, parent: e.target.value } : n)))
                           }
                         >
                           <option value="">&#8212; Top level &#8212;</option>
@@ -260,7 +296,7 @@ export function ConfigView() {
                           disabled={navDraft.some((n) => n.parent === item.key)}
                           title={navDraft.some((n) => n.parent === item.key) ? 'This module has sub-items; move them out first' : 'Show as a sub-item of a submenu group or another module'}
                           onChange={(e) =>
-                            setNavDraft((prev) => prev.map((n, i) => (i === index ? { ...n, parent: e.target.value } : n)))
+                            editNav((prev) => prev.map((n, i) => (i === index ? { ...n, parent: e.target.value } : n)))
                           }
                         >
                           <option value="">&#8212; Top level &#8212;</option>
@@ -288,6 +324,8 @@ export function ConfigView() {
                 ))}
               </ul>
               <div className="config__actions">
+                {navSaved && <span className={`config__saved${navSaved.startsWith('Saved') ? '' : ' config__saved--error'}`}>{navSaved}</span>}
+                {navDirty && !navSaved && <span className="config__saved config__saved--pending">Unsaved changes</span>}
                 <button type="button" className="btn btn--secondary" onClick={addGroup}>+ Create submenu</button>
                 <button
                   type="button"
@@ -306,7 +344,13 @@ export function ConfigView() {
                       if (trimmed && trimmed !== item.defaultLabel) labels[item.key] = trimmed;
                       if (item.parent && item.parent !== item.key) parents[item.key] = item.parent;
                     }
-                    saveNavigation(navDraft.map((i) => i.key), labels, parents, groups);
+                    /* Se confirma el guardado antes de soltar el borrador. */
+                    void saveNavigation(navDraft.map((i) => i.key), labels, parents, groups)
+                      .then(() => {
+                        setNavDirty(false);
+                        setNavSaved('Saved');
+                      })
+                      .catch((error: Error) => setNavSaved(`Could not save: ${error.message}`));
                   }}
                 >
                   Save menu
@@ -327,7 +371,7 @@ export function ConfigView() {
                   <li
                     className={`config__row${canOrder ? ' config__row--draggable' : ''}${canOrder ? dragClass(index) : ''}`}
                     key={field.key}
-                    {...dragProps(index, (from, to) => setFieldsDraft((prev) => reorder(prev, from, to)), canOrder)}
+                    {...dragProps(index, (from, to) => editFields((prev) => reorder(prev, from, to)), canOrder)}
                   >
                     {canOrder && (
                       <span className="config__grip" aria-hidden="true" title="Drag to reorder">
@@ -380,17 +424,26 @@ export function ConfigView() {
                 ))}
               </ul>
               <div className="config__actions">
+                {fieldsSaved && <span className={`config__saved${fieldsSaved.startsWith('Saved') ? '' : ' config__saved--error'}`}>{fieldsSaved}</span>}
+                {fieldsDirty && !fieldsSaved && <span className="config__saved config__saved--pending">Unsaved changes</span>}
                 <button
                   type="button"
                   className="btn btn--secondary"
-                  onClick={() => setFieldsDraft(formDef.fields.map((key) => ({ key, label: key, required: false })))}
+                  onClick={() => editFields(() => formDef.fields.map((key) => ({ key, label: key, required: false })))}
                 >
                   Reset to defaults
                 </button>
                 <button
                   type="button"
                   className="btn btn--primary"
-                  onClick={() => saveFormFields(formDef.id, fieldsDraft.map((f) => ({ ...f, label: f.label.trim() || f.key })))}
+                  onClick={() => {
+                    void saveFormFields(formDef.id, fieldsDraft.map((f) => ({ ...f, label: f.label.trim() || f.key })))
+                      .then(() => {
+                        setFieldsDirty(false);
+                        setFieldsSaved('Saved');
+                      })
+                      .catch((error: Error) => setFieldsSaved(`Could not save: ${error.message}`));
+                  }}
                 >
                   Save fields
                 </button>
@@ -415,7 +468,7 @@ export function ConfigView() {
                     value={checksDraft.startNumber ?? ''}
                     placeholder="e.g. 12043"
                     onChange={(e) =>
-                      setChecksDraft((d) => ({ ...d, startNumber: e.target.value ? parseInt(e.target.value, 10) : undefined }))
+                      editChecks((d) => ({ ...d, startNumber: e.target.value ? parseInt(e.target.value, 10) : undefined }))
                     }
                   />
                   <p className="config__field-default">New checks continue from the highest of this number or the last check saved.</p>
@@ -426,7 +479,7 @@ export function ConfigView() {
                     className="input"
                     value={checksDraft.signatureText ?? ''}
                     placeholder="Authorized signature"
-                    onChange={(e) => setChecksDraft((d) => ({ ...d, signatureText: e.target.value }))}
+                    onChange={(e) => editChecks((d) => ({ ...d, signatureText: e.target.value }))}
                   />
                 </div>
                 <div>
@@ -435,7 +488,7 @@ export function ConfigView() {
                     className="input"
                     value={checksDraft.fractional ?? ''}
                     placeholder="e.g. 67-76890"
-                    onChange={(e) => setChecksDraft((d) => ({ ...d, fractional: e.target.value }))}
+                    onChange={(e) => editChecks((d) => ({ ...d, fractional: e.target.value }))}
                   />
                   <p className="config__field-default">Printed under the check number (top right), per US bank check standards.</p>
                 </div>
@@ -443,22 +496,31 @@ export function ConfigView() {
               <div className="config__toggles">
                 <label className="config__required">
                   <input type="checkbox" className="config__checkbox" checked={checksDraft.showLogo !== false}
-                    onChange={(e) => setChecksDraft((d) => ({ ...d, showLogo: e.target.checked }))} />
+                    onChange={(e) => editChecks((d) => ({ ...d, showLogo: e.target.checked }))} />
                   Show company logo
                 </label>
                 <label className="config__required">
                   <input type="checkbox" className="config__checkbox" checked={checksDraft.showAddress !== false}
-                    onChange={(e) => setChecksDraft((d) => ({ ...d, showAddress: e.target.checked }))} />
+                    onChange={(e) => editChecks((d) => ({ ...d, showAddress: e.target.checked }))} />
                   Show company address
                 </label>
                 <label className="config__required">
                   <input type="checkbox" className="config__checkbox" checked={checksDraft.showBankInfo !== false}
-                    onChange={(e) => setChecksDraft((d) => ({ ...d, showBankInfo: e.target.checked }))} />
+                    onChange={(e) => editChecks((d) => ({ ...d, showBankInfo: e.target.checked }))} />
                   Show bank info and routing line
                 </label>
               </div>
               <div className="config__actions">
-                <button type="button" className="btn btn--primary" onClick={() => saveCheckSettings(checksDraft)}>
+                {checksDirty && <span className="config__saved config__saved--pending">Unsaved changes</span>}
+                <button
+                  type="button"
+                  className="btn btn--primary"
+                  onClick={() => {
+                    void saveCheckSettings(checksDraft)
+                      .then(() => setChecksDirty(false))
+                      .catch((error: Error) => alert(`Could not save: ${error.message}`));
+                  }}
+                >
                   Save check settings
                 </button>
               </div>

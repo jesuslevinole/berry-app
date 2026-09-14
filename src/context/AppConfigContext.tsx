@@ -10,11 +10,11 @@ interface AppConfigValue {
   loading: boolean;
   /** Orden configurado del menu; keys ausentes van al final en su orden natural. */
   sortNav: <T extends { key: string }>(items: T[]) => T[];
-  saveNavOrder: (order: string[]) => void;
+  saveNavOrder: (order: string[]) => Promise<void>;
   /** Etiqueta del item del menu (personalizada o la default). */
   navLabel: (key: string, fallback: string) => string;
   /** Guarda orden y nombres del menu en una sola escritura. */
-  saveNavigation: (order: string[], labels: Record<string, string>, parents?: Record<string, string>, groups?: Array<{ id: string; label: string }>) => void;
+  saveNavigation: (order: string[], labels: Record<string, string>, parents?: Record<string, string>, groups?: Array<{ id: string; label: string }>) => Promise<void>;
   /** Orden crudo del menu (puede incluir ids de grupos y atajos de reportes). */
   navOrderList: string[];
   /** Grupos de submenu creados en el Configurator. */
@@ -26,12 +26,12 @@ interface AppConfigValue {
    * descarta claves que ya no existen.
    */
   fieldsFor: (formId: string, defaultKeys: string[]) => FormFieldConfig[];
-  saveFormFields: (formId: string, fields: FormFieldConfig[]) => void;
+  saveFormFields: (formId: string, fields: FormFieldConfig[]) => Promise<void>;
   /** Devuelve las etiquetas (custom) de los campos obligatorios sin valor. */
   missingRequired: (formId: string, values: Record<string, unknown>) => string[];
   /** Personalizacion de cheques. */
   checkSettings: CheckSettings;
-  saveCheckSettings: (settings: CheckSettings) => void;
+  saveCheckSettings: (settings: CheckSettings) => Promise<void>;
 }
 
 const AppConfigContext = createContext<AppConfigValue | null>(null);
@@ -52,11 +52,9 @@ export function AppConfigProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<AppConfigValue>(() => {
-    const persist = (partial: Partial<AppConfigDoc>) => {
-      setDoc(doc(db, tenantPath(COLLECTIONS.APP_SETTINGS), CONFIG_DOC_ID), partial, { merge: true }).catch(
-        (error: Error) => alert(`Failed to save configuration: ${error.message}`),
-      );
-    };
+    /** Escribe la configuracion y devuelve la promesa para confirmar el guardado. */
+    const persist = (partial: Partial<AppConfigDoc>): Promise<void> =>
+      setDoc(doc(db, tenantPath(COLLECTIONS.APP_SETTINGS), CONFIG_DOC_ID), partial, { merge: true });
 
     const fieldsFor = (formId: string, defaultKeys: string[]): FormFieldConfig[] => {
       const saved = config?.forms?.[formId] ?? [];

@@ -314,3 +314,13 @@
   box-shadow: inset 0 3px 0 -1px var(--green-600);
   background-color: var(--green-50);
 }
+
+/* Estado del guardado en la barra de acciones. */
+.config__saved {
+  margin-right: auto;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--green-600);
+}
+.config__saved--pending { color: #8a6d1a; }
+.config__saved--error { color: var(--bad); }
