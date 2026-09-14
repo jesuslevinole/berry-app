@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { limit, orderBy } from 'firebase/firestore';
+import { limit } from 'firebase/firestore';
 import { useAuth } from '../../context/AuthContext';
 import { useCollection } from '../../hooks/useCollection';
 import { useCatalog } from '../../hooks/useCatalog';
@@ -65,14 +65,8 @@ export function PaymentsView({ kind = 'in', embedded = false, moduleId }: Props)
   const [search, setSearch] = useState('');
   const [viewingSale, setViewingSale] = useState<SalesOrder | null>(null);
 
-  const { data: salesPayments, loading: loadingIn } = useCollection<PaymentSales>(COLLECTIONS.PAYMENT_SALES, [
-    orderBy('DATE', 'desc'),
-    limit(READ_LIMIT),
-  ]);
-  const { data: billPayments, loading: loadingOut } = useCollection<PaymentBill>(COLLECTIONS.PAYMENT_BILL, [
-    orderBy('DATE', 'desc'),
-    limit(READ_LIMIT),
-  ]);
+  const { data: salesPayments, loading: loadingIn } = useCollection<PaymentSales>(COLLECTIONS.PAYMENT_SALES, [limit(READ_LIMIT)]);
+  const { data: billPayments, loading: loadingOut } = useCollection<PaymentBill>(COLLECTIONS.PAYMENT_BILL, [limit(READ_LIMIT)]);
   const { data: salesOrders } = useCollection<SalesOrder>(COLLECTIONS.SALES_ORDER);
   const { data: expenses } = useCollection<Expense>(COLLECTIONS.EXPENSES);
   const { data: purchaseOrders } = useCollection<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER);

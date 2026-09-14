@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { limit, orderBy } from 'firebase/firestore';
+import { limit } from 'firebase/firestore';
 import { READ_LIMIT } from '../../config/limits';
 import { useCollection } from '../../hooks/useCollection';
 import { useCatalog, type CatalogOption } from '../../hooks/useCatalog';
-import { deleteDocument, replaceChildren, updateDocument } from '../../services/firestore';
-import { COLLECTIONS, type PurchaseOrder, type SalesOrder, type SystemUser } from '../../types/models';
+import { deleteDocument, listDocuments, updateDocument, where } from '../../services/firestore';
+import { COLLECTIONS, type PurchaseOrder, type SalesOrder, type SystemUser, type SalesOrderDetail, type PaymentSales } from '../../types/models';
 import { byNewest, fmtDate, fmtMoney, round2 } from '../../utils/format';
 import { DataTable, type Column } from '../../components/ui/DataTable';
 import { ViewTabs } from '../../components/ui/ViewTabs';
@@ -26,10 +26,7 @@ import './SalesDeskView.css';
 
 export function SalesDeskView() {
   const { can } = useAuth();
-  const { data, loading } = useCollection<SalesOrder>(COLLECTIONS.SALES_ORDER, [
-    orderBy('updatedAt', 'desc'),
-    limit(READ_LIMIT),
-  ]);
+  const { data, loading } = useCollection<SalesOrder>(COLLECTIONS.SALES_ORDER, [limit(READ_LIMIT)]);
   const { data: purchaseOrders } = useCollection<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER);
   const customers = useCatalog(COLLECTIONS.CUSTOMER, 'NAME_CUSTOMER');
   const legacyUsers = useCatalog(COLLECTIONS.USERS, 'EMAIL_USERS');
@@ -196,8 +193,16 @@ export function SalesDeskView() {
   const handleDeleteRow = (so: SalesOrder) => {
     if (!window.confirm(`Delete sales order ${so.SALES_ORDER_NUMBER || ''}?`)) return;
     const persist = async () => {
-      await replaceChildren(COLLECTIONS.SALES_ORDER_DETAIL, 'ID_SALESORDER', so.id, []);
-      await replaceChildren(COLLECTIONS.PAYMENT_SALES, 'ID_SALESORDER', so.id, []);
+      /* Las lineas se borran una a una por la capa central: van a la papelera,
+         quedan en el historial y el inventario se actualiza al instante. */
+      const lines = await listDocuments<SalesOrderDetail>(COLLECTIONS.SALES_ORDER_DETAIL, [
+        where('ID_SALESORDER', '==', so.id),
+      ]);
+      for (const line of lines) await deleteDocument(COLLECTIONS.SALES_ORDER_DETAIL, line.id);
+      const orderPayments = await listDocuments<PaymentSales>(COLLECTIONS.PAYMENT_SALES, [
+        where('ID_SALESORDER', '==', so.id),
+      ]);
+      for (const payment of orderPayments) await deleteDocument(COLLECTIONS.PAYMENT_SALES, payment.id);
       await deleteDocument(COLLECTIONS.SALES_ORDER, so.id);
     };
     persist().catch((error: unknown) =>

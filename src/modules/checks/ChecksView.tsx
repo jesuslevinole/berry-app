@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useAppConfig } from '../../context/AppConfigContext';
-import { limit, orderBy } from 'firebase/firestore';
+import { limit } from 'firebase/firestore';
 import { READ_LIMIT } from '../../config/limits';
 import { useCollection } from '../../hooks/useCollection';
 import { useCatalog } from '../../hooks/useCatalog';
@@ -28,10 +28,7 @@ const fmtDate = (iso: string): string => {
 export function ChecksView() {
   const { can } = useAuth();
   const { checkSettings } = useAppConfig();
-  const { data: checks } = useCollection<Check>(COLLECTIONS.CHECKS, [
-    orderBy('updatedAt', 'desc'),
-    limit(READ_LIMIT),
-  ]);
+  const { data: checks } = useCollection<Check>(COLLECTIONS.CHECKS, [limit(READ_LIMIT)]);
   const customers = useCatalog(COLLECTIONS.CUSTOMER, 'NAME_CUSTOMER');
   const { company } = useCompany();
 

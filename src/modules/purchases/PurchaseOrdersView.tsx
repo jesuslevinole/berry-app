@@ -2,11 +2,11 @@ import { useMemo, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useCollection } from '../../hooks/useCollection';
 import { useCatalog } from '../../hooks/useCatalog';
-import { limit, orderBy } from 'firebase/firestore';
+import { limit } from 'firebase/firestore';
 import { READ_LIMIT } from '../../config/limits';
-import { COLLECTIONS, type PurchaseOrder, type SystemUser, type SalesOrder } from '../../types/models';
+import { COLLECTIONS, type PurchaseOrder, type SystemUser, type SalesOrder, type PurchaseDetail } from '../../types/models';
 import { byNewest, fmtDate, fmtMoney } from '../../utils/format';
-import { deleteDocument, replaceChildren } from '../../services/firestore';
+import { deleteDocument, listDocuments, where } from '../../services/firestore';
 import { syncAllPurchaseOrderTotals } from '../../services/orderTotalsService';
 import { DataTable, type Column } from '../../components/ui/DataTable';
 import { ViewTabs } from '../../components/ui/ViewTabs';
@@ -25,10 +25,7 @@ import './PurchaseOrdersView.css';
 
 export function PurchaseOrdersView() {
   const { can } = useAuth();
-  const { data, loading } = useCollection<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER, [
-    orderBy('updatedAt', 'desc'),
-    limit(READ_LIMIT),
-  ]);
+  const { data, loading } = useCollection<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER, [limit(READ_LIMIT)]);
   const growers = useCatalog(COLLECTIONS.GROWER, 'NAME_GROWER');
   const customers = useCatalog(COLLECTIONS.CUSTOMER, 'NAME_CUSTOMER');
   const legacyUsers = useCatalog(COLLECTIONS.USERS, 'EMAIL_USERS');
@@ -158,7 +155,12 @@ export function PurchaseOrdersView() {
   const handleDeleteRow = (po: PurchaseOrder) => {
     if (!window.confirm(`Delete purchase order ${po.LOT_NUMBER || po.REF_NUMBER || ''}?`)) return;
     const persist = async () => {
-      await replaceChildren(COLLECTIONS.PURCHASE_DETAILS, 'ID_PURCHASEORDER', po.id, []);
+      /* Las lineas se borran por la capa central (papelera + historial) para que
+         el inventario deje de contarlas de inmediato. */
+      const lines = await listDocuments<PurchaseDetail>(COLLECTIONS.PURCHASE_DETAILS, [
+        where('ID_PURCHASEORDER', '==', po.id),
+      ]);
+      for (const line of lines) await deleteDocument(COLLECTIONS.PURCHASE_DETAILS, line.id);
       await deleteDocument(COLLECTIONS.PURCHASE_ORDER, po.id);
     };
     persist().catch((error: unknown) =>
