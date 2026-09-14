@@ -153,7 +153,16 @@ export function InventoryView() {
   /* Clasificacion de ordenes de venta por su estado real de inventario. */
   const salesById = useMemo(() => new Map(salesOrders.map((so) => [so.id, so])), [salesOrders]);
   const isCancelled = (id: string): boolean => salesById.get(id)?.STATUS === 'Cancelled';
-  const isLoaded = (id: string): boolean => !!salesById.get(id)?.LOADED;
+  /**
+   * Una venta ya salio del almacen cuando esta palomeada como Loaded O cuando
+   * su estado ya paso de "pendiente de carga" (Loaded / Delivered / Paid).
+   * Los datos importados traen el estado, no el palomeo, y asi tambien restan.
+   */
+  const isLoaded = (id: string): boolean => {
+    const so = salesById.get(id);
+    if (!so) return false;
+    return !!so.LOADED || so.STATUS === 'Loaded' || so.STATUS === 'Delivered' || so.STATUS === 'Paid';
+  };
 
   /** Entradas: cada linea de Purchase Order es un ingreso al inventario. */
   const inRows = useMemo<MovementRow[]>(() => {
@@ -307,7 +316,7 @@ export function InventoryView() {
       <div className="inventory__sticky">
       <Toolbar
         title="Inventory"
-        subtitle="Entries from Purchase Orders, exits from loaded Sales Orders"
+        subtitle="Purchase Orders add stock, Sales Desk subtracts it"
         searchValue={search}
         onSearchChange={setSearch}
       >

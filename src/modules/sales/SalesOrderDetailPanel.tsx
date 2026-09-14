@@ -4,6 +4,7 @@ import { useAppConfig } from '../../context/AppConfigContext';
 import { where } from '../../services/firestore';
 import { RecordDetail, DetailSection, type DetailField } from '../../components/ui/RecordDetail';
 import { InlineLineItems } from '../../components/ui/InlineLineItems';
+import { InlinePayments } from '../../components/ui/InlinePayments';
 import { syncSalesOrderTotals } from '../../services/orderTotalsService';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { FORM_DEFS } from '../../config/formDefs';
@@ -48,7 +49,6 @@ export function SalesOrderDetailPanel({ order, purchaseOrders, buyerName, onClos
   const shipVia = useCatalog(COLLECTIONS.SHIPVIA, 'NAME_SHIPVIA');
   const termShipping = useCatalog(COLLECTIONS.TERMSHIPPING, 'NAME_TERMSHIPPING');
   const paymentTerms = useCatalog(COLLECTIONS.PAYMENTTERM, 'NAME_PAYMENTTERM');
-  const paymentMethods = useCatalog(COLLECTIONS.PAYMENT_METHOD, 'NAME');
 
 
   const valueByKey: Record<string, string> = {
@@ -81,7 +81,6 @@ export function SalesOrderDetailPanel({ order, purchaseOrders, buyerName, onClos
   }));
 
   const linesTotal = round2(lines.reduce((acc, l) => acc + (l.TOTAL ?? 0), 0));
-  const paymentsTotal = round2(payments.reduce((acc, p) => acc + (p.AMOUNT ?? 0), 0));
 
   return (
     <RecordDetail
@@ -121,41 +120,14 @@ export function SalesOrderDetailPanel({ order, purchaseOrders, buyerName, onClos
       </DetailSection>
 
       <DetailSection title={`Payments (${payments.length})`}>
-        <div className="record-detail__table-wrap">
-          <table className="record-detail__table">
-            <thead>
-              <tr>
-                <th className="record-detail__th">Date</th>
-                <th className="record-detail__th">Method</th>
-                <th className="record-detail__th">Check #</th>
-                <th className="record-detail__th">Ref #</th>
-                <th className="record-detail__th record-detail__th--num">Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              {payments.length === 0 && (
-                <tr><td className="record-detail__empty" colSpan={5}>No payments registered.</td></tr>
-              )}
-              {payments.map((payment) => (
-                <tr key={payment.id}>
-                  <td className="record-detail__td record-detail__td--muted">{fmtDate(payment.DATE ?? '')}</td>
-                  <td className="record-detail__td">{paymentMethods.nameOf(payment.ID_PAYMENTMETHOD)}</td>
-                  <td className="record-detail__td record-detail__td--muted">{payment.CHECK_NUMBER || '—'}</td>
-                  <td className="record-detail__td record-detail__td--muted">{payment.REF_NUMBER || '—'}</td>
-                  <td className="record-detail__td record-detail__td--num record-detail__td--strong">{fmtMoney(payment.AMOUNT ?? 0)}</td>
-                </tr>
-              ))}
-            </tbody>
-            {payments.length > 0 && (
-              <tfoot>
-                <tr>
-                  <td className="record-detail__tf" colSpan={4}>Total paid</td>
-                  <td className="record-detail__tf record-detail__tf--num">{fmtMoney(paymentsTotal)}</td>
-                </tr>
-              </tfoot>
-            )}
-          </table>
-        </div>
+        <InlinePayments
+          collection={COLLECTIONS.PAYMENT_SALES}
+          parentField="ID_SALESORDER"
+          parentId={order.id}
+          payments={payments}
+          moduleId="sales"
+          onChanged={() => void syncSalesOrderTotals([order.id])}
+        />
       </DetailSection>
     </RecordDetail>
   );

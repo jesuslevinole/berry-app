@@ -168,7 +168,15 @@ export function ReportsView({ report }: ReportsViewProps) {
   const queueRows = useMemo(
     () =>
       salesOrders
-        .filter((so) => !so.LOADED && so.STATUS !== 'Cancelled')
+        /* Pendientes de cargar: sin palomeo y con estado anterior a Loaded. */
+        .filter(
+          (so) =>
+            !so.LOADED &&
+            so.STATUS !== 'Cancelled' &&
+            so.STATUS !== 'Loaded' &&
+            so.STATUS !== 'Delivered' &&
+            so.STATUS !== 'Paid',
+        )
         .filter((so) =>
           matches(
             so.SALES_ORDER_NUMBER ?? '',

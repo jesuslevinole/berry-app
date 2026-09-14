@@ -4,16 +4,18 @@ import { useAppConfig } from '../../context/AppConfigContext';
 import { APP_VERSION, APP_AUTHOR } from '../../config/version';
 import { NotificationsBell } from './NotificationsBell';
 import { CompanySwitcher } from './CompanySwitcher';
+import { billingInfoOf } from '../../services/billingService';
 import { useCompany } from '../../hooks/useCompany';
 import './AppLayout.css';
 
-export type ViewKey = 'dashboard' | 'purchases' | 'sales' | 'expenses' | 'catalogs' | 'lots' | 'inventory' | 'queue' | 'apgrowers' | 'ap' | 'ar' | 'expensesreport' | 'activity' | 'trash' | 'checks' | 'company' | 'users' | 'roles' | 'config' | 'companies';
+export type ViewKey = 'dashboard' | 'purchases' | 'sales' | 'expenses' | 'payments' | 'catalogs' | 'lots' | 'inventory' | 'queue' | 'apgrowers' | 'ap' | 'ar' | 'expensesreport' | 'activity' | 'trash' | 'checks' | 'company' | 'users' | 'roles' | 'config' | 'companies';
 
 export const VIEW_TITLES: Record<ViewKey, string> = {
   dashboard: 'Dashboard',
   purchases: 'Purchase Order',
   sales: 'Sales Desk',
   expenses: 'Additional expenses',
+  payments: 'Payments',
   catalogs: 'Catalogs',
   lots: 'Lot Activity',
   inventory: 'Inventory',
@@ -67,6 +69,16 @@ const NAV_ITEMS: Array<{ key: ViewKey; label: string; icon: ReactNode }> = [
     icon: (
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8">
         <path d="M6 2h12v20l-3-2-3 2-3-2-3 2V2z" /><path d="M9 7h6M9 11h6" />
+      </svg>
+    ),
+  },
+  {
+    key: 'payments',
+    label: 'Payments',
+    icon: (
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <rect x="2.5" y="6" width="19" height="12" rx="2" />
+        <path d="M2.5 10h19" /><circle cx="7" cy="14.5" r="1.2" />
       </svg>
     ),
   },
@@ -229,7 +241,11 @@ interface AppLayoutProps {
 export function AppLayout({ view, onNavigate, children }: AppLayoutProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { can, profile, firebaseUser, bypass, logout, viewAsProfile, setViewAs, isPlatformAdmin } = useAuth();
+  const { can, profile, firebaseUser, bypass, logout, viewAsProfile, setViewAs, isPlatformAdmin, company: subscription } = useAuth();
+  /* Aviso de prueba gratuita o vencimiento proximo. */
+  const billing = subscription ? billingInfoOf(subscription) : null;
+  const showTrialNotice =
+    !!billing && (billing.state === 'Trial' || (billing.state === 'Paid' && (billing.daysLeft ?? 99) <= 5));
 
   const { sortNav, navLabel, navParentOf, navGroups, navOrderList } = useAppConfig();
   const { company } = useCompany();
@@ -467,6 +483,11 @@ export function AppLayout({ view, onNavigate, children }: AppLayoutProps) {
             </svg>
           </button>
           <h1 className="topbar__title">{navLabel(view, VIEW_TITLES[view])}</h1>
+          {showTrialNotice && billing && (
+            <span className={`topbar__billing topbar__billing--${billing.state === 'Trial' ? 'trial' : 'soon'}`}>
+              {billing.label}
+            </span>
+          )}
           {isPlatformAdmin && <CompanySwitcher />}
           <NotificationsBell />
           <div className="topbar__user">

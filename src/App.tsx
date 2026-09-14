@@ -12,7 +12,9 @@ import { LotActivityView } from './modules/lots/LotActivityView';
 import { InventoryView } from './modules/inventory/InventoryView';
 import { ActivityLogView } from './modules/activity/ActivityLogView';
 import { TrashView } from './modules/trash/TrashView';
+import { PaymentsView } from './modules/payments/PaymentsView';
 import { CompaniesView } from './modules/companies/CompaniesView';
+import { billingInfoOf } from './services/billingService';
 import { ReportsView } from './modules/reports/ReportsView';
 import { ChecksView } from './modules/checks/ChecksView';
 import { CompanyView } from './modules/company/CompanyView';
@@ -21,10 +23,10 @@ import { RolesView } from './modules/roles/RolesView';
 import { ConfigView } from './modules/config/ConfigView';
 import './App.css';
 
-const VIEW_ORDER: ViewKey[] = ['dashboard', 'purchases', 'sales', 'expenses', 'catalogs', 'lots', 'inventory', 'queue', 'apgrowers', 'ap', 'ar', 'expensesreport', 'activity', 'trash', 'companies', 'checks', 'company', 'users', 'roles', 'config'];
+const VIEW_ORDER: ViewKey[] = ['dashboard', 'purchases', 'sales', 'expenses', 'catalogs', 'lots', 'payments', 'inventory', 'queue', 'apgrowers', 'ap', 'ar', 'expensesreport', 'activity', 'trash', 'companies', 'checks', 'company', 'users', 'roles', 'config'];
 
 function Shell() {
-  const { firebaseUser, bypass, loading, can, logout, isPlatformAdmin, needsCompanySetup } = useAuth();
+  const { firebaseUser, bypass, loading, can, logout, isPlatformAdmin, needsCompanySetup, company } = useAuth();
   const [view, setView] = useState<ViewKey>('dashboard');
 
   /** Navegar siempre muestra la vista desde arriba (evita entrar con el scroll a medias). */
@@ -61,6 +63,23 @@ function Shell() {
 
   if (!firebaseUser && !bypass) return <LoginView />;
 
+  /* Suscripcion vencida: la empresa queda bloqueada hasta registrar el pago.
+     El administrador de la plataforma nunca se bloquea. */
+  const billing = company ? billingInfoOf(company) : null;
+  if (billing && !billing.active && !isPlatformAdmin) {
+    return (
+      <div className="app-gate">
+        <h2 className="app-gate__title">Subscription inactive</h2>
+        <p className="app-gate__text">
+          The subscription for <b>{company?.name}</b> is not active ({billing.label}). Ask the account
+          owner to renew it to restore access. Your data is safe and will be here when the account is
+          reactivated.
+        </p>
+        <button type="button" className="btn btn--secondary" onClick={() => void logout()}>Sign out</button>
+      </div>
+    );
+  }
+
   if (allowedViews.length === 0 && !isPlatformAdmin) {
     return (
       <div className="app-gate">
@@ -89,6 +108,7 @@ function Shell() {
         {view === 'ar' && <ReportsView report="ar" />}
         {view === 'expensesreport' && <ReportsView report="expenses" />}
         {view === 'activity' && <ActivityLogView />}
+        {view === 'payments' && <PaymentsView />}
         {view === 'trash' && <TrashView />}
         {view === 'companies' && <CompaniesView />}
         {view === 'checks' && <ChecksView />}

@@ -1,0 +1,39 @@
+.payments__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.payments__chips { display: flex; gap: 10px; flex-wrap: wrap; }
+.payments__chip {
+  background-color: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.payments__chip .num { color: var(--ink); margin-left: 6px; }
+.payments__chip--in { border-color: var(--green-500); }
+.payments__chip--in .num { color: var(--green-600); }
+.payments__chip--out { border-color: var(--bad); }
+.payments__chip--out .num { color: var(--bad); }
+
+.payments__tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
+.payments__tab {
+  background-color: var(--surface);
+  border: 1px solid var(--line-strong);
+  color: var(--muted);
+  padding: 9px 18px;
+  border-radius: 20px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.payments__tab:hover { color: var(--ink); border-color: var(--green-500); }
+.payments__tab--active { background-color: var(--green-600); border-color: var(--green-600); color: #ffffff; }
+
+.payments__hint { margin-top: 12px; font-size: 0.8rem; color: var(--muted); }
