@@ -27,7 +27,7 @@ import './App.css';
 const VIEW_ORDER: ViewKey[] = ['dashboard', 'purchases', 'sales', 'expenses', 'catalogs', 'lots', 'payments', 'inventory', 'queue', 'apgrowers', 'ap', 'ar', 'expensesreport', 'activity', 'trash', 'companies', 'checks', 'company', 'users', 'roles', 'config'];
 
 function Shell() {
-  const { firebaseUser, bypass, loading, can, logout, isPlatformAdmin, needsCompanySetup, needsCompanyChoice, company } = useAuth();
+  const { firebaseUser, bypass, loading, can, logout, isPlatformAdmin, needsCompanySetup, needsCompanyChoice, company, memberships } = useAuth();
   const [view, setView] = useState<ViewKey>('dashboard');
 
   /** Navegar siempre muestra la vista desde arriba (evita entrar con el scroll a medias). */
@@ -54,10 +54,14 @@ function Shell() {
   }, [loading, firebaseUser, allowedViews.join(','), view]);
 
   if (loading) {
+    /* Indica la empresa detectada para el email mientras resuelve la sesion. */
+    const detected = company?.name ?? (memberships.length === 1 ? 'your company' : '');
     return (
       <div className="app-gate">
         <span className="app-gate__spinner" aria-hidden="true" />
-        <p className="app-gate__text">Verifying session…</p>
+        <p className="app-gate__text">
+          {detected ? `Signing in to ${detected}…` : 'Verifying session…'}
+        </p>
       </div>
     );
   }

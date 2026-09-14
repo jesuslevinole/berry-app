@@ -51,7 +51,7 @@ export function CompanyChooser() {
                 className={`chooser__option${selected === id ? ' chooser__option--active' : ''}`}
                 onClick={() => setSelected(id)}
               >
-                <span className="chooser__option-name">{names[id] ?? 'Company'}</span>
+                <span className="chooser__option-name">{names[id] ?? `Company ${id.slice(0, 6)}`}</span>
                 <span className="chooser__option-role">{m.status === 'Inactive' ? 'Inactive' : 'Active'}</span>
               </button>
             );

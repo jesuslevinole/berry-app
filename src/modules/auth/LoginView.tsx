@@ -29,9 +29,17 @@ export function LoginView() {
       return;
     }
     setBusy(true);
+    /* Vigilante: si la red o Firebase no responden, el boton no se queda colgado. */
+    const watchdog = window.setTimeout(() => {
+      setBusy(false);
+      setError('This is taking longer than usual. Check your connection and try again.');
+    }, 15000);
     try {
       await login(email, password);
+      /* Exito: el componente se desmonta al entrar; se limpia por si acaso. */
+      window.clearTimeout(watchdog);
     } catch (err) {
+      window.clearTimeout(watchdog);
       const code = (err as { code?: string }).code ?? '';
       setError(ERROR_MESSAGES[code] ?? 'Could not sign in. Please try again.');
       setBusy(false);
