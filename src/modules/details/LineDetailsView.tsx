@@ -41,7 +41,7 @@ interface Row {
  * Detalle de compras: todas las lineas de Purchase Orders en una sola tabla,
  * con filtro por producto. Al hacer clic se abre el lote que las contiene.
  */
-export function PurchaseDetailsView() {
+export function PurchaseDetailsView({ embedded = false }: { embedded?: boolean }) {
   const { can } = useAuth();
   const { data: lines, loading } = useCollection<PurchaseDetail>(COLLECTIONS.PURCHASE_DETAILS);
   const { data: orders } = useCollection<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER);
@@ -104,12 +104,14 @@ export function PurchaseDetailsView() {
 
   return (
     <div className="line-details">
-      <Toolbar
-        title="Purchase Details"
-        subtitle="Every line item bought, across all lots"
-        searchValue={search}
-        onSearchChange={setSearch}
-      />
+      {!embedded && (
+        <Toolbar
+          title="Purchase Details"
+          subtitle="Every line item bought, across all lots"
+          searchValue={search}
+          onSearchChange={setSearch}
+        />
+      )}
 
       <div className="line-details__bar">
         <div className="line-details__chips">
@@ -117,6 +119,14 @@ export function PurchaseDetailsView() {
           <span className="line-details__chip">Quantity <b className="num">{totals.quantity}</b></span>
           <span className="line-details__chip">Total <b className="num">{fmtMoney(totals.amount)}</b></span>
         </div>
+        {embedded && (
+          <input
+            className="input line-details__search"
+            value={search}
+            placeholder="Search\u2026"
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        )}
         <div className="line-details__filter">
           <span className="line-details__filter-label">Commodity</span>
           <SearchableSelect
@@ -149,7 +159,7 @@ export function PurchaseDetailsView() {
 /**
  * Detalle de ventas: todas las lineas vendidas, con su lote de origen.
  */
-export function SalesDetailsView() {
+export function SalesDetailsView({ embedded = false }: { embedded?: boolean }) {
   const { can } = useAuth();
   const { data: lines, loading } = useCollection<SalesOrderDetail>(COLLECTIONS.SALES_ORDER_DETAIL);
   const { data: orders } = useCollection<SalesOrder>(COLLECTIONS.SALES_ORDER);
@@ -218,12 +228,14 @@ export function SalesDetailsView() {
 
   return (
     <div className="line-details">
-      <Toolbar
-        title="Sales Details"
-        subtitle="Every line item sold, with the lot it came from"
-        searchValue={search}
-        onSearchChange={setSearch}
-      />
+      {!embedded && (
+        <Toolbar
+          title="Sales Details"
+          subtitle="Every line item sold, with the lot it came from"
+          searchValue={search}
+          onSearchChange={setSearch}
+        />
+      )}
 
       <div className="line-details__bar">
         <div className="line-details__chips">
@@ -231,6 +243,14 @@ export function SalesDetailsView() {
           <span className="line-details__chip">Quantity <b className="num">{totals.quantity}</b></span>
           <span className="line-details__chip">Total <b className="num">{fmtMoney(totals.amount)}</b></span>
         </div>
+        {embedded && (
+          <input
+            className="input line-details__search"
+            value={search}
+            placeholder="Search\u2026"
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        )}
         <div className="line-details__filter">
           <span className="line-details__filter-label">Commodity</span>
           <SearchableSelect

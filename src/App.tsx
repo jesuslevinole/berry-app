@@ -13,7 +13,6 @@ import { InventoryView } from './modules/inventory/InventoryView';
 import { ActivityLogView } from './modules/activity/ActivityLogView';
 import { TrashView } from './modules/trash/TrashView';
 import { PaymentsView } from './modules/payments/PaymentsView';
-import { PurchaseDetailsView, SalesDetailsView } from './modules/details/LineDetailsView';
 import { CompaniesView } from './modules/companies/CompaniesView';
 import { billingInfoOf } from './services/billingService';
 import { ReportsView } from './modules/reports/ReportsView';
@@ -24,7 +23,7 @@ import { RolesView } from './modules/roles/RolesView';
 import { ConfigView } from './modules/config/ConfigView';
 import './App.css';
 
-const VIEW_ORDER: ViewKey[] = ['dashboard', 'purchases', 'sales', 'expenses', 'catalogs', 'lots', 'payments', 'purchasedetails', 'salesdetails', 'inventory', 'queue', 'apgrowers', 'ap', 'ar', 'expensesreport', 'activity', 'trash', 'companies', 'checks', 'company', 'users', 'roles', 'config'];
+const VIEW_ORDER: ViewKey[] = ['dashboard', 'purchases', 'sales', 'expenses', 'catalogs', 'lots', 'payments', 'inventory', 'queue', 'apgrowers', 'ap', 'ar', 'expensesreport', 'activity', 'trash', 'companies', 'checks', 'company', 'users', 'roles', 'config'];
 
 function Shell() {
   const { firebaseUser, bypass, loading, can, logout, isPlatformAdmin, needsCompanySetup, company } = useAuth();
@@ -110,8 +109,6 @@ function Shell() {
         {view === 'expensesreport' && <ReportsView report="expenses" />}
         {view === 'activity' && <ActivityLogView />}
         {view === 'payments' && <PaymentsView />}
-        {view === 'purchasedetails' && <PurchaseDetailsView />}
-        {view === 'salesdetails' && <SalesDetailsView />}
         {view === 'trash' && <TrashView />}
         {view === 'companies' && <CompaniesView />}
         {view === 'checks' && <ChecksView />}

@@ -109,3 +109,29 @@ code {
   padding: 4px 8px;
   background: var(--code-bg);
 }
+
+/* Pestanas dentro de una vista (ordenes / detalle de lineas). */
+.view-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.view-tabs__tab {
+  background-color: var(--surface);
+  border: 1px solid var(--line-strong);
+  color: var(--muted);
+  padding: 9px 18px;
+  border-radius: 20px;
+  font-family: var(--f-body);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+}
+.view-tabs__tab:hover { color: var(--ink); border-color: var(--green-500); }
+.view-tabs__tab--active {
+  background-color: var(--green-600);
+  border-color: var(--green-600);
+  color: #ffffff;
+}

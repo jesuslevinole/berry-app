@@ -26,3 +26,6 @@
   color: var(--muted);
   white-space: nowrap;
 }
+
+/* Buscador propio cuando la vista va embebida como pestana. */
+.line-details__search { max-width: 240px; margin-left: auto; }

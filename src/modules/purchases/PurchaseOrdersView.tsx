@@ -14,6 +14,7 @@ import { DataPortButtons } from '../../components/ui/DataPortButtons';
 import { PURCHASES_SCHEMAS } from '../../config/entitySchemas';
 import { PurchaseOrderForm } from './PurchaseOrderForm';
 import { PurchaseOrderDetailPanel } from './PurchaseOrderDetailPanel';
+import { PurchaseDetailsView } from '../details/LineDetailsView';
 import { printPurchaseOrderPdf } from '../../services/purchaseOrderPdfService';
 import { printLiquidationReport } from '../../services/liquidationReportService';
 import { useCompany } from '../../hooks/useCompany';
@@ -46,6 +47,8 @@ export function PurchaseOrdersView() {
   }, [systemUsers, legacyUsers]);
 
   const [search, setSearch] = useState('');
+  /* Pestanas: ordenes o el detalle de todas sus lineas. */
+  const [tab, setTab] = useState<'orders' | 'details'>('orders');
   const [formOpen, setFormOpen] = useState(false);
   const [viewing, setViewing] = useState<PurchaseOrder | null>(null);
   const [docsFor, setDocsFor] = useState<PurchaseOrder | null>(null);
@@ -206,15 +209,36 @@ export function PurchaseOrdersView() {
         )}
       </Toolbar>
 
-      <DataTable
-        columns={columns}
-        rows={rows}
-        loading={loading}
-        emptyMessage="No purchase orders yet"
-        onRowClick={setViewing}
-        onEdit={can('purchases', 'edit') ? (po) => { setEditing(po); setFormOpen(true); } : undefined}
-        onDelete={can('purchases', 'delete') ? handleDeleteRow : undefined}
-      />
+      <div className="view-tabs">
+        <button
+          type="button"
+          className={`view-tabs__tab${tab === 'orders' ? ' view-tabs__tab--active' : ''}`}
+          onClick={() => setTab('orders')}
+        >
+          Purchase orders
+        </button>
+        <button
+          type="button"
+          className={`view-tabs__tab${tab === 'details' ? ' view-tabs__tab--active' : ''}`}
+          onClick={() => setTab('details')}
+        >
+          Purchase details
+        </button>
+      </div>
+
+      {tab === 'orders' ? (
+        <DataTable
+          columns={columns}
+          rows={rows}
+          loading={loading}
+          emptyMessage="No purchase orders yet"
+          onRowClick={setViewing}
+          onEdit={can('purchases', 'edit') ? (po) => { setEditing(po); setFormOpen(true); } : undefined}
+          onDelete={can('purchases', 'delete') ? handleDeleteRow : undefined}
+        />
+      ) : (
+        <PurchaseDetailsView embedded />
+      )}
 
       {docsFor && (
         <DocumentPicker

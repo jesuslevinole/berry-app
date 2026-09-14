@@ -16,6 +16,7 @@ import { StatusBadge } from '../../components/ui/StatusBadge';
 import { PaymentsPanel } from '../payments/PaymentsPanel';
 import { SalesOrderForm } from './SalesOrderForm';
 import { SalesOrderDetailPanel } from './SalesOrderDetailPanel';
+import { SalesDetailsView } from '../details/LineDetailsView';
 import { printSalesInvoice, printPickTicket, printSalesOrderDoc, printBillOfLading, type SalesDocContext } from '../../services/salesDocumentsService';
 import { useCompany } from '../../hooks/useCompany';
 import { DocumentPicker } from '../../components/ui/DocumentPicker';
@@ -52,6 +53,8 @@ export function SalesDeskView() {
   }, [systemUsers, legacyUsers]);
 
   const [search, setSearch] = useState('');
+  /* Pestanas: ordenes o el detalle de todas sus lineas. */
+  const [tab, setTab] = useState<'orders' | 'details'>('orders');
   const [formOpen, setFormOpen] = useState(false);
   const [viewing, setViewing] = useState<SalesOrder | null>(null);
   const [editing, setEditing] = useState<SalesOrder | null>(null);
@@ -215,15 +218,36 @@ export function SalesDeskView() {
         )}
       </Toolbar>
 
-      <DataTable
-        columns={columns}
-        rows={rows}
-        loading={loading}
-        emptyMessage="No sales orders yet"
-        onRowClick={setViewing}
-        onEdit={can('sales', 'edit') ? (so) => { setEditing(so); setFormOpen(true); } : undefined}
-        onDelete={can('sales', 'delete') ? handleDeleteRow : undefined}
-      />
+      <div className="view-tabs">
+        <button
+          type="button"
+          className={`view-tabs__tab${tab === 'orders' ? ' view-tabs__tab--active' : ''}`}
+          onClick={() => setTab('orders')}
+        >
+          Sales orders
+        </button>
+        <button
+          type="button"
+          className={`view-tabs__tab${tab === 'details' ? ' view-tabs__tab--active' : ''}`}
+          onClick={() => setTab('details')}
+        >
+          Sales details
+        </button>
+      </div>
+
+      {tab === 'orders' ? (
+        <DataTable
+          columns={columns}
+          rows={rows}
+          loading={loading}
+          emptyMessage="No sales orders yet"
+          onRowClick={setViewing}
+          onEdit={can('sales', 'edit') ? (so) => { setEditing(so); setFormOpen(true); } : undefined}
+          onDelete={can('sales', 'delete') ? handleDeleteRow : undefined}
+        />
+      ) : (
+        <SalesDetailsView embedded />
+      )}
 
       {docsFor && (
         <DocumentPicker
