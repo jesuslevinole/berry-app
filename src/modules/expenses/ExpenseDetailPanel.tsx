@@ -3,6 +3,8 @@ import { useCatalog } from '../../hooks/useCatalog';
 import { useAppConfig } from '../../context/AppConfigContext';
 import { where } from '../../services/firestore';
 import { RecordDetail, DetailSection, type DetailField } from '../../components/ui/RecordDetail';
+import { InlinePayments } from '../../components/ui/InlinePayments';
+import { syncExpenseTotals } from '../../services/orderTotalsService';
 import { FORM_DEFS } from '../../config/formDefs';
 import { COLLECTIONS, type Expense, type PaymentBill, type PurchaseOrder } from '../../types/models';
 import { fmtMoney, round2 } from '../../utils/format';
@@ -18,11 +20,9 @@ interface Props {
   purchaseOrders: PurchaseOrder[];
   onClose: () => void;
   onEdit?: () => void;
-  /** Abre el registro de pagos del gasto (gatear con can('expenses','edit')). */
-  onAddPayment?: () => void;
 }
 
-export function ExpenseDetailPanel({ expense, purchaseOrders, onClose, onEdit, onAddPayment }: Props) {
+export function ExpenseDetailPanel({ expense, purchaseOrders, onClose, onEdit }: Props) {
   const { fieldsFor } = useAppConfig();
   const { data: payments } = useCollection<PaymentBill>(
     COLLECTIONS.PAYMENT_BILL,
@@ -31,7 +31,6 @@ export function ExpenseDetailPanel({ expense, purchaseOrders, onClose, onEdit, o
   );
   const suppliers = useCatalog(COLLECTIONS.SUPPLIERS, 'NAME_SUPPLIERS');
   const categories = useCatalog(COLLECTIONS.CATEGORY_BILL, 'NAME');
-  const paymentMethods = useCatalog(COLLECTIONS.PAYMENT_METHOD, 'NAME');
 
   const lot = purchaseOrders.find((po) => po.id === expense.ID_PURCHASEORDER)?.LOT_NUMBER ?? '';
 
@@ -71,51 +70,15 @@ export function ExpenseDetailPanel({ expense, purchaseOrders, onClose, onEdit, o
         </div>
       </DetailSection>
 
-      <DetailSection
-        title={`Payments (${payments.length})`}
-        action={
-          onAddPayment && (
-            <button type="button" className="btn btn--primary" onClick={onAddPayment}>
-              + Add payment
-            </button>
-          )
-        }
-      >
-        <div className="record-detail__table-wrap">
-          <table className="record-detail__table">
-            <thead>
-              <tr>
-                <th className="record-detail__th">Date</th>
-                <th className="record-detail__th">Method</th>
-                <th className="record-detail__th">Check #</th>
-                <th className="record-detail__th">Ref #</th>
-                <th className="record-detail__th record-detail__th--num">Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              {payments.length === 0 && (
-                <tr><td className="record-detail__empty" colSpan={5}>No payments registered.</td></tr>
-              )}
-              {payments.map((payment) => (
-                <tr key={payment.id}>
-                  <td className="record-detail__td record-detail__td--muted">{fmtDate(payment.DATE ?? '')}</td>
-                  <td className="record-detail__td">{paymentMethods.nameOf(payment.ID_PAYMENTMETHOD)}</td>
-                  <td className="record-detail__td record-detail__td--muted">{payment.CHECK_NUMBER || '—'}</td>
-                  <td className="record-detail__td record-detail__td--muted">{payment.REF_NUMBER || '—'}</td>
-                  <td className="record-detail__td record-detail__td--num record-detail__td--strong">{fmtMoney(payment.AMOUNT ?? 0)}</td>
-                </tr>
-              ))}
-            </tbody>
-            {payments.length > 0 && (
-              <tfoot>
-                <tr>
-                  <td className="record-detail__tf" colSpan={4}>Total paid</td>
-                  <td className="record-detail__tf record-detail__tf--num">{fmtMoney(paid)}</td>
-                </tr>
-              </tfoot>
-            )}
-          </table>
-        </div>
+      <DetailSection title={`Payments (${payments.length})`}>
+        <InlinePayments
+          collection={COLLECTIONS.PAYMENT_BILL}
+          parentField="ID_EXPENSES"
+          parentId={expense.id}
+          payments={payments}
+          moduleId="expenses"
+          onChanged={() => void syncExpenseTotals([expense.id])}
+        />
       </DetailSection>
     </RecordDetail>
   );

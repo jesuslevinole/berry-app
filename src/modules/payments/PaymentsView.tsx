@@ -6,7 +6,7 @@ import { useCatalog } from '../../hooks/useCatalog';
 import { Toolbar } from '../../components/ui/Toolbar';
 import { DataTable, type Column } from '../../components/ui/DataTable';
 import { DataPortButtons } from '../../components/ui/DataPortButtons';
-import { PAYMENTS_SCHEMAS } from '../../config/entitySchemas';
+import { PAYMENT_BILL_SCHEMA, PAYMENT_SALES_SCHEMA } from '../../config/entitySchemas';
 import { deleteDocument } from '../../services/firestore';
 import { syncSalesOrderTotals } from '../../services/orderTotalsService';
 import { SalesOrderDetailPanel } from '../sales/SalesOrderDetailPanel';
@@ -50,9 +50,14 @@ const fmtDate = (iso?: string): string => {
  * empresa en una sola vista. Los mismos registros se editan desde el detalle
  * de cada orden; aqui se listan, buscan y eliminan.
  */
-export function PaymentsView() {
+interface Props {
+  /** 'in' = cobros de ventas; 'out' = pagos de gastos. Cada uno es su propio modulo. */
+  kind?: Tab;
+}
+
+export function PaymentsView({ kind = 'in' }: Props) {
   const { can } = useAuth();
-  const [tab, setTab] = useState<Tab>('in');
+  const tab = kind;
   const [search, setSearch] = useState('');
   const [viewingSale, setViewingSale] = useState<SalesOrder | null>(null);
 
@@ -122,6 +127,24 @@ export function PaymentsView() {
 
   const total = round2(rows.reduce((acc, r) => acc + r.amount, 0));
 
+  /* Configuracion por tipo: titulo, esquema de importacion y modulo de permisos. */
+  const meta =
+    tab === 'in'
+      ? {
+          title: 'Payments',
+          subtitle: 'Money received from customers',
+          schemas: [PAYMENT_SALES_SCHEMA],
+          fileName: 'sales-payments',
+          moduleId: 'payments',
+        }
+      : {
+          title: 'Expense Payments',
+          subtitle: 'Money paid to suppliers against expenses',
+          schemas: [PAYMENT_BILL_SCHEMA],
+          fileName: 'expense-payments',
+          moduleId: 'billpayments',
+        };
+
   const columns: Column<Row>[] = [
     { key: 'date', header: 'Date', render: (r) => fmtDate(r.date) },
     { key: 'party', header: tab === 'in' ? 'Customer' : 'Supplier', render: (r) => r.party },
@@ -148,12 +171,12 @@ export function PaymentsView() {
   return (
     <div className="payments">
       <Toolbar
-        title="Payments"
-        subtitle="Money received from customers and paid to suppliers"
+        title={meta.title}
+        subtitle={meta.subtitle}
         searchValue={search}
         onSearchChange={setSearch}
       >
-        {can('payments', 'documents') && <DataPortButtons schemas={PAYMENTS_SCHEMAS} fileName="payments" />}
+        {can(meta.moduleId, 'documents') && <DataPortButtons schemas={meta.schemas} fileName={meta.fileName} />}
       </Toolbar>
 
       <div className="payments__bar">
@@ -163,22 +186,6 @@ export function PaymentsView() {
             Total <b className="num">{fmtMoney(total)}</b>
           </span>
         </div>
-        <div className="payments__tabs">
-          <button
-            type="button"
-            className={`payments__tab${tab === 'in' ? ' payments__tab--active' : ''}`}
-            onClick={() => setTab('in')}
-          >
-            Received (sales)
-          </button>
-          <button
-            type="button"
-            className={`payments__tab${tab === 'out' ? ' payments__tab--active' : ''}`}
-            onClick={() => setTab('out')}
-          >
-            Paid (expenses)
-          </button>
-        </div>
       </div>
 
       <DataTable
@@ -187,7 +194,7 @@ export function PaymentsView() {
         loading={tab === 'in' ? loadingIn : loadingOut}
         emptyMessage="No payments registered yet."
         onRowClick={tab === 'in' ? openRow : undefined}
-        onDelete={can('payments', 'delete') ? (row) => void removeRow(row) : undefined}
+        onDelete={can(meta.moduleId, 'delete') ? (row) => void removeRow(row) : undefined}
       />
 
       <p className="payments__hint">

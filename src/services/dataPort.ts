@@ -6,7 +6,7 @@ import type { Workbook } from 'exceljs';
 import type { EntityField, EntitySchema } from '../config/entitySchemas';
 import type { BaseDoc } from '../types/models';
 import { bulkUpsert, listDocuments, replaceChildren } from './firestore';
-import { syncPurchaseOrderTotals, syncSalesOrderTotals } from './orderTotalsService';
+import { syncExpenseTotals, syncPurchaseOrderTotals, syncSalesOrderTotals } from './orderTotalsService';
 import { round2 } from '../utils/format';
 import { COLLECTIONS } from '../types/models';
 import {
@@ -335,6 +335,10 @@ export async function importCsvFile(
       /* Pagos importados: las ordenes recalculan cobrado y saldo. */
       const parentIds = [...new Set(docs.map((d) => String(d.ID_SALESORDER ?? '')).filter(Boolean))];
       await syncSalesOrderTotals(parentIds);
+    } else if (schema.collection === COLLECTIONS.PAYMENT_BILL) {
+      /* Pagos de gastos: cada gasto recalcula pagado y saldo. */
+      const parentIds = [...new Set(docs.map((d) => String(d.ID_EXPENSES ?? '')).filter(Boolean))];
+      await syncExpenseTotals(parentIds);
     }
   } catch {
     result.errors.push('Lines were imported, but order totals could not be recalculated automatically.');

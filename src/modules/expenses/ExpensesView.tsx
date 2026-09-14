@@ -163,10 +163,6 @@ export function ExpensesView() {
             setViewing(null);
             setFormOpen(true);
           } : undefined}
-          onAddPayment={can('expenses', 'edit') ? () => {
-            setPaymentsFor(viewing);
-            setViewing(null);
-          } : undefined}
         />
       )}
 

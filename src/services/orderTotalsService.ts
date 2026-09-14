@@ -5,6 +5,7 @@ import {
   type Expense,
   type PurchaseDetail,
   type PurchaseOrder,
+  type PaymentBill,
   type PaymentSales,
   type SalesOrder,
   type SalesOrderDetail,
@@ -153,6 +154,28 @@ export async function syncSalesOrderTotals(orderIds: string[], silent = true): P
       { TOTAL: total, INCOMES: incomes, BALANCE: balance },
       { silent },
     );
+    updated += 1;
+  }
+  return updated;
+}
+
+/** Recalcula pagado y saldo de los gastos indicados desde sus pagos. */
+export async function syncExpenseTotals(expenseIds: string[], silent = true): Promise<number> {
+  const ids = [...new Set(expenseIds.filter(Boolean))];
+  if (ids.length === 0) return 0;
+  const expenses = await listDocuments<Expense>(COLLECTIONS.EXPENSES);
+  const byId = new Map(expenses.map((e) => [e.id, e]));
+  let updated = 0;
+  for (const expenseId of ids) {
+    const expense = byId.get(expenseId);
+    if (!expense) continue;
+    const payments = await listDocuments<PaymentBill>(COLLECTIONS.PAYMENT_BILL, [
+      where('ID_EXPENSES', '==', expenseId),
+    ]);
+    const paid = round2(payments.reduce((acc, p) => acc + (p.AMOUNT ?? 0), 0));
+    const balance = round2((expense.AMOUNT ?? 0) - paid);
+    if (Math.abs((expense.PAY_AMOUNT ?? 0) - paid) < 0.01 && Math.abs((expense.BALANCE ?? 0) - balance) < 0.01) continue;
+    await updateDocument<Expense>(COLLECTIONS.EXPENSES, expenseId, { PAY_AMOUNT: paid, BALANCE: balance }, { silent });
     updated += 1;
   }
   return updated;
