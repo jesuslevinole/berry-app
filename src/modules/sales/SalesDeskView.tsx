@@ -18,6 +18,7 @@ import { PaymentsPanel } from '../payments/PaymentsPanel';
 import { SalesOrderForm } from './SalesOrderForm';
 import { SalesOrderDetailPanel } from './SalesOrderDetailPanel';
 import { SalesDetailsView } from '../details/LineDetailsView';
+import { PaymentsView } from '../payments/PaymentsView';
 import { printSalesInvoice, printPickTicket, printSalesOrderDoc, printBillOfLading, type SalesDocContext } from '../../services/salesDocumentsService';
 import { useCompany } from '../../hooks/useCompany';
 import { DocumentPicker } from '../../components/ui/DocumentPicker';
@@ -55,7 +56,7 @@ export function SalesDeskView() {
 
   const [search, setSearch] = useState('');
   /* Pestanas: ordenes o el detalle de todas sus lineas. */
-  const [tab, setTab] = useState<'orders' | 'details'>('orders');
+  const [tab, setTab] = useState<'orders' | 'details' | 'payments'>('orders');
   /* Conteo de lineas para la pestana de detalle. */
   const { data: detailLines } = useCollection(COLLECTIONS.SALES_ORDER_DETAIL);
   const detailCount = detailLines.length;
@@ -226,6 +227,7 @@ export function SalesDeskView() {
         tabs={[
           { id: 'orders', label: 'Sales orders', count: rows.length },
           { id: 'details', label: 'Sales details', count: detailCount },
+          { id: 'payments', label: 'Payments' },
         ]}
         active={tab}
         onChange={setTab}
@@ -241,8 +243,10 @@ export function SalesDeskView() {
           onEdit={can('sales', 'edit') ? (so) => { setEditing(so); setFormOpen(true); } : undefined}
           onDelete={can('sales', 'delete') ? handleDeleteRow : undefined}
         />
-      ) : (
+      ) : tab === 'details' ? (
         <SalesDetailsView embedded />
+      ) : (
+        <PaymentsView kind="in" embedded moduleId="sales" />
       )}
 
       {docsFor && (

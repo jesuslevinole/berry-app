@@ -8,6 +8,8 @@ import { deleteDocument, replaceChildren, updateDocument } from '../../services/
 import { COLLECTIONS, type Expense, type PurchaseOrder } from '../../types/models';
 import { byNewest, fmtDate, fmtMoney, round2 } from '../../utils/format';
 import { DataTable, type Column } from '../../components/ui/DataTable';
+import { ViewTabs } from '../../components/ui/ViewTabs';
+import { PaymentsView } from '../payments/PaymentsView';
 import { Toolbar } from '../../components/ui/Toolbar';
 import { DataPortButtons } from '../../components/ui/DataPortButtons';
 import { EXPENSES_SCHEMAS } from '../../config/entitySchemas';
@@ -28,6 +30,8 @@ export function ExpensesView() {
   const categories = useCatalog(COLLECTIONS.CATEGORY_BILL, 'NAME');
 
   const [search, setSearch] = useState('');
+  /* Pestanas: gastos o sus pagos. */
+  const [tab, setTab] = useState<'expenses' | 'payments'>('expenses');
   const [formOpen, setFormOpen] = useState(false);
   const [viewing, setViewing] = useState<Expense | null>(null);
   const [editing, setEditing] = useState<Expense | null>(null);
@@ -143,15 +147,28 @@ export function ExpensesView() {
         )}
       </Toolbar>
 
-      <DataTable
-        columns={columns}
-        rows={rows}
-        loading={loading}
-        emptyMessage="No expenses yet"
-        onRowClick={setViewing}
-        onEdit={can('expenses', 'edit') ? (expense) => { setEditing(expense); setFormOpen(true); } : undefined}
-        onDelete={can('expenses', 'delete') ? handleDeleteRow : undefined}
+      <ViewTabs
+        tabs={[
+          { id: 'expenses', label: 'Expenses', count: rows.length },
+          { id: 'payments', label: 'Payments' },
+        ]}
+        active={tab}
+        onChange={setTab}
       />
+
+      {tab === 'expenses' ? (
+        <DataTable
+          columns={columns}
+          rows={rows}
+          loading={loading}
+          emptyMessage="No expenses yet"
+          onRowClick={setViewing}
+          onEdit={can('expenses', 'edit') ? (expense) => { setEditing(expense); setFormOpen(true); } : undefined}
+          onDelete={can('expenses', 'delete') ? handleDeleteRow : undefined}
+        />
+      ) : (
+        <PaymentsView kind="out" embedded moduleId="expenses" />
+      )}
 
       {viewing && (
         <ExpenseDetailPanel

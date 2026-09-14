@@ -51,11 +51,15 @@ const fmtDate = (iso?: string): string => {
  * de cada orden; aqui se listan, buscan y eliminan.
  */
 interface Props {
-  /** 'in' = cobros de ventas; 'out' = pagos de gastos. Cada uno es su propio modulo. */
+  /** 'in' = cobros de ventas; 'out' = pagos de gastos. */
   kind?: Tab;
+  /** Embebido como pestana dentro de otra vista: sin toolbar propio. */
+  embedded?: boolean;
+  /** Modulo del que hereda los permisos cuando va embebido. */
+  moduleId?: string;
 }
 
-export function PaymentsView({ kind = 'in' }: Props) {
+export function PaymentsView({ kind = 'in', embedded = false, moduleId }: Props) {
   const { can } = useAuth();
   const tab = kind;
   const [search, setSearch] = useState('');
@@ -135,14 +139,14 @@ export function PaymentsView({ kind = 'in' }: Props) {
           subtitle: 'Money received from customers',
           schemas: [PAYMENT_SALES_SCHEMA],
           fileName: 'sales-payments',
-          moduleId: 'payments',
+          moduleId: moduleId ?? 'sales',
         }
       : {
           title: 'Expense Payments',
           subtitle: 'Money paid to suppliers against expenses',
           schemas: [PAYMENT_BILL_SCHEMA],
           fileName: 'expense-payments',
-          moduleId: 'billpayments',
+          moduleId: moduleId ?? 'expenses',
         };
 
   const columns: Column<Row>[] = [
@@ -170,14 +174,16 @@ export function PaymentsView({ kind = 'in' }: Props) {
 
   return (
     <div className="payments">
-      <Toolbar
-        title={meta.title}
-        subtitle={meta.subtitle}
-        searchValue={search}
-        onSearchChange={setSearch}
-      >
-        {can(meta.moduleId, 'documents') && <DataPortButtons schemas={meta.schemas} fileName={meta.fileName} />}
-      </Toolbar>
+      {!embedded && (
+        <Toolbar
+          title={meta.title}
+          subtitle={meta.subtitle}
+          searchValue={search}
+          onSearchChange={setSearch}
+        >
+          {can(meta.moduleId, 'documents') && <DataPortButtons schemas={meta.schemas} fileName={meta.fileName} />}
+        </Toolbar>
+      )}
 
       <div className="payments__bar">
         <div className="payments__chips">
@@ -186,6 +192,17 @@ export function PaymentsView({ kind = 'in' }: Props) {
             Total <b className="num">{fmtMoney(total)}</b>
           </span>
         </div>
+        {embedded && (
+          <div className="payments__embedded-bar">
+            <input
+              className="input payments__search"
+              value={search}
+              placeholder="Search\u2026"
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            {can(meta.moduleId, 'documents') && <DataPortButtons schemas={meta.schemas} fileName={meta.fileName} />}
+          </div>
+        )}
       </div>
 
       <DataTable

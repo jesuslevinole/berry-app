@@ -16,6 +16,7 @@ import { PURCHASES_SCHEMAS } from '../../config/entitySchemas';
 import { PurchaseOrderForm } from './PurchaseOrderForm';
 import { PurchaseOrderDetailPanel } from './PurchaseOrderDetailPanel';
 import { PurchaseDetailsView } from '../details/LineDetailsView';
+import { PaymentsView } from '../payments/PaymentsView';
 import { printPurchaseOrderPdf } from '../../services/purchaseOrderPdfService';
 import { printLiquidationReport } from '../../services/liquidationReportService';
 import { useCompany } from '../../hooks/useCompany';
@@ -49,7 +50,7 @@ export function PurchaseOrdersView() {
 
   const [search, setSearch] = useState('');
   /* Pestanas: ordenes o el detalle de todas sus lineas. */
-  const [tab, setTab] = useState<'orders' | 'details'>('orders');
+  const [tab, setTab] = useState<'orders' | 'details' | 'payments'>('orders');
   /* Conteo de lineas para la pestana de detalle. */
   const { data: detailLines } = useCollection(COLLECTIONS.PURCHASE_DETAILS);
   const detailCount = detailLines.length;
@@ -217,6 +218,7 @@ export function PurchaseOrdersView() {
         tabs={[
           { id: 'orders', label: 'Purchase orders', count: rows.length },
           { id: 'details', label: 'Purchase details', count: detailCount },
+          { id: 'payments', label: 'Payments' },
         ]}
         active={tab}
         onChange={setTab}
@@ -232,8 +234,10 @@ export function PurchaseOrdersView() {
           onEdit={can('purchases', 'edit') ? (po) => { setEditing(po); setFormOpen(true); } : undefined}
           onDelete={can('purchases', 'delete') ? handleDeleteRow : undefined}
         />
-      ) : (
+      ) : tab === 'details' ? (
         <PurchaseDetailsView embedded />
+      ) : (
+        <PaymentsView kind="out" embedded moduleId="purchases" />
       )}
 
       {docsFor && (

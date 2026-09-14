@@ -8,15 +8,13 @@ import { billingInfoOf } from '../../services/billingService';
 import { useCompany } from '../../hooks/useCompany';
 import './AppLayout.css';
 
-export type ViewKey = 'dashboard' | 'purchases' | 'sales' | 'expenses' | 'payments' | 'billpayments' | 'catalogs' | 'lots' | 'inventory' | 'queue' | 'apgrowers' | 'ap' | 'ar' | 'expensesreport' | 'activity' | 'trash' | 'checks' | 'company' | 'users' | 'roles' | 'config' | 'companies';
+export type ViewKey = 'dashboard' | 'purchases' | 'sales' | 'expenses' | 'catalogs' | 'lots' | 'inventory' | 'queue' | 'apgrowers' | 'ap' | 'ar' | 'expensesreport' | 'activity' | 'trash' | 'checks' | 'company' | 'users' | 'roles' | 'config' | 'companies';
 
 export const VIEW_TITLES: Record<ViewKey, string> = {
   dashboard: 'Dashboard',
   purchases: 'Purchase Order',
   sales: 'Sales Desk',
   expenses: 'Additional expenses',
-  payments: 'Payments',
-  billpayments: 'Expense Payments',
   catalogs: 'Catalogs',
   lots: 'Lot Activity',
   inventory: 'Inventory',
@@ -70,26 +68,6 @@ const NAV_ITEMS: Array<{ key: ViewKey; label: string; icon: ReactNode }> = [
     icon: (
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8">
         <path d="M6 2h12v20l-3-2-3 2-3-2-3 2V2z" /><path d="M9 7h6M9 11h6" />
-      </svg>
-    ),
-  },
-  {
-    key: 'payments',
-    label: 'Payments',
-    icon: (
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8">
-        <rect x="2.5" y="6" width="19" height="12" rx="2" />
-        <path d="M2.5 10h19" /><circle cx="7" cy="14.5" r="1.2" />
-      </svg>
-    ),
-  },
-  {
-    key: 'billpayments',
-    label: 'Expense Payments',
-    icon: (
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8">
-        <rect x="2.5" y="6" width="19" height="12" rx="2" />
-        <path d="M2.5 10h19M15 14.5h4" />
       </svg>
     ),
   },

@@ -37,3 +37,7 @@
 .payments__tab--active { background-color: var(--green-600); border-color: var(--green-600); color: #ffffff; }
 
 .payments__hint { margin-top: 12px; font-size: 0.8rem; color: var(--muted); }
+
+/* Barra propia cuando la vista va embebida como pestana. */
+.payments__embedded-bar { display: flex; align-items: center; gap: 10px; margin-left: auto; flex-wrap: wrap; }
+.payments__search { max-width: 220px; }
