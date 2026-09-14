@@ -5,6 +5,8 @@ import { useCollection } from '../../hooks/useCollection';
 import { useCatalog } from '../../hooks/useCatalog';
 import { Toolbar } from '../../components/ui/Toolbar';
 import { DataTable, type Column } from '../../components/ui/DataTable';
+import { DataPortButtons } from '../../components/ui/DataPortButtons';
+import { PAYMENTS_SCHEMAS } from '../../config/entitySchemas';
 import { deleteDocument } from '../../services/firestore';
 import { syncSalesOrderTotals } from '../../services/orderTotalsService';
 import { SalesOrderDetailPanel } from '../sales/SalesOrderDetailPanel';
@@ -150,7 +152,9 @@ export function PaymentsView() {
         subtitle="Money received from customers and paid to suppliers"
         searchValue={search}
         onSearchChange={setSearch}
-      />
+      >
+        {can('payments', 'documents') && <DataPortButtons schemas={PAYMENTS_SCHEMAS} fileName="payments" />}
+      </Toolbar>
 
       <div className="payments__bar">
         <div className="payments__chips">

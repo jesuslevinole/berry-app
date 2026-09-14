@@ -331,6 +331,10 @@ export async function importCsvFile(
     } else if (schema.collection === COLLECTIONS.SALES_ORDER_DETAIL) {
       const parentIds = [...new Set(docs.map((d) => String(d.ID_SALESORDER ?? '')).filter(Boolean))];
       await syncSalesOrderTotals(parentIds);
+    } else if (schema.collection === COLLECTIONS.PAYMENT_SALES) {
+      /* Pagos importados: las ordenes recalculan cobrado y saldo. */
+      const parentIds = [...new Set(docs.map((d) => String(d.ID_SALESORDER ?? '')).filter(Boolean))];
+      await syncSalesOrderTotals(parentIds);
     }
   } catch {
     result.errors.push('Lines were imported, but order totals could not be recalculated automatically.');

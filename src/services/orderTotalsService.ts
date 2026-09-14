@@ -5,6 +5,7 @@ import {
   type Expense,
   type PurchaseDetail,
   type PurchaseOrder,
+  type PaymentSales,
   type SalesOrder,
   type SalesOrderDetail,
 } from '../types/models';
@@ -133,9 +134,25 @@ export async function syncSalesOrderTotals(orderIds: string[], silent = true): P
       where('ID_SALESORDER', '==', orderId),
     ]);
     const total = round2(lines.reduce((acc, l) => acc + (l.TOTAL ?? 0), 0));
-    const balance = round2(total - (order.INCOMES ?? 0));
-    if (Math.abs((order.TOTAL ?? 0) - total) < 0.01 && Math.abs((order.BALANCE ?? 0) - balance) < 0.01) continue;
-    await updateDocument<SalesOrder>(COLLECTIONS.SALES_ORDER, orderId, { TOTAL: total, BALANCE: balance }, { silent });
+    /* Cobrado: suma de los pagos registrados para la orden. */
+    const payments = await listDocuments<PaymentSales>(COLLECTIONS.PAYMENT_SALES, [
+      where('ID_SALESORDER', '==', orderId),
+    ]);
+    const incomes = round2(payments.reduce((acc, p) => acc + (p.AMOUNT ?? 0), 0));
+    const balance = round2(total - incomes);
+    if (
+      Math.abs((order.TOTAL ?? 0) - total) < 0.01 &&
+      Math.abs((order.INCOMES ?? 0) - incomes) < 0.01 &&
+      Math.abs((order.BALANCE ?? 0) - balance) < 0.01
+    ) {
+      continue;
+    }
+    await updateDocument<SalesOrder>(
+      COLLECTIONS.SALES_ORDER,
+      orderId,
+      { TOTAL: total, INCOMES: incomes, BALANCE: balance },
+      { silent },
+    );
     updated += 1;
   }
   return updated;

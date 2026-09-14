@@ -139,15 +139,16 @@ export const PAYMENT_SALES_SCHEMA: EntitySchema = {
   collection: COLLECTIONS.PAYMENT_SALES,
   label: 'Sales Payments',
   idField: 'ID_PAYMENTSALES',
+  parentField: 'ID_SALESORDER',
   fields: [
-    { key: 'ID_SALESORDER', type: 'text', width: 26, ref: COLLECTIONS.SALES_ORDER },
-    { key: 'DATE', type: 'date', width: 14 },
-    { key: 'ID_PAYMENTMETHOD', type: 'text', width: 24, ref: COLLECTIONS.PAYMENT_METHOD },
-    { key: 'AMOUNT', type: 'number', width: 14 },
-    { key: 'CHECK_NUMBER', type: 'text', width: 16 },
-    { key: 'REF_NUMBER', type: 'text', width: 16 },
+    { key: 'ID_SALESORDER', type: 'text', width: 26, ref: COLLECTIONS.SALES_ORDER, aliases: ['SALES ORDER', '# SALES ORDER', 'SALESORDER', 'ORDER'] },
+    { key: 'DATE', type: 'date', width: 14, aliases: ['PAYMENT DATE', 'FECHA'] },
+    { key: 'ID_PAYMENTMETHOD', type: 'text', width: 24, ref: COLLECTIONS.PAYMENT_METHOD, aliases: ['METHOD', 'PAYMENT METHOD', 'METODO'] },
+    { key: 'AMOUNT', type: 'number', width: 14, aliases: ['PAID', 'PAYMENT', 'IMPORTE', 'MONTO'] },
+    { key: 'CHECK_NUMBER', type: 'text', width: 16, aliases: ['CHECK #', 'CHECK NUMBER', 'CHEQUE'] },
+    { key: 'REF_NUMBER', type: 'text', width: 16, aliases: ['REF #', 'REFERENCE', 'REF'] },
     { key: 'PHOTO', type: 'text', width: 30 },
-    { key: 'NOTE', type: 'text', width: 34 },
+    { key: 'NOTE', type: 'text', width: 34, aliases: ['NOTES', 'MEMO', 'NOTA'] },
   ],
 };
 
@@ -155,13 +156,14 @@ export const PAYMENT_BILL_SCHEMA: EntitySchema = {
   collection: COLLECTIONS.PAYMENT_BILL,
   label: 'Bill Payments',
   idField: 'ID_PAYMENTBILL',
+  parentField: 'ID_EXPENSES',
   fields: [
-    { key: 'ID_EXPENSES', type: 'text', width: 26, ref: COLLECTIONS.EXPENSES },
-    { key: 'DATE', type: 'date', width: 14 },
-    { key: 'ID_PAYMENTMETHOD', type: 'text', width: 24, ref: COLLECTIONS.PAYMENT_METHOD },
-    { key: 'AMOUNT', type: 'number', width: 14 },
-    { key: 'CHECK_NUMBER', type: 'text', width: 16 },
-    { key: 'REF_NUMBER', type: 'text', width: 16 },
+    { key: 'ID_EXPENSES', type: 'text', width: 26, ref: COLLECTIONS.EXPENSES, aliases: ['EXPENSE', 'BILL', 'INVOICE', 'GASTO'] },
+    { key: 'DATE', type: 'date', width: 14, aliases: ['PAYMENT DATE', 'FECHA'] },
+    { key: 'ID_PAYMENTMETHOD', type: 'text', width: 24, ref: COLLECTIONS.PAYMENT_METHOD, aliases: ['METHOD', 'PAYMENT METHOD', 'METODO'] },
+    { key: 'AMOUNT', type: 'number', width: 14, aliases: ['PAID', 'PAYMENT', 'IMPORTE', 'MONTO'] },
+    { key: 'CHECK_NUMBER', type: 'text', width: 16, aliases: ['CHECK #', 'CHECK NUMBER', 'CHEQUE'] },
+    { key: 'REF_NUMBER', type: 'text', width: 16, aliases: ['REF #', 'REFERENCE', 'REF'] },
     { key: 'PHOTO', type: 'text', width: 30 },
     { key: 'NOTE', type: 'text', width: 34 },
   ],
@@ -187,5 +189,8 @@ export const CHECK_SCHEMA: EntitySchema = {
 export const CHECKS_SCHEMAS = [CHECK_SCHEMA];
 
 export const PURCHASES_SCHEMAS = [PURCHASE_ORDER_SCHEMA, PURCHASE_DETAIL_SCHEMA];
+/** Esquemas del modulo Payments: cobros de ventas y pagos de gastos. */
+export const PAYMENTS_SCHEMAS = [PAYMENT_SALES_SCHEMA, PAYMENT_BILL_SCHEMA];
+
 export const SALES_SCHEMAS = [SALES_ORDER_SCHEMA, SALES_ORDER_DETAIL_SCHEMA, PAYMENT_SALES_SCHEMA];
 export const EXPENSES_SCHEMAS = [EXPENSE_SCHEMA, PAYMENT_BILL_SCHEMA];
