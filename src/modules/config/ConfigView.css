@@ -287,3 +287,30 @@
   border-color: var(--green-500);
 }
 .config__group-delete { padding: 4px 9px; }
+
+/* Reordenar arrastrando: asa, fila en movimiento y zona de destino. */
+.config__row--draggable { cursor: grab; }
+.config__row--draggable:active { cursor: grabbing; }
+
+.config__grip {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 26px;
+  flex-shrink: 0;
+  color: var(--muted);
+  opacity: 0.55;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+.config__row--draggable:hover .config__grip { opacity: 1; color: var(--green-600); }
+
+.config__row--dragging {
+  opacity: 0.45;
+  border-color: var(--green-500);
+}
+
+.config__row--dropzone {
+  border-color: var(--green-600);
+  box-shadow: inset 0 3px 0 -1px var(--green-600);
+  background-color: var(--green-50);
+}

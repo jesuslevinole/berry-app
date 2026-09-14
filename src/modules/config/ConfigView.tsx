@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type DragEvent } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useAppConfig } from '../../context/AppConfigContext';
 import { useCollection } from '../../hooks/useCollection';
@@ -78,6 +78,53 @@ export function ConfigView() {
     );
   };
 
+  /* ---- Reordenar arrastrando (drag & drop nativo, sin dependencias) ---- */
+  const [dragFrom, setDragFrom] = useState<number | null>(null);
+  const [dragOver, setDragOver] = useState<number | null>(null);
+
+  /** Mueve un elemento de una posicion a otra dentro de la lista. */
+  const reorder = <T,>(list: T[], from: number, to: number): T[] => {
+    if (from === to || from < 0 || to < 0 || from >= list.length || to >= list.length) return list;
+    const next = [...list];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    return next;
+  };
+
+  /** Props comunes de cada fila arrastrable. */
+  const dragProps = (index: number, onDrop: (from: number, to: number) => void, enabled = true) =>
+    enabled
+      ? {
+          draggable: true,
+          onDragStart: (e: DragEvent) => {
+            setDragFrom(index);
+            e.dataTransfer.effectAllowed = 'move';
+            /* Firefox exige datos para iniciar el arrastre. */
+            e.dataTransfer.setData('text/plain', String(index));
+          },
+          onDragOver: (e: DragEvent) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            if (dragOver !== index) setDragOver(index);
+          },
+          onDrop: (e: DragEvent) => {
+            e.preventDefault();
+            const from = dragFrom ?? Number(e.dataTransfer.getData('text/plain'));
+            if (!Number.isNaN(from)) onDrop(from, index);
+            setDragFrom(null);
+            setDragOver(null);
+          },
+          onDragEnd: () => {
+            setDragFrom(null);
+            setDragOver(null);
+          },
+        }
+      : {};
+
+  /** Clase de la fila segun el estado del arrastre. */
+  const dragClass = (index: number): string =>
+    `${dragFrom === index ? ' config__row--dragging' : ''}${dragOver === index && dragFrom !== index ? ' config__row--dropzone' : ''}`;
+
   const moveNav = (index: number, delta: number) => {
     const target = index + delta;
     if (target < 0 || target >= navDraft.length) return;
@@ -152,13 +199,24 @@ export function ConfigView() {
             <div className="config__card">
               <h3 className="config__card-title">Navigation menu</h3>
               <p className="config__hint">
-                Order, names and grouping of the sidebar for every user. Create submenu groups with
+                Drag the rows to reorder the sidebar for every user. Create submenu groups with
                 "+ Add submenu", name them, and use "Inside of" to place any module or report shortcut
                 inside a group (or inside another module). Each person still only sees what their role allows.
               </p>
               <ul className="config__list">
                 {navDraft.map((item, index) => (
-                  <li className="config__row" key={item.key}>
+                  <li
+                    className={`config__row config__row--draggable${dragClass(index)}`}
+                    key={item.key}
+                    {...dragProps(index, (from, to) => setNavDraft((prev) => reorder(prev, from, to)))}
+                  >
+                    <span className="config__grip" aria-hidden="true" title="Drag to reorder">
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                        <circle cx="9" cy="6" r="1.6" /><circle cx="15" cy="6" r="1.6" />
+                        <circle cx="9" cy="12" r="1.6" /><circle cx="15" cy="12" r="1.6" />
+                        <circle cx="9" cy="18" r="1.6" /><circle cx="15" cy="18" r="1.6" />
+                      </svg>
+                    </span>
                     <span className="config__row-order">{index + 1}</span>
                     <span className="config__field-main">
                       <input
@@ -266,7 +324,20 @@ export function ConfigView() {
               </p>
               <ul className="config__list">
                 {fieldsDraft.map((field, index) => (
-                  <li className="config__row" key={field.key}>
+                  <li
+                    className={`config__row${canOrder ? ' config__row--draggable' : ''}${canOrder ? dragClass(index) : ''}`}
+                    key={field.key}
+                    {...dragProps(index, (from, to) => setFieldsDraft((prev) => reorder(prev, from, to)), canOrder)}
+                  >
+                    {canOrder && (
+                      <span className="config__grip" aria-hidden="true" title="Drag to reorder">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                          <circle cx="9" cy="6" r="1.6" /><circle cx="15" cy="6" r="1.6" />
+                          <circle cx="9" cy="12" r="1.6" /><circle cx="15" cy="12" r="1.6" />
+                          <circle cx="9" cy="18" r="1.6" /><circle cx="15" cy="18" r="1.6" />
+                        </svg>
+                      </span>
+                    )}
                     <span className="config__row-order">{index + 1}</span>
                     <span className="config__field-main">
                       <input
