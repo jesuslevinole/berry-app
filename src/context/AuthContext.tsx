@@ -18,7 +18,7 @@ import {
 import { auth, db } from '../firebase/config';
 import { resendPasswordReset } from '../services/userAuthService';
 import { getActiveCompanyId, isPlatformAdminEmail, setActiveCompanyId, tenantPath } from '../services/tenant';
-import { COLLECTIONS, type AdminCapability, type AppRole, type PermissionAction, type SystemUser } from '../types/models';
+import { COLLECTIONS, type Company, type AdminCapability, type AppRole, type PermissionAction, type SystemUser } from '../types/models';
 
 interface AuthContextValue {
   firebaseUser: User | null;
@@ -44,6 +44,8 @@ interface AuthContextValue {
   isPlatformAdmin: boolean;
   /** true cuando el admin de plataforma aun no tiene empresa activa: debe elegir una. */
   needsCompanySetup: boolean;
+  /** Ficha de la empresa activa (suscripcion, nombre); null mientras carga. */
+  company: Company | null;
   /** Cambia de empresa (solo admin de plataforma). */
   switchCompany: (companyId: string) => void;
   login: (email: string, password: string) => Promise<void>;
@@ -63,6 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isBootstrapAdmin, setIsBootstrapAdmin] = useState(false);
   /* Empresa activa de la sesion (SaaS multi-empresa). */
   const [companyId, setCompanyId] = useState('');
+  const [company, setCompany] = useState<Company | null>(null);
   const [overrideCompanyId, setOverrideCompanyId] = useState<string>(
     () => localStorage.getItem('berry-company-override') ?? '',
   );
@@ -128,6 +131,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       );
     }
   }, [profile]);
+
+  /* Ficha de la empresa activa: nombre y estado de suscripcion, en tiempo real. */
+  useEffect(() => {
+    setCompany(null);
+    if (!companyId) return;
+    const unsubscribe = onSnapshot(
+      doc(db, COLLECTIONS.COMPANIES, companyId),
+      (snap) => setCompany(snap.exists() ? ({ id: snap.id, ...snap.data() } as Company) : null),
+      () => setCompany(null),
+    );
+    return unsubscribe;
+  }, [companyId]);
 
   /* Rol del perfil (en tiempo real) */
   useEffect(() => {
@@ -221,6 +236,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       profile,
       role,
       companyId,
+      company,
       isPlatformAdmin: platformAdmin,
       needsCompanySetup: !companyId && platformAdmin,
       switchCompany: (next: string) => {
@@ -264,7 +280,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await resendPasswordReset(email.trim());
       },
     };
-  }, [firebaseUser, profile, role, loading, isBootstrapAdmin, bypass, companyId, viewAsUserId, viewAsProfile, viewAsRole]);
+  }, [firebaseUser, profile, role, loading, isBootstrapAdmin, bypass, companyId, company, viewAsUserId, viewAsProfile, viewAsRole]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
