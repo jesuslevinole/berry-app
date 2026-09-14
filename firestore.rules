@@ -48,9 +48,22 @@ service cloud.firestore {
         || (myProfileExists() && me().isPlatformAdmin == true);
     }
 
-    // El usuario pertenece a esa empresa.
+    // Membresia secundaria: el mismo email invitado a otra empresa se guarda
+    // como system_users/{uid}__{companyId}.
+    function membershipPath(companyId) {
+      return /databases/$(database)/documents/system_users/$(request.auth.uid + '__' + companyId);
+    }
+
+    function hasMembership(companyId) {
+      return signedIn()
+        && exists(membershipPath(companyId))
+        && get(membershipPath(companyId)).data.status != 'Inactive';
+    }
+
+    // El usuario pertenece a esa empresa: por su perfil principal o por una
+    // membresia creada por esa empresa al invitarlo.
     function belongsTo(companyId) {
-      return isActive() && me().companyId == companyId;
+      return (isActive() && me().companyId == companyId) || hasMembership(companyId);
     }
 
     // ---- Empresas ---------------------------------------------------------
@@ -98,6 +111,7 @@ service cloud.firestore {
       // registrarse (auto-registro: el dueno crea su primer usuario).
       allow create: if isPlatformAdmin()
         || (isActive() && request.resource.data.companyId == me().companyId)
+        || (isActive() && hasMembership(request.resource.data.companyId))
         || (
           signedIn()
           && request.auth.uid == userId

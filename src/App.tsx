@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { AppConfigProvider } from './context/AppConfigContext';
 import { AppLayout, type ViewKey } from './components/layout/AppLayout';
 import { LoginView } from './modules/auth/LoginView';
+import { CompanyChooser } from './modules/auth/CompanyChooser';
 import { DashboardView } from './modules/dashboard/DashboardView';
 import { PurchaseOrdersView } from './modules/purchases/PurchaseOrdersView';
 import { SalesDeskView } from './modules/sales/SalesDeskView';
@@ -26,7 +27,7 @@ import './App.css';
 const VIEW_ORDER: ViewKey[] = ['dashboard', 'purchases', 'sales', 'expenses', 'catalogs', 'lots', 'payments', 'inventory', 'queue', 'apgrowers', 'ap', 'ar', 'expensesreport', 'activity', 'trash', 'companies', 'checks', 'company', 'users', 'roles', 'config'];
 
 function Shell() {
-  const { firebaseUser, bypass, loading, can, logout, isPlatformAdmin, needsCompanySetup, company } = useAuth();
+  const { firebaseUser, bypass, loading, can, logout, isPlatformAdmin, needsCompanySetup, needsCompanyChoice, company } = useAuth();
   const [view, setView] = useState<ViewKey>('dashboard');
 
   /** Navegar siempre muestra la vista desde arriba (evita entrar con el scroll a medias). */
@@ -62,6 +63,9 @@ function Shell() {
   }
 
   if (!firebaseUser && !bypass) return <LoginView />;
+
+  /* El email pertenece a varias empresas: elegir en cual entrar. */
+  if (needsCompanyChoice) return <CompanyChooser />;
 
   /* Suscripcion vencida: la empresa queda bloqueada hasta registrar el pago.
      El administrador de la plataforma nunca se bloquea. */

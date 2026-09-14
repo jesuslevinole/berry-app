@@ -5,16 +5,7 @@ import {
   signOut,
   type User,
 } from 'firebase/auth';
-import {
-  collection,
-  doc,
-  getDocs,
-  limit,
-  onSnapshot,
-  query,
-  updateDoc,
-  where,
-} from 'firebase/firestore';
+import { collection, deleteDoc, doc, getDocs, limit, onSnapshot, query, setDoc, updateDoc, where } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
 import { resendPasswordReset } from '../services/userAuthService';
 import { getActiveCompanyId, isPlatformAdminEmail, setActiveCompanyId, tenantPath } from '../services/tenant';
@@ -48,6 +39,12 @@ interface AuthContextValue {
   company: Company | null;
   /** Cambia de empresa (solo admin de plataforma). */
   switchCompany: (companyId: string) => void;
+  /** Empresas en las que este email tiene acceso (una membresia por empresa). */
+  memberships: SystemUser[];
+  /** true cuando el email pertenece a varias empresas y aun no elige una. */
+  needsCompanyChoice: boolean;
+  /** Entra a una de sus empresas. */
+  chooseCompany: (companyId: string) => void;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
@@ -66,6 +63,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   /* Empresa activa de la sesion (SaaS multi-empresa). */
   const [companyId, setCompanyId] = useState('');
   const [company, setCompany] = useState<Company | null>(null);
+  /* Todas las membresias del email conectado (una por empresa). */
+  const [memberships, setMemberships] = useState<SystemUser[]>([]);
   const [overrideCompanyId, setOverrideCompanyId] = useState<string>(
     () => localStorage.getItem('berry-company-override') ?? '',
   );
@@ -101,18 +100,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       q,
       (snap) => {
         if (!snap.empty) {
-          const d = snap.docs[0];
-          const nextProfile = { id: d.id, ...d.data() } as SystemUser;
-          /* Empresa activa: toda consulta posterior vive en companies/{companyId}. */
-          const canOverride = nextProfile.isPlatformAdmin || isPlatformAdminEmail(nextProfile.email);
-          const nextCompany = (canOverride && overrideCompanyId) || nextProfile.companyId || '';
+          /* Un mismo email puede estar dado de alta en varias empresas: cada
+             documento de system_users es una membresia. */
+          const found = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as SystemUser);
+          setMemberships(found);
+
+          /* Las membresias secundarias (invitaciones a otra empresa) se reindexan
+             a uid__companyId: es la clave que las reglas de Firestore reconocen. */
+          const uid = firebaseUser.uid;
+          for (const m of found) {
+            const expected = `${uid}__${m.companyId ?? ''}`;
+            if (!m.companyId || m.id === uid || m.id === expected) continue;
+            const { id: _old, ...data } = m;
+            void _old;
+            void setDoc(doc(db, COLLECTIONS.SYSTEM_USERS, expected), data, { merge: true })
+              .then(() => deleteDoc(doc(db, COLLECTIONS.SYSTEM_USERS, m.id)))
+              .catch(() => undefined);
+          }
+
+          const canOverride = found.some((m) => m.isPlatformAdmin) || isPlatformAdminEmail(email);
+          /* Empresa elegida antes, la unica que tiene, o ninguna si debe escoger. */
+          const chosen =
+            found.find((m) => m.companyId && m.companyId === overrideCompanyId) ??
+            (found.length === 1 ? found[0] : undefined);
+          const nextProfile = chosen ?? (canOverride ? found[0] : undefined);
+          const nextCompany = chosen?.companyId ?? (canOverride ? overrideCompanyId || found[0]?.companyId || '' : '');
+
           if (getActiveCompanyId() !== nextCompany) setActiveCompanyId(nextCompany);
           setCompanyId(nextCompany);
-          setProfile(nextProfile);
+          setProfile(nextProfile ?? null);
           setIsBootstrapAdmin(false);
           setProfileReady(true);
           return;
         }
+        setMemberships([]);
         /* Sin perfil: si la coleccion esta vacia, es el primer usuario (bootstrap). */
         void getDocs(query(collection(db, COLLECTIONS.SYSTEM_USERS), limit(1)))
           .then((all) => setIsBootstrapAdmin(all.empty))
@@ -237,6 +258,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       role,
       companyId,
       company,
+      memberships,
+      needsCompanyChoice: !!firebaseUser && !companyId && memberships.length > 1,
+      chooseCompany: (next: string) => {
+        localStorage.setItem('berry-company-override', next);
+        setOverrideCompanyId(next);
+        setActiveCompanyId(next);
+      },
       isPlatformAdmin: platformAdmin,
       needsCompanySetup: !companyId && platformAdmin,
       switchCompany: (next: string) => {
@@ -280,7 +308,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await resendPasswordReset(email.trim());
       },
     };
-  }, [firebaseUser, profile, role, loading, isBootstrapAdmin, bypass, companyId, company, viewAsUserId, viewAsProfile, viewAsRole]);
+  }, [firebaseUser, profile, role, loading, isBootstrapAdmin, bypass, companyId, company, memberships, viewAsUserId, viewAsProfile, viewAsRole]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
