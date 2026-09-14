@@ -8,6 +8,7 @@ import { deleteDocument, replaceChildren, updateDocument } from '../../services/
 import { COLLECTIONS, type PurchaseOrder, type SalesOrder, type SystemUser } from '../../types/models';
 import { byNewest, fmtDate, fmtMoney, round2 } from '../../utils/format';
 import { DataTable, type Column } from '../../components/ui/DataTable';
+import { ViewTabs } from '../../components/ui/ViewTabs';
 import { Toolbar } from '../../components/ui/Toolbar';
 import { DataPortButtons } from '../../components/ui/DataPortButtons';
 import { SALES_SCHEMAS } from '../../config/entitySchemas';
@@ -55,6 +56,9 @@ export function SalesDeskView() {
   const [search, setSearch] = useState('');
   /* Pestanas: ordenes o el detalle de todas sus lineas. */
   const [tab, setTab] = useState<'orders' | 'details'>('orders');
+  /* Conteo de lineas para la pestana de detalle. */
+  const { data: detailLines } = useCollection(COLLECTIONS.SALES_ORDER_DETAIL);
+  const detailCount = detailLines.length;
   const [formOpen, setFormOpen] = useState(false);
   const [viewing, setViewing] = useState<SalesOrder | null>(null);
   const [editing, setEditing] = useState<SalesOrder | null>(null);
@@ -218,22 +222,14 @@ export function SalesDeskView() {
         )}
       </Toolbar>
 
-      <div className="view-tabs">
-        <button
-          type="button"
-          className={`view-tabs__tab${tab === 'orders' ? ' view-tabs__tab--active' : ''}`}
-          onClick={() => setTab('orders')}
-        >
-          Sales orders
-        </button>
-        <button
-          type="button"
-          className={`view-tabs__tab${tab === 'details' ? ' view-tabs__tab--active' : ''}`}
-          onClick={() => setTab('details')}
-        >
-          Sales details
-        </button>
-      </div>
+      <ViewTabs
+        tabs={[
+          { id: 'orders', label: 'Sales orders', count: rows.length },
+          { id: 'details', label: 'Sales details', count: detailCount },
+        ]}
+        active={tab}
+        onChange={setTab}
+      />
 
       {tab === 'orders' ? (
         <DataTable
