@@ -6,6 +6,7 @@ import {
   type PurchaseDetail,
   type PurchaseOrder,
   type PaymentBill,
+  type PaymentPurchase,
   type PaymentSales,
   type SalesOrder,
   type SalesOrderDetail,
@@ -21,6 +22,8 @@ export interface PurchaseTotals {
   QUANTITY: number;
   COMMISION_AMOUNT: number;
   TOTAL: number;
+  /** Pagado al grower: suma de los pagos del lote. */
+  AMOUNT_PAID: number;
   BALANCE: number;
   /** Suma de BD_EXPENSES cuyo ID_PURCHASEORDER apunta a este lote. */
   TOTAL_EXPENSES: number;
@@ -32,11 +35,16 @@ export function computePurchaseTotals(
   order: PurchaseOrder,
   lines: PurchaseDetail[],
   expenses: Expense[] = [],
+  payments: PaymentPurchase[] = [],
 ): PurchaseTotals {
   const subtotal = round2(lines.reduce((acc, l) => acc + (l.TOTAL ?? 0), 0));
   const quantity = round2(lines.reduce((acc, l) => acc + (l.QUANTITY ?? 0), 0));
   const commission = round2((subtotal * (order.COMMISION_PERCENT ?? 0)) / 100);
   const total = round2(subtotal + commission);
+  /* Pagado: si el lote tiene pagos registrados manda la suma; si no, el valor guardado. */
+  const paid = payments.length > 0
+    ? round2(payments.reduce((acc, p) => acc + (p.AMOUNT ?? 0), 0))
+    : round2(order.AMOUNT_PAID ?? 0);
   const totalExpenses = round2(expenses.reduce((acc, e) => acc + (e.AMOUNT ?? 0), 0));
   const deductible = round2(expenses.filter((e) => e.DEDUCT).reduce((acc, e) => acc + (e.AMOUNT ?? 0), 0));
   return {
@@ -44,7 +52,8 @@ export function computePurchaseTotals(
     QUANTITY: quantity,
     COMMISION_AMOUNT: commission,
     TOTAL: total,
-    BALANCE: round2(total - (order.AMOUNT_PAID ?? 0)),
+    AMOUNT_PAID: paid,
+    BALANCE: round2(total - paid),
     TOTAL_EXPENSES: totalExpenses,
     EXPENSES: deductible,
   };
@@ -58,6 +67,7 @@ export function purchaseTotalsDiffer(order: PurchaseOrder, totals: PurchaseTotal
     near(order.QUANTITY ?? 0, totals.QUANTITY) &&
     near(order.COMMISION_AMOUNT ?? 0, totals.COMMISION_AMOUNT) &&
     near(order.TOTAL ?? 0, totals.TOTAL) &&
+    near(order.AMOUNT_PAID ?? 0, totals.AMOUNT_PAID) &&
     near(order.BALANCE ?? 0, totals.BALANCE) &&
     near(order.TOTAL_EXPENSES ?? 0, totals.TOTAL_EXPENSES) &&
     near(order.EXPENSES ?? 0, totals.EXPENSES)
@@ -83,7 +93,10 @@ export async function syncPurchaseOrderTotals(orderIds: string[], silent = true)
     const expenses = await listDocuments<Expense>(COLLECTIONS.EXPENSES, [
       where('ID_PURCHASEORDER', '==', orderId),
     ]);
-    const totals = computePurchaseTotals(order, lines, expenses);
+    const payments = await listDocuments<PaymentPurchase>(COLLECTIONS.PAYMENT_PURCHASE, [
+      where('ID_PURCHASEORDER', '==', orderId),
+    ]);
+    const totals = computePurchaseTotals(order, lines, expenses, payments);
     if (!purchaseTotalsDiffer(order, totals)) continue;
     await updateDocument<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER, orderId, totals, { silent });
     updated += 1;
@@ -99,6 +112,7 @@ export async function syncAllPurchaseOrderTotals(): Promise<{ checked: number; u
   const orders = await listDocuments<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER);
   const allLines = await listDocuments<PurchaseDetail>(COLLECTIONS.PURCHASE_DETAILS);
   const allExpenses = await listDocuments<Expense>(COLLECTIONS.EXPENSES);
+  const allPayments = await listDocuments<PaymentPurchase>(COLLECTIONS.PAYMENT_PURCHASE);
   const byOrder = new Map<string, PurchaseDetail[]>();
   for (const line of allLines) {
     const key = line.ID_PURCHASEORDER;
@@ -111,9 +125,20 @@ export async function syncAllPurchaseOrderTotals(): Promise<{ checked: number; u
     if (!key) continue;
     expensesByOrder.set(key, [...(expensesByOrder.get(key) ?? []), expense]);
   }
+  const paymentsByOrder = new Map<string, PaymentPurchase[]>();
+  for (const payment of allPayments) {
+    const key = payment.ID_PURCHASEORDER;
+    if (!key) continue;
+    paymentsByOrder.set(key, [...(paymentsByOrder.get(key) ?? []), payment]);
+  }
   let updated = 0;
   for (const order of orders) {
-    const totals = computePurchaseTotals(order, byOrder.get(order.id) ?? [], expensesByOrder.get(order.id) ?? []);
+    const totals = computePurchaseTotals(
+      order,
+      byOrder.get(order.id) ?? [],
+      expensesByOrder.get(order.id) ?? [],
+      paymentsByOrder.get(order.id) ?? [],
+    );
     if (!purchaseTotalsDiffer(order, totals)) continue;
     await updateDocument<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER, order.id, totals, { silent: true });
     updated += 1;

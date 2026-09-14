@@ -6,7 +6,7 @@ import { useCatalog } from '../../hooks/useCatalog';
 import { Toolbar } from '../../components/ui/Toolbar';
 import { DataTable, type Column } from '../../components/ui/DataTable';
 import { DataPortButtons } from '../../components/ui/DataPortButtons';
-import { PAYMENT_BILL_SCHEMA, PAYMENT_SALES_SCHEMA } from '../../config/entitySchemas';
+import { PAYMENT_BILL_SCHEMA, PAYMENT_PURCHASE_SCHEMA, PAYMENT_SALES_SCHEMA } from '../../config/entitySchemas';
 import { deleteDocument } from '../../services/firestore';
 import { syncSalesOrderTotals } from '../../services/orderTotalsService';
 import { SalesOrderDetailPanel } from '../sales/SalesOrderDetailPanel';
@@ -16,6 +16,7 @@ import {
   COLLECTIONS,
   type Expense,
   type PaymentBill,
+  type PaymentPurchase,
   type PaymentSales,
   type PurchaseOrder,
   type SalesOrder,
@@ -23,7 +24,7 @@ import {
 } from '../../types/models';
 import './PaymentsView.css';
 
-type Tab = 'in' | 'out';
+type Tab = 'in' | 'out' | 'po';
 
 interface Row {
   id: string;
@@ -67,6 +68,10 @@ export function PaymentsView({ kind = 'in', embedded = false, moduleId }: Props)
 
   const { data: salesPayments, loading: loadingIn } = useCollection<PaymentSales>(COLLECTIONS.PAYMENT_SALES, [limit(READ_LIMIT)]);
   const { data: billPayments, loading: loadingOut } = useCollection<PaymentBill>(COLLECTIONS.PAYMENT_BILL, [limit(READ_LIMIT)]);
+  const { data: purchasePayments, loading: loadingPo } = useCollection<PaymentPurchase>(
+    COLLECTIONS.PAYMENT_PURCHASE,
+    [limit(READ_LIMIT)],
+  );
   const { data: salesOrders } = useCollection<SalesOrder>(COLLECTIONS.SALES_ORDER);
   const { data: expenses } = useCollection<Expense>(COLLECTIONS.EXPENSES);
   const { data: purchaseOrders } = useCollection<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER);
@@ -117,17 +122,41 @@ export function PaymentsView({ kind = 'in', embedded = false, moduleId }: Props)
       };
     });
 
+    /* Pagos a growers por lote. */
+    const lotPayments: Row[] = purchasePayments.map((p) => {
+      const po = purchaseOrders.find((o) => o.id === p.ID_PURCHASEORDER);
+      return {
+        id: p.id,
+        kind: 'po' as Tab,
+        date: p.DATE ?? '',
+        party: po?.LOT_NUMBER ?? '\u2014',
+        document: po?.REF_NUMBER || po?.LOT_NUMBER || '\u2014',
+        method: methods.labelOf(p.ID_PAYMENTMETHOD),
+        checkNumber: p.CHECK_NUMBER ?? '',
+        refNumber: p.REF_NUMBER ?? '',
+        amount: p.AMOUNT ?? 0,
+      };
+    });
+
     const term = search.trim().toLowerCase();
-    return (tab === 'in' ? incoming : outgoing)
+    return (tab === 'in' ? incoming : tab === 'po' ? lotPayments : outgoing)
       .filter((r) => !term || [r.party, r.document, r.method, r.checkNumber, r.refNumber].join(' ').toLowerCase().includes(term))
       .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
-  }, [tab, salesPayments, billPayments, salesOrders, expenses, purchaseOrders, customers, suppliers, methods, search]);
+  }, [tab, salesPayments, billPayments, purchasePayments, salesOrders, expenses, purchaseOrders, customers, suppliers, methods, search]);
 
   const total = round2(rows.reduce((acc, r) => acc + r.amount, 0));
 
   /* Configuracion por tipo: titulo, esquema de importacion y modulo de permisos. */
   const meta =
-    tab === 'in'
+    tab === 'po'
+      ? {
+          title: 'Purchase Payments',
+          subtitle: 'Money paid to growers for each lot',
+          schemas: [PAYMENT_PURCHASE_SCHEMA],
+          fileName: 'purchase-payments',
+          moduleId: moduleId ?? 'purchases',
+        }
+      : tab === 'in'
       ? {
           title: 'Payments',
           subtitle: 'Money received from customers',
@@ -145,8 +174,8 @@ export function PaymentsView({ kind = 'in', embedded = false, moduleId }: Props)
 
   const columns: Column<Row>[] = [
     { key: 'date', header: 'Date', render: (r) => fmtDate(r.date) },
-    { key: 'party', header: tab === 'in' ? 'Customer' : 'Supplier', render: (r) => r.party },
-    { key: 'document', header: tab === 'in' ? '# Sales order' : 'Invoice / Lot', render: (r) => r.document },
+    { key: 'party', header: tab === 'in' ? 'Customer' : tab === 'po' ? 'Lot #' : 'Supplier', render: (r) => r.party },
+    { key: 'document', header: tab === 'in' ? '# Sales order' : tab === 'po' ? '# Ref' : 'Invoice / Lot', render: (r) => r.document },
     { key: 'method', header: 'Method', render: (r) => r.method },
     { key: 'check', header: 'Check #', render: (r) => r.checkNumber || '\u2014' },
     { key: 'ref', header: 'Ref #', render: (r) => r.refNumber || '\u2014' },
@@ -162,7 +191,13 @@ export function PaymentsView({ kind = 'in', embedded = false, moduleId }: Props)
 
   const removeRow = async (row: Row) => {
     if (!window.confirm('Delete this payment?')) return;
-    await deleteDocument(row.kind === 'in' ? COLLECTIONS.PAYMENT_SALES : COLLECTIONS.PAYMENT_BILL, row.id);
+    const target =
+      row.kind === 'in'
+        ? COLLECTIONS.PAYMENT_SALES
+        : row.kind === 'po'
+          ? COLLECTIONS.PAYMENT_PURCHASE
+          : COLLECTIONS.PAYMENT_BILL;
+    await deleteDocument(target, row.id);
     if (row.kind === 'in' && row.salesOrderId) void syncSalesOrderTotals([row.salesOrderId]);
   };
 
@@ -202,14 +237,18 @@ export function PaymentsView({ kind = 'in', embedded = false, moduleId }: Props)
       <DataTable
         rows={rows}
         columns={columns}
-        loading={tab === 'in' ? loadingIn : loadingOut}
+        loading={tab === 'in' ? loadingIn : tab === 'po' ? loadingPo : loadingOut}
         emptyMessage="No payments registered yet."
         onRowClick={tab === 'in' ? openRow : undefined}
         onDelete={can(meta.moduleId, 'delete') ? (row) => void removeRow(row) : undefined}
       />
 
       <p className="payments__hint">
-        Open a sales payment to edit it inside its order, where line items and payments live together.
+        {tab === 'in'
+          ? 'Open a payment to edit it inside its sales order, where line items and payments live together.'
+          : tab === 'po'
+            ? 'Open a lot to add, edit or delete its payments; Amount paid updates on the spot.'
+            : 'Expense payments are edited inside their expense.'}
       </p>
 
       {viewingSale && (

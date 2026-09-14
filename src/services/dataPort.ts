@@ -335,6 +335,10 @@ export async function importCsvFile(
       /* Pagos importados: las ordenes recalculan cobrado y saldo. */
       const parentIds = [...new Set(docs.map((d) => String(d.ID_SALESORDER ?? '')).filter(Boolean))];
       await syncSalesOrderTotals(parentIds);
+    } else if (schema.collection === COLLECTIONS.PAYMENT_PURCHASE) {
+      /* Pagos a growers: cada lote recalcula pagado y saldo. */
+      const parentIds = [...new Set(docs.map((d) => String(d.ID_PURCHASEORDER ?? '')).filter(Boolean))];
+      await syncPurchaseOrderTotals(parentIds);
     } else if (schema.collection === COLLECTIONS.PAYMENT_BILL) {
       /* Pagos de gastos: cada gasto recalcula pagado y saldo. */
       const parentIds = [...new Set(docs.map((d) => String(d.ID_EXPENSES ?? '')).filter(Boolean))];

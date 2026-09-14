@@ -239,7 +239,7 @@ export function PurchaseOrdersView() {
       ) : tab === 'details' ? (
         <PurchaseDetailsView embedded />
       ) : (
-        <PaymentsView kind="out" embedded moduleId="purchases" />
+        <PaymentsView kind="po" embedded moduleId="purchases" />
       )}
 
       {docsFor && (

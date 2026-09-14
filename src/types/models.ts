@@ -20,6 +20,7 @@ export const COLLECTIONS = {
   SALES_ORDER_DETAIL: 'BD_SALESORDERDETAIL',
   EXPENSES: 'BD_EXPENSES',
   PAYMENT_SALES: 'BD_PAYMENTSALES',
+  PAYMENT_PURCHASE: 'BD_PAYMENTPURCHASE',
   PAYMENT_BILL: 'BD_PAYMENTBILL',
   CUSTOMER: 'BD_CUSTOMER',
   USERS: 'BD_USERS',
@@ -151,6 +152,11 @@ export interface PaymentBase extends BaseDoc {
   REF_NUMBER: string;
   PHOTO: string;
   NOTE: string;
+}
+
+/** Pago hecho al grower/vendor por un lote. */
+export interface PaymentPurchase extends PaymentBase {
+  ID_PURCHASEORDER: ID;
 }
 
 export interface PaymentSales extends PaymentBase {

@@ -135,6 +135,23 @@ export const EXPENSE_SCHEMA: EntitySchema = {
   ],
 };
 
+export const PAYMENT_PURCHASE_SCHEMA: EntitySchema = {
+  collection: COLLECTIONS.PAYMENT_PURCHASE,
+  label: 'Purchase Payments',
+  idField: 'ID_PAYMENTPURCHASE',
+  parentField: 'ID_PURCHASEORDER',
+  fields: [
+    { key: 'ID_PURCHASEORDER', type: 'text', width: 26, ref: COLLECTIONS.PURCHASE_ORDER, aliases: ['PURCHASE ORDER', 'LOT', 'LOT #', 'LOT NUMBER'] },
+    { key: 'DATE', type: 'date', width: 14, aliases: ['PAYMENT DATE', 'FECHA'] },
+    { key: 'ID_PAYMENTMETHOD', type: 'text', width: 24, ref: COLLECTIONS.PAYMENT_METHOD, aliases: ['METHOD', 'PAYMENT METHOD', 'METODO'] },
+    { key: 'AMOUNT', type: 'number', width: 14, aliases: ['PAID', 'AMOUNT PAID', 'PAYMENT', 'MONTO'] },
+    { key: 'CHECK_NUMBER', type: 'text', width: 16, aliases: ['CHECK #', 'CHECK NUMBER', 'CHEQUE'] },
+    { key: 'REF_NUMBER', type: 'text', width: 16, aliases: ['REF #', 'REFERENCE', 'REF'] },
+    { key: 'PHOTO', type: 'text', width: 30 },
+    { key: 'NOTE', type: 'text', width: 34, aliases: ['NOTES', 'MEMO', 'NOTA'] },
+  ],
+};
+
 export const PAYMENT_SALES_SCHEMA: EntitySchema = {
   collection: COLLECTIONS.PAYMENT_SALES,
   label: 'Sales Payments',
@@ -188,7 +205,7 @@ export const CHECK_SCHEMA: EntitySchema = {
 
 export const CHECKS_SCHEMAS = [CHECK_SCHEMA];
 
-export const PURCHASES_SCHEMAS = [PURCHASE_ORDER_SCHEMA, PURCHASE_DETAIL_SCHEMA];
+export const PURCHASES_SCHEMAS = [PURCHASE_ORDER_SCHEMA, PURCHASE_DETAIL_SCHEMA, PAYMENT_PURCHASE_SCHEMA];
 /** Esquemas del modulo Payments: cobros de ventas y pagos de gastos. */
 export const PAYMENTS_SCHEMAS = [PAYMENT_SALES_SCHEMA, PAYMENT_BILL_SCHEMA];
 
