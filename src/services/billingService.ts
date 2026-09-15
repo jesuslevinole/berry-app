@@ -48,10 +48,15 @@ export function addDays(days: number, fromIso?: string): string {
 /**
  * Estado de cobro de una empresa, calculado en el momento:
  * - Exempt: no se le cobra nunca (empresa fundadora).
- * - Suspended: dada de baja manualmente.
+ * - Suspended: dada de baja manualmente, se bloquea.
  * - Paid: tiene periodo pagado vigente.
  * - Trial: dentro de los dias de prueba.
  * - Past due / Trial ended: vencidas, la app se bloquea.
+ *
+ * Importante: una empresa SIN ningun dato de suscripcion (creada antes del
+ * cobro o migrada desde el modelo de una sola empresa) NO se bloquea.
+ * Bloquear por falta de datos dejaba fuera a empresas legitimas; en su lugar
+ * se marca como "Subscription not set" para que la plataforma le asigne plan.
  */
 export function billingInfoOf(company: Company): BillingInfo {
   if (company.exempt) {
@@ -82,12 +87,24 @@ export function billingInfoOf(company: Company): BillingInfo {
   }
 
   if (paidLeft !== null) {
-    return { state: 'Past due', daysLeft: paidLeft, active: false, label: `Past due \u2014 ${Math.abs(paidLeft)} days` };
+    return {
+      state: 'Past due',
+      daysLeft: paidLeft,
+      active: false,
+      label: `Past due \u2014 ${Math.abs(paidLeft)} days`,
+    };
   }
   if (trialLeft !== null) {
-    return { state: 'Trial ended', daysLeft: trialLeft, active: false, label: `Trial ended \u2014 ${Math.abs(trialLeft)} days ago` };
+    return {
+      state: 'Trial ended',
+      daysLeft: trialLeft,
+      active: false,
+      label: `Trial ended \u2014 ${Math.abs(trialLeft)} days ago`,
+    };
   }
-  return { state: 'Trial ended', daysLeft: null, active: false, label: 'No subscription' };
+
+  /* Sin fechas registradas: se deja trabajar y se avisa a la plataforma. */
+  return { state: 'Trial', daysLeft: null, active: true, label: 'Subscription not set' };
 }
 
 /** Valores de arranque para una empresa nueva: prueba gratuita de 7 dias. */
