@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { PAGE_SIZE } from '../../config/limits';
 import './DataTable.css';
 
@@ -24,7 +24,14 @@ interface DataTableProps<T extends { id: string }> {
   pageSize?: number;
 }
 
-/** Tabla generica reutilizada por todos los modulos (compras, ventas, gastos, catalogos, pagos). */
+/**
+ * Tabla generica reutilizada por todos los modulos.
+ * - Acciones (Edit / Delete) en la ULTIMA columna, fija a la derecha: siempre
+ *   alcanzables aunque la tabla sea mas ancha que la pantalla.
+ * - La tabla vive en una caja con alto maximo: la barra horizontal queda
+ *   siempre visible sin tener que bajar hasta el final de la pagina.
+ * - Paginacion de 50 filas.
+ */
 export function DataTable<T extends { id: string }>({
   columns,
   rows,
@@ -39,27 +46,23 @@ export function DataTable<T extends { id: string }>({
   const colCount = columns.length + (hasActions ? 1 : 0);
 
   /* Paginacion: nunca se pintan mas de pageSize filas a la vez. */
-  const [page, setPage] = useState(1);
+  const [requestedPage, setPage] = useState(1);
   const pageCount = Math.max(Math.ceil(rows.length / pageSize), 1);
-  useEffect(() => {
-    if (page > pageCount) setPage(1);
-  }, [page, pageCount]);
+  /* Si los datos se reducen (filtro, busqueda), la pagina se ajusta sola. */
+  const page = Math.min(requestedPage, pageCount);
   const visibleRows = useMemo(
     () => rows.slice((page - 1) * pageSize, page * pageSize),
     [rows, page, pageSize],
   );
   const firstShown = rows.length === 0 ? 0 : (page - 1) * pageSize + 1;
   const lastShown = Math.min(page * pageSize, rows.length);
+
   return (
     <div className="data-table">
       <div className="data-table__scroll">
         <table className="data-table__table">
           <thead>
             <tr>
-              {/* Acciones siempre en la primera columna. */}
-              {hasActions && (
-                <th className="data-table__th data-table__cell--left data-table__actions-th">Actions</th>
-              )}
               {columns.map((col) => (
                 <th
                   key={col.key}
@@ -69,6 +72,9 @@ export function DataTable<T extends { id: string }>({
                   {col.header}
                 </th>
               ))}
+              {hasActions && (
+                <th className="data-table__th data-table__cell--right data-table__actions-th">Actions</th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -89,8 +95,13 @@ export function DataTable<T extends { id: string }>({
                   className={`data-table__row${onRowClick ? ' data-table__row--clickable' : ''}`}
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
                 >
+                  {columns.map((col) => (
+                    <td key={col.key} className={`data-table__td data-table__cell--${col.align ?? 'left'}`}>
+                      {col.render ? col.render(row) : String((row as Record<string, unknown>)[col.key] ?? '')}
+                    </td>
+                  ))}
                   {hasActions && (
-                    <td className="data-table__td data-table__cell--left data-table__actions">
+                    <td className="data-table__td data-table__cell--right data-table__actions">
                       {onEdit && (
                         <button
                           type="button"
@@ -125,11 +136,6 @@ export function DataTable<T extends { id: string }>({
                       )}
                     </td>
                   )}
-                  {columns.map((col) => (
-                    <td key={col.key} className={`data-table__td data-table__cell--${col.align ?? 'left'}`}>
-                      {col.render ? col.render(row) : String((row as Record<string, unknown>)[col.key] ?? '')}
-                    </td>
-                  ))}
                 </tr>
               ))}
           </tbody>

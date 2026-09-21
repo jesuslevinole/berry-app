@@ -2,10 +2,10 @@ import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useCatalog } from '../../hooks/useCatalog';
 import { createDocument, deleteDocument, updateDocument } from '../../services/firestore';
-import type { BaseDoc } from '../../types/models';
 import { SearchableSelect } from './SearchableSelect';
 import { fmtMoney, round2, toNumber } from '../../utils/format';
 import { COLLECTIONS } from '../../types/models';
+import type { BaseDoc } from '../../types/models';
 import './InlineLineItems.css';
 
 /** Linea generica de detalle (compras o ventas). */
@@ -57,6 +57,7 @@ interface Props {
 /**
  * Tabla de lineas editable dentro del panel de detalle: agregar, editar y
  * eliminar productos sin abrir el formulario completo de la orden.
+ * Las acciones van en la ultima columna, como en el resto de la app.
  */
 export function InlineLineItems({
   collection,
@@ -157,30 +158,22 @@ export function InlineLineItems({
 
   const draftRow = (key: string) => (
     <tr key={key} className="inline-lines__row--editing">
-      <td className="record-detail__td inline-lines__actions">
-        <button type="button" className="inline-lines__btn inline-lines__btn--save" disabled={busy} onClick={() => void save()}>
-          Save
-        </button>
-        <button type="button" className="inline-lines__btn" disabled={busy} onClick={cancel}>
-          Cancel
-        </button>
-      </td>
       {showLot && (
         <td className="record-detail__td">
           <SearchableSelect
             value={draft.ID_PURCHASEORDER}
             onChange={(id) => setDraft((d) => ({ ...d, ID_PURCHASEORDER: id }))}
             options={lotOptions}
-            placeholder="Lot\u2026"
+            placeholder="Lot…"
           />
         </td>
       )}
       <td className="record-detail__td">
         <SearchableSelect
           value={draft.ID_COMMODITIES}
-          onChange={(id) => setDraft((d) => ({ ...d, ID_COMMODITIES: id, DESCRIPTION: d.DESCRIPTION }))}
+          onChange={(id) => setDraft((d) => ({ ...d, ID_COMMODITIES: id }))}
           options={commodities.options}
-          placeholder="Commodity\u2026"
+          placeholder="Commodity…"
         />
       </td>
       <td className="record-detail__td">
@@ -205,7 +198,6 @@ export function InlineLineItems({
         <input
           className="input inline-lines__num"
           type="number"
-          min="0"
           step="0.01"
           value={draft.PRICE || ''}
           placeholder="Price"
@@ -214,6 +206,14 @@ export function InlineLineItems({
       </td>
       <td className="record-detail__td record-detail__td--num record-detail__td--strong">
         {fmtMoney(round2(draft.QUANTITY * draft.PRICE))}
+      </td>
+      <td className="record-detail__td inline-lines__actions">
+        <button type="button" className="inline-lines__btn inline-lines__btn--save" disabled={busy} onClick={() => void save()}>
+          Save
+        </button>
+        <button type="button" className="inline-lines__btn" disabled={busy} onClick={cancel}>
+          Cancel
+        </button>
       </td>
     </tr>
   );
@@ -230,17 +230,17 @@ export function InlineLineItems({
         <table className="record-detail__table">
           <thead>
             <tr>
-              <th className="record-detail__th inline-lines__th-actions">Actions</th>
               {showLot && <th className="record-detail__th">Lot</th>}
               <th className="record-detail__th">Commodity</th>
               <th className="record-detail__th">Description</th>
               <th className="record-detail__th record-detail__th--num">Quantity</th>
               <th className="record-detail__th record-detail__th--num">Price</th>
               <th className="record-detail__th record-detail__th--num">Total</th>
+              <th className="record-detail__th inline-lines__th-actions">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {loading && <tr><td className="record-detail__empty" colSpan={columnCount}>Loading\u2026</td></tr>}
+            {loading && <tr><td className="record-detail__empty" colSpan={columnCount}>Loading…</td></tr>}
             {!loading && lines.length === 0 && !adding && (
               <tr><td className="record-detail__empty" colSpan={columnCount}>No line items yet.</td></tr>
             )}
@@ -250,6 +250,20 @@ export function InlineLineItems({
                   draftRow(line.id)
                 ) : (
                   <tr key={line.id}>
+                    {showLot && (
+                      <td className="record-detail__td record-detail__td--muted">
+                        {lotOptions.find((l) => l.id === line.ID_PURCHASEORDER)?.name || line.ID_PURCHASEORDER || '—'}
+                      </td>
+                    )}
+                    <td className="record-detail__td record-detail__td--strong">
+                      {commodities.labelOf(line.ID_COMMODITIES)}
+                    </td>
+                    <td className="record-detail__td record-detail__td--muted">{line.DESCRIPTION || '—'}</td>
+                    <td className="record-detail__td record-detail__td--num">{(line.QUANTITY ?? 0).toLocaleString('en-US')}</td>
+                    <td className="record-detail__td record-detail__td--num">{fmtMoney(line.PRICE ?? 0)}</td>
+                    <td className="record-detail__td record-detail__td--num record-detail__td--strong">
+                      {fmtMoney(line.TOTAL ?? 0)}
+                    </td>
                     <td className="record-detail__td inline-lines__actions">
                       {canEdit && (
                         <button type="button" className="inline-lines__btn" disabled={busy} onClick={() => startEdit(line)}>
@@ -266,20 +280,6 @@ export function InlineLineItems({
                           Delete
                         </button>
                       )}
-                    </td>
-                    {showLot && (
-                      <td className="record-detail__td record-detail__td--muted">
-                        {lotOptions.find((l) => l.id === line.ID_PURCHASEORDER)?.name || line.ID_PURCHASEORDER || '\u2014'}
-                      </td>
-                    )}
-                    <td className="record-detail__td record-detail__td--strong">
-                      {commodities.labelOf(line.ID_COMMODITIES)}
-                    </td>
-                    <td className="record-detail__td record-detail__td--muted">{line.DESCRIPTION || '\u2014'}</td>
-                    <td className="record-detail__td record-detail__td--num">{line.QUANTITY ?? 0}</td>
-                    <td className="record-detail__td record-detail__td--num">{fmtMoney(line.PRICE ?? 0)}</td>
-                    <td className="record-detail__td record-detail__td--num record-detail__td--strong">
-                      {fmtMoney(line.TOTAL ?? 0)}
                     </td>
                   </tr>
                 ),

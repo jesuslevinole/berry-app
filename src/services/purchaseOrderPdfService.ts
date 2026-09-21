@@ -7,6 +7,7 @@
  */
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase/config';
+import { tenantPath } from './tenant';
 import { COLLECTIONS, type CompanyInfo, type PurchaseDetail, type PurchaseOrder } from '../types/models';
 
 /* Terminos mostrados en la caja central (ajustables aqui o, si se necesita,
@@ -35,6 +36,10 @@ const esc = (value: string): string =>
 const fmtUsd = (n: number, decimals = 2): string =>
   n.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 
+/** Dinero en formato de Estados Unidos; los creditos salen como -$400.00. */
+const money = (n: number, decimals = 2): string =>
+  n < 0 ? `-$${fmtUsd(Math.abs(n), decimals)}` : `$${fmtUsd(n, decimals)}`;
+
 const fmtSlashDate = (iso: string): string => {
   if (!iso) return '';
   const [y, m, d] = iso.split('-');
@@ -46,7 +51,8 @@ export async function printPurchaseOrderPdf(
   ctx: PurchaseOrderPdfContext,
 ): Promise<void> {
   const snap = await getDocs(
-    query(collection(db, COLLECTIONS.PURCHASE_DETAILS), where('ID_PURCHASEORDER', '==', order.id)),
+    /* Lineas de la empresa activa (companies/{id}/...), las mismas del detalle. */
+    query(collection(db, tenantPath(COLLECTIONS.PURCHASE_DETAILS)), where('ID_PURCHASEORDER', '==', order.id)),
   );
   const lines: PurchaseDetail[] = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as PurchaseDetail);
   const total = lines.reduce((acc, l) => acc + (l.TOTAL ?? 0), 0);
@@ -59,8 +65,8 @@ export async function printPurchaseOrderPdf(
         <td class="td">${esc(line.DESCRIPTION?.trim() || ctx.commodityName(line.ID_COMMODITIES))}</td>
         <td class="td num">${fmtUsd(line.QUANTITY ?? 0, 0)}</td>
         <td class="td center">${DEFAULT_UOM}</td>
-        <td class="td num">$${fmtUsd(line.PRICE ?? 0, 6)}</td>
-        <td class="td num">$${fmtUsd(line.TOTAL ?? 0)}</td>
+        <td class="td num">${money(line.PRICE ?? 0, 6)}</td>
+        <td class="td num">${money(line.TOTAL ?? 0)}</td>
       </tr>`,
     )
     .join('');
@@ -173,7 +179,7 @@ export async function printPurchaseOrderPdf(
 
     <div class="total-row">
       <span class="total-label">PURCHASE ORDER TOTAL:</span>
-      <span class="total-value">$${fmtUsd(total)}</span>
+      <span class="total-value">${money(total)}</span>
     </div>
   </div>
   <div class="page-num">Page 1 of 1</div>

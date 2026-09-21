@@ -5,12 +5,46 @@
   box-shadow: var(--shadow);
   overflow: hidden;
 }
-.data-table__scroll { overflow-x: auto; }
-.data-table__table { width: 100%; border-collapse: collapse; min-width: 640px; }
+
+/*
+ * Caja con alto maximo: la tabla scrollea por dentro, asi la barra horizontal
+ * queda siempre a la vista (no hace falta bajar al final de la pagina) y el
+ * encabezado sticky sigue visible al bajar.
+ */
+.data-table__scroll {
+  overflow: auto;
+  max-height: calc(100vh - 250px);
+  min-height: 160px;
+  scrollbar-width: auto;
+  scrollbar-color: var(--line-strong) var(--green-50);
+}
+
+/* Barras siempre visibles (Chrome, Edge, Safari), no solo al pasar el mouse. */
+.data-table__scroll::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+}
+.data-table__scroll::-webkit-scrollbar-track {
+  background: var(--green-50);
+}
+.data-table__scroll::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 6px;
+  border: 2px solid var(--green-50);
+}
+.data-table__scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--green-500);
+}
+.data-table__scroll::-webkit-scrollbar-corner {
+  background: var(--green-50);
+}
+
+.data-table__table { width: 100%; border-collapse: separate; border-spacing: 0; min-width: 640px; }
 
 .data-table__th {
   position: sticky;
   top: 0;
+  z-index: 2;
   background: var(--surface);
   font-family: var(--f-body);
   font-size: 12.5px;
@@ -26,10 +60,11 @@
   font-size: 13px;
   border-bottom: 1px solid var(--line);
   white-space: nowrap;
+  background: var(--surface);
 }
 .data-table__row:last-child .data-table__td { border-bottom: none; }
-.data-table__row--clickable { cursor: pointer; transition: background 0.12s ease; }
-.data-table__row--clickable:hover { background: var(--green-50); }
+.data-table__row--clickable { cursor: pointer; }
+.data-table__row--clickable:hover .data-table__td { background: var(--green-50); }
 
 .data-table__cell--right { text-align: right; }
 .data-table__cell--center { text-align: center; }
@@ -37,16 +72,25 @@
 
 @media (max-width: 900px) {
   .data-table__th, .data-table__td { padding: 9px 10px; font-size: 12.5px; }
+  .data-table__scroll { max-height: calc(100vh - 200px); }
 }
 
-/* ---- Botones de accion (Edit / Delete) ---- */
+/* ---- Botones de accion (Edit / Delete): ultima columna, fija a la derecha ---- */
 .data-table__actions-th {
   width: 1%;
   white-space: nowrap;
+  position: sticky;
+  right: 0;
+  z-index: 3;
+  box-shadow: -6px 0 8px -6px rgba(0, 0, 0, 0.18);
 }
 
 .data-table__actions {
   white-space: nowrap;
+  position: sticky;
+  right: 0;
+  z-index: 1;
+  box-shadow: -6px 0 8px -6px rgba(0, 0, 0, 0.18);
 }
 
 .data-table__action {
@@ -89,7 +133,7 @@
   color: #ffffff;
 }
 
-/* Paginador: 50 filas por pagina. */
+/* ---- Paginador: 50 filas por pagina ---- */
 .data-table__pager {
   display: flex;
   align-items: center;

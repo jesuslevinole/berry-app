@@ -1,13 +1,14 @@
-/* Edicion de lineas dentro del panel de detalle. */
+/* Edicion de lineas y pagos dentro del panel de detalle. */
 .inline-lines__add { margin-bottom: 10px; }
 
-.inline-lines__th-actions { width: 1%; white-space: nowrap; }
+/* Acciones: ultima columna, alineada a la derecha. */
+.inline-lines__th-actions { width: 1%; white-space: nowrap; text-align: right; }
 
 .inline-lines__actions {
   white-space: nowrap;
-  display: flex;
-  gap: 6px;
+  text-align: right;
 }
+.inline-lines__actions .inline-lines__btn + .inline-lines__btn { margin-left: 6px; }
 
 .inline-lines__btn {
   border: 1px solid var(--line-strong);
