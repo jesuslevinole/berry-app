@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useCatalog } from '../../hooks/useCatalog';
+import { useCollection } from '../../hooks/useCollection';
 import { createDocument, deleteDocument, updateDocument } from '../../services/firestore';
 import { SearchableSelect } from './SearchableSelect';
 import { fmtMoney, round2, toNumber } from '../../utils/format';
@@ -73,6 +74,14 @@ export function InlineLineItems({
 }: Props) {
   const { can } = useAuth();
   const commodities = useCatalog(COLLECTIONS.COMMODITIES, 'NAME_COMMODITIES');
+  /* Descripcion de cada commodity en el catalogo: se trae sola al elegirlo. */
+  const { data: commodityDocs } = useCollection<BaseDoc & { DESCRIPTION_COMMODITIES?: string }>(
+    COLLECTIONS.COMMODITIES,
+  );
+  const descriptionOf = useMemo(() => {
+    const map = new Map(commodityDocs.map((c) => [c.id, (c.DESCRIPTION_COMMODITIES ?? '').trim()]));
+    return (id?: string): string => (id ? (map.get(id) ?? '') : '');
+  }, [commodityDocs]);
 
   const [editingId, setEditingId] = useState('');
   const [adding, setAdding] = useState(false);
@@ -94,7 +103,7 @@ export function InlineLineItems({
     setDraft({
       ID_COMMODITIES: line.ID_COMMODITIES ?? '',
       ID_PURCHASEORDER: line.ID_PURCHASEORDER ?? '',
-      DESCRIPTION: line.DESCRIPTION ?? '',
+      DESCRIPTION: (line.DESCRIPTION ?? '').trim() || descriptionOf(line.ID_COMMODITIES),
       QUANTITY: line.QUANTITY ?? 0,
       PRICE: line.PRICE ?? 0,
     });
@@ -171,7 +180,7 @@ export function InlineLineItems({
       <td className="record-detail__td">
         <SearchableSelect
           value={draft.ID_COMMODITIES}
-          onChange={(id) => setDraft((d) => ({ ...d, ID_COMMODITIES: id }))}
+          onChange={(id) => setDraft((d) => ({ ...d, ID_COMMODITIES: id, DESCRIPTION: descriptionOf(id) }))}
           options={commodities.options}
           placeholder="Commodity…"
         />
@@ -258,7 +267,9 @@ export function InlineLineItems({
                     <td className="record-detail__td record-detail__td--strong">
                       {commodities.labelOf(line.ID_COMMODITIES)}
                     </td>
-                    <td className="record-detail__td record-detail__td--muted">{line.DESCRIPTION || '—'}</td>
+                    <td className="record-detail__td record-detail__td--muted">
+                      {(line.DESCRIPTION ?? '').trim() || descriptionOf(line.ID_COMMODITIES) || '—'}
+                    </td>
                     <td className="record-detail__td record-detail__td--num">{(line.QUANTITY ?? 0).toLocaleString('en-US')}</td>
                     <td className="record-detail__td record-detail__td--num">{fmtMoney(line.PRICE ?? 0)}</td>
                     <td className="record-detail__td record-detail__td--num record-detail__td--strong">

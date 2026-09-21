@@ -14,6 +14,7 @@ import {
   COLLECTIONS,
   type Expense,
   type PaymentBill,
+  type PaymentSales,
   type PurchaseOrder,
   type SalesOrder,
   type SystemUser,
@@ -31,10 +32,14 @@ const REPORT_META: Record<ReportId, { title: string; moduleId: string }> = {
   expenses: { title: 'Expenses Report', moduleId: 'expensesreport' },
 };
 
+/** Saldos menores a medio centavo se consideran liquidados. */
+const SETTLED = 0.005;
+
+/** yyyy-mm-dd -> m/d/yyyy (formato de Estados Unidos). */
 const fmtDate = (iso: string): string => {
   if (!iso) return '\u2014';
   const [y, m, d] = iso.split('-');
-  return y && m && d ? `${parseInt(d, 10)}/${parseInt(m, 10)}/${y}` : iso;
+  return y && m && d ? `${parseInt(m, 10)}/${parseInt(d, 10)}/${y}` : iso;
 };
 
 /** Dias contra vencimiento: negativo = vencido (como en AppSheet). */
@@ -50,7 +55,7 @@ interface ExportColumn {
   values: (string | number)[];
 }
 
-/** Exporta un reporte a Excel con encabezado de marca (sin dependencias extra). */
+/** Exporta un reporte a Excel con encabezado de marca. */
 async function exportReport(title: string, columns: ExportColumn[]): Promise<void> {
   const ExcelJS = await import('exceljs');
   const workbook = new ExcelJS.Workbook();
@@ -120,7 +125,7 @@ export function ReportsView({ report }: ReportsViewProps) {
     return (
       <div className="reports__pager">
         <span className="reports__pager-info">
-          Showing <b>{(page - 1) * PAGE_SIZE + 1}\u2013{Math.min(page * PAGE_SIZE, total)}</b> of <b>{total}</b>
+          Showing <b>{(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)}</b> of <b>{total}</b>
         </span>
         <span className="reports__pager-actions">
           <button type="button" className="btn btn--secondary" disabled={page === 1} onClick={() => setPage((p) => Math.max(p - 1, 1))}>Previous</button>
@@ -135,6 +140,7 @@ export function ReportsView({ report }: ReportsViewProps) {
   const { data: salesOrders } = useCollection<SalesOrder>(COLLECTIONS.SALES_ORDER);
   const { data: expenses } = useCollection<Expense>(COLLECTIONS.EXPENSES);
   const { data: billPayments } = useCollection<PaymentBill>(COLLECTIONS.PAYMENT_BILL);
+  const { data: salesPayments } = useCollection<PaymentSales>(COLLECTIONS.PAYMENT_SALES);
   const growers = useCatalog(COLLECTIONS.GROWER, 'NAME_GROWER');
   const customers = useCatalog(COLLECTIONS.CUSTOMER, 'NAME_CUSTOMER');
   const suppliers = useCatalog(COLLECTIONS.SUPPLIERS, 'NAME_SUPPLIERS');
@@ -154,6 +160,40 @@ export function ReportsView({ report }: ReportsViewProps) {
     return (id?: string): string => (id ? (map.get(id) ?? legacyUsers.nameOf(id)) : '\u2014');
   }, [systemUsers, legacyUsers]);
 
+  /* ---- Saldos EN VIVO desde los pagos reales (los guardados pueden estar viejos) ---- */
+
+  /** Cobrado por orden de venta: suma de sus pagos. */
+  const collectedBySale = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const p of salesPayments) {
+      if (!p.ID_SALESORDER) continue;
+      map.set(p.ID_SALESORDER, round2((map.get(p.ID_SALESORDER) ?? 0) + (p.AMOUNT ?? 0)));
+    }
+    return map;
+  }, [salesPayments]);
+
+  /** Pagado por gasto: suma de sus pagos. */
+  const paidByExpense = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const p of billPayments) {
+      if (!p.ID_EXPENSES) continue;
+      map.set(p.ID_EXPENSES, round2((map.get(p.ID_EXPENSES) ?? 0) + (p.AMOUNT ?? 0)));
+    }
+    return map;
+  }, [billPayments]);
+
+  /** Saldo de una venta: total - cobrado (pagos reales; si no hay, el dato guardado). */
+  const saleBalance = (so: SalesOrder): { paid: number; balance: number } => {
+    const paid = collectedBySale.has(so.id) ? (collectedBySale.get(so.id) as number) : round2(so.INCOMES ?? 0);
+    return { paid, balance: round2((so.TOTAL ?? 0) - paid) };
+  };
+
+  /** Saldo de un gasto: monto - pagado (pagos reales; si no hay, el dato guardado). */
+  const expenseBalance = (e: Expense): { paid: number; balance: number } => {
+    const paid = paidByExpense.has(e.id) ? (paidByExpense.get(e.id) as number) : round2(e.PAY_AMOUNT ?? 0);
+    return { paid, balance: round2((e.AMOUNT ?? 0) - paid) };
+  };
+
   /* Detalle abierto dentro de Reports (sin salir de la vista). */
   const [viewingSale, setViewingSale] = useState<SalesOrder | null>(null);
   const [viewingPurchase, setViewingPurchase] = useState<PurchaseOrder | null>(null);
@@ -164,7 +204,7 @@ export function ReportsView({ report }: ReportsViewProps) {
     if (po) setViewingPurchase(po);
   };
 
-  /* ---- 1. Invoice Queue: ordenes con Loaded despalomeado (pendientes de cargar) ---- */
+  /* ---- 1. Invoice Queue: ordenes pendientes de cargar ---- */
   const queueRows = useMemo(
     () =>
       salesOrders
@@ -197,7 +237,7 @@ export function ReportsView({ report }: ReportsViewProps) {
   const apGrowerGroups = useMemo(() => {
     const pending = purchaseOrders
       .map((po) => ({ po, balance: round2(po.BALANCE ?? (po.TOTAL ?? 0) - (po.AMOUNT_PAID ?? 0)) }))
-      .filter((r) => r.balance > 0)
+      .filter((r) => r.balance > SETTLED)
       .filter((r) =>
         matches(growers.nameOf(r.po.ID_GROWER), customers.nameOf(r.po.ID_CUSTOMER), r.po.LOT_NUMBER ?? '', r.po.REF_NUMBER ?? ''),
       );
@@ -219,31 +259,32 @@ export function ReportsView({ report }: ReportsViewProps) {
 
   const apGrowersTotal = round2(apGrowerGroups.reduce((acc, g) => acc + g.total, 0));
 
-  /* ---- 3. Accounts Payable: gastos con saldo pendiente ---- */
+  /* ---- 3. Accounts Payable: gastos con saldo pendiente (en cero salen de la lista) ---- */
   const apRows = useMemo(() => {
     const lotOf = new Map(purchaseOrders.map((po) => [po.id, po.LOT_NUMBER ?? '']));
     return expenses
-      .filter((e) => round2(e.BALANCE ?? 0) > 0)
-      .map((e) => ({ e, lot: lotOf.get(e.ID_PURCHASEORDER) ?? '\u2014' }))
+      .map((e) => ({ e, lot: lotOf.get(e.ID_PURCHASEORDER) ?? '\u2014', ...expenseBalance(e) }))
+      .filter((r) => r.balance > SETTLED)
       .filter((r) =>
         matches(r.lot, r.e.INVOICE_NUMBER ?? '', suppliers.nameOf(r.e.ID_SUPPLIERS), categories.nameOf(r.e.ID_CATEGORYBILL)),
       )
       .sort((a, b) => (a.e.DATE ?? '').localeCompare(b.e.DATE ?? ''));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [expenses, purchaseOrders, suppliers, categories, term]);
+  }, [expenses, purchaseOrders, paidByExpense, suppliers, categories, term]);
 
-  const apTotal = round2(apRows.reduce((acc, r) => acc + (r.e.BALANCE ?? 0), 0));
+  const apTotal = round2(apRows.reduce((acc, r) => acc + r.balance, 0));
 
-  /* ---- 4. Accounts Receivable: ventas con saldo pendiente ---- */
+  /* ---- 4. Accounts Receivable: ventas con saldo pendiente (en cero salen de la lista) ---- */
   const arRows = useMemo(
     () =>
       salesOrders
-        .map((so) => ({ so, balance: round2(so.BALANCE ?? (so.TOTAL ?? 0) - (so.INCOMES ?? 0)), days: overdueDays(so.DUE_DATE ?? '') }))
-        .filter((r) => r.balance > 0)
+        .filter((so) => so.STATUS !== 'Cancelled')
+        .map((so) => ({ so, ...saleBalance(so), days: overdueDays(so.DUE_DATE ?? '') }))
+        .filter((r) => r.balance > SETTLED)
         .filter((r) => matches(r.so.SALES_ORDER_NUMBER ?? '', customers.nameOf(r.so.ID_CUSTOMER), r.so.REF ?? ''))
         .sort((a, b) => (a.days ?? 0) - (b.days ?? 0)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [salesOrders, customers, term],
+    [salesOrders, collectedBySale, customers, term],
   );
 
   const arTotal = round2(arRows.reduce((acc, r) => acc + r.balance, 0));
@@ -258,21 +299,26 @@ export function ReportsView({ report }: ReportsViewProps) {
       if ((pay.DATE ?? '') > prev) lastPayment.set(pay.ID_EXPENSES, pay.DATE ?? '');
     }
     return expenses
-      .map((e) => ({
-        e,
-        lot: lotOf.get(e.ID_PURCHASEORDER) ?? '\u2014',
-        paid: round2(e.BALANCE ?? 0) <= 0,
-        paymentDate: lastPayment.get(e.id) ?? '',
-      }))
+      .map((e) => {
+        const { paid, balance } = expenseBalance(e);
+        return {
+          e,
+          lot: lotOf.get(e.ID_PURCHASEORDER) ?? '\u2014',
+          paidAmount: paid,
+          balance,
+          paid: balance <= SETTLED,
+          paymentDate: lastPayment.get(e.id) ?? '',
+        };
+      })
       .filter((r) =>
         matches(r.lot, r.e.INVOICE_NUMBER ?? '', suppliers.nameOf(r.e.ID_SUPPLIERS), categories.nameOf(r.e.ID_CATEGORYBILL), r.paid ? 'paid' : 'pending'),
       )
       .sort((a, b) => (b.e.DATE ?? '').localeCompare(a.e.DATE ?? ''));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [expenses, purchaseOrders, billPayments, suppliers, categories, term]);
+  }, [expenses, purchaseOrders, billPayments, paidByExpense, suppliers, categories, term]);
 
   const expensesTotal = round2(expenseRows.reduce((acc, r) => acc + (r.e.AMOUNT ?? 0), 0));
-  const expensesPending = round2(expenseRows.reduce((acc, r) => acc + (r.e.BALANCE ?? 0), 0));
+  const expensesPending = round2(expenseRows.reduce((acc, r) => acc + Math.max(r.balance, 0), 0));
 
   /* ---- Columnas configurables de AR y AP (Configurator > Report: ...) ---- */
   interface ReportColumn<R> {
@@ -315,8 +361,8 @@ export function ReportsView({ report }: ReportsViewProps) {
     'Supplier': { render: (r) => suppliers.nameOf(r.e.ID_SUPPLIERS), excel: (r) => suppliers.nameOf(r.e.ID_SUPPLIERS) },
     'Category': { render: (r) => <span className="reports__td-inner--muted">{categories.nameOf(r.e.ID_CATEGORYBILL)}</span>, excel: (r) => categories.nameOf(r.e.ID_CATEGORYBILL) },
     'Amount': { numeric: true, render: (r) => fmtMoney(r.e.AMOUNT ?? 0), excel: (r) => r.e.AMOUNT ?? 0 },
-    'Pay amount': { numeric: true, render: (r) => fmtMoney(r.e.PAY_AMOUNT ?? 0), excel: (r) => r.e.PAY_AMOUNT ?? 0 },
-    'Balance': { numeric: true, render: (r) => <span className="reports__td-inner--bad">{fmtMoney(r.e.BALANCE ?? 0)}</span>, excel: (r) => r.e.BALANCE ?? 0 },
+    'Pay amount': { numeric: true, render: (r) => fmtMoney(r.paid), excel: (r) => r.paid },
+    'Balance': { numeric: true, render: (r) => <span className="reports__td-inner--bad">{fmtMoney(r.balance)}</span>, excel: (r) => r.balance },
     'Check #': { render: (r) => <span className="reports__td-inner--mono">{r.e.CHECK_NUMBER || '\u2014'}</span>, excel: (r) => r.e.CHECK_NUMBER ?? '' },
     'Note': { render: (r) => <span className="reports__td-inner--muted">{r.e.NOTE || '\u2014'}</span>, excel: (r) => r.e.NOTE ?? '' },
   };
@@ -367,8 +413,8 @@ export function ReportsView({ report }: ReportsViewProps) {
         { header: 'Category', values: expenseRows.map((r) => categories.nameOf(r.e.ID_CATEGORYBILL)) },
         { header: 'Invoice #', values: expenseRows.map((r) => r.e.INVOICE_NUMBER ?? '') },
         { header: 'Amount', values: expenseRows.map((r) => r.e.AMOUNT ?? 0) },
-        { header: 'Pay amount', values: expenseRows.map((r) => r.e.PAY_AMOUNT ?? 0) },
-        { header: 'Balance', values: expenseRows.map((r) => r.e.BALANCE ?? 0) },
+        { header: 'Pay amount', values: expenseRows.map((r) => r.paidAmount) },
+        { header: 'Balance', values: expenseRows.map((r) => r.balance) },
         { header: 'Payment date', values: expenseRows.map((r) => fmtDate(r.paymentDate)) },
         { header: 'Status', values: expenseRows.map((r) => (r.paid ? 'Paid' : 'Pending')) },
       ]);
@@ -585,8 +631,8 @@ export function ReportsView({ report }: ReportsViewProps) {
                     <td className="reports__td reports__td--muted">{categories.nameOf(r.e.ID_CATEGORYBILL)}</td>
                     <td className="reports__td">{r.e.INVOICE_NUMBER || '\u2014'}</td>
                     <td className="reports__td reports__td--num">{fmtMoney(r.e.AMOUNT ?? 0)}</td>
-                    <td className="reports__td reports__td--num">{fmtMoney(r.e.PAY_AMOUNT ?? 0)}</td>
-                    <td className="reports__td reports__td--num">{fmtMoney(r.e.BALANCE ?? 0)}</td>
+                    <td className="reports__td reports__td--num">{fmtMoney(r.paidAmount)}</td>
+                    <td className="reports__td reports__td--num">{fmtMoney(r.balance)}</td>
                     <td className="reports__td reports__td--muted">{fmtDate(r.paymentDate)}</td>
                     <td className="reports__td">
                       <span className={`reports__status reports__status--${r.paid ? 'paid' : 'pending'}`}>

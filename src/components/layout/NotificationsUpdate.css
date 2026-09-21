@@ -1,0 +1,52 @@
+/* Aviso de version nueva dentro de la campana. */
+.noti__bell--update {
+  color: var(--green-600);
+}
+
+.noti__update {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 10px 12px 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--green-500);
+  border-radius: 10px;
+  background: var(--green-50);
+}
+
+.noti__update-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 0.82rem;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.noti__update-text b {
+  color: var(--green-700);
+  font-size: 0.86rem;
+}
+
+.noti__update-btn {
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 8px;
+  background: var(--green-600);
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.noti__update-btn:hover:not(:disabled) {
+  background: var(--green-700);
+}
+
+.noti__update-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
