@@ -36,3 +36,6 @@
 .inline-lines__row--editing td { background: var(--green-50); vertical-align: middle; }
 
 .inline-lines__num { max-width: 110px; text-align: right; }
+
+/* Producto sin inventario: no se elige lote. */
+.inline-lines__no-lot { font-size: 0.8rem; font-style: italic; color: var(--muted); }

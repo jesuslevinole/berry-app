@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useCatalog } from '../../hooks/useCatalog';
 import { useCollection } from '../../hooks/useCollection';
+import { useInventoryItems } from '../../hooks/useInventoryItems';
 import { createDocument, deleteDocument, updateDocument } from '../../services/firestore';
 import { SearchableSelect } from './SearchableSelect';
 import { fmtMoney, round2, toNumber } from '../../utils/format';
@@ -78,6 +79,10 @@ export function InlineLineItems({
   const { data: commodityDocs } = useCollection<BaseDoc & { DESCRIPTION_COMMODITIES?: string }>(
     COLLECTIONS.COMMODITIES,
   );
+  /* Servicios y cargos (Temp Recorder, Freight...) no van amarrados a un lote. */
+  const { tracksInventory } = useInventoryItems();
+  const needsLot = (commodityId: string): boolean => showLot && (!commodityId || tracksInventory(commodityId));
+
   const descriptionOf = useMemo(() => {
     const map = new Map(commodityDocs.map((c) => [c.id, (c.DESCRIPTION_COMMODITIES ?? '').trim()]));
     return (id?: string): string => (id ? (map.get(id) ?? '') : '');
@@ -118,7 +123,9 @@ export function InlineLineItems({
 
   /** Aplica el tope de disponibilidad del lote cuando corresponde (ventas). */
   const capFor = (excludeId?: string): number | null =>
-    maxQtyFor ? maxQtyFor({ ID_PURCHASEORDER: draft.ID_PURCHASEORDER, ID_COMMODITIES: draft.ID_COMMODITIES }, excludeId) : null;
+    maxQtyFor && needsLot(draft.ID_COMMODITIES)
+      ? maxQtyFor({ ID_PURCHASEORDER: draft.ID_PURCHASEORDER, ID_COMMODITIES: draft.ID_COMMODITIES }, excludeId)
+      : null;
 
   const save = async () => {
     if (!draft.ID_COMMODITIES) {
@@ -139,7 +146,7 @@ export function InlineLineItems({
         QUANTITY: draft.QUANTITY,
         PRICE: draft.PRICE,
         TOTAL: round2(draft.QUANTITY * draft.PRICE),
-        ...(showLot ? { ID_PURCHASEORDER: draft.ID_PURCHASEORDER } : {}),
+        ...(showLot ? { ID_PURCHASEORDER: needsLot(draft.ID_COMMODITIES) ? draft.ID_PURCHASEORDER : '' } : {}),
       };
       if (editingId) await updateDocument<BaseDoc & Record<string, unknown>>(collection, editingId, payload);
       else await createDocument<BaseDoc & Record<string, unknown>>(collection, payload as Omit<BaseDoc & Record<string, unknown>, 'id'>);
@@ -169,18 +176,29 @@ export function InlineLineItems({
     <tr key={key} className="inline-lines__row--editing">
       {showLot && (
         <td className="record-detail__td">
-          <SearchableSelect
-            value={draft.ID_PURCHASEORDER}
-            onChange={(id) => setDraft((d) => ({ ...d, ID_PURCHASEORDER: id }))}
-            options={lotOptions}
-            placeholder="Lot…"
-          />
+          {needsLot(draft.ID_COMMODITIES) ? (
+            <SearchableSelect
+              value={draft.ID_PURCHASEORDER}
+              onChange={(id) => setDraft((d) => ({ ...d, ID_PURCHASEORDER: id }))}
+              options={lotOptions}
+              placeholder="Lot…"
+            />
+          ) : (
+            <span className="inline-lines__no-lot">No lot needed</span>
+          )}
         </td>
       )}
       <td className="record-detail__td">
         <SearchableSelect
           value={draft.ID_COMMODITIES}
-          onChange={(id) => setDraft((d) => ({ ...d, ID_COMMODITIES: id, DESCRIPTION: descriptionOf(id) }))}
+          onChange={(id) =>
+            setDraft((d) => ({
+              ...d,
+              ID_COMMODITIES: id,
+              DESCRIPTION: descriptionOf(id),
+              ID_PURCHASEORDER: id && !tracksInventory(id) ? '' : d.ID_PURCHASEORDER,
+            }))
+          }
           options={commodities.options}
           placeholder="Commodity…"
         />
@@ -261,7 +279,9 @@ export function InlineLineItems({
                   <tr key={line.id}>
                     {showLot && (
                       <td className="record-detail__td record-detail__td--muted">
-                        {lotOptions.find((l) => l.id === line.ID_PURCHASEORDER)?.name || line.ID_PURCHASEORDER || '—'}
+                        {line.ID_COMMODITIES && !tracksInventory(line.ID_COMMODITIES)
+                          ? 'No lot'
+                          : lotOptions.find((l) => l.id === line.ID_PURCHASEORDER)?.name || line.ID_PURCHASEORDER || '—'}
                       </td>
                     )}
                     <td className="record-detail__td record-detail__td--strong">

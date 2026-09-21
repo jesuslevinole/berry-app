@@ -8,6 +8,8 @@ import { Modal } from '../../components/ui/Modal';
 import { SalesOrderDetailPanel } from '../sales/SalesOrderDetailPanel';
 import { PurchaseOrderDetailPanel } from '../purchases/PurchaseOrderDetailPanel';
 import { SalesDeskView } from '../sales/SalesDeskView';
+import { InventoryItemsManager } from './InventoryItemsManager';
+import { useInventoryItems } from '../../hooks/useInventoryItems';
 import { round2, todayISO } from '../../utils/format';
 import {
   COLLECTIONS,
@@ -165,6 +167,9 @@ export function InventoryView() {
   const customers = useCatalog(COLLECTIONS.CUSTOMER, 'NAME_CUSTOMER');
   const legacyUsers = useCatalog(COLLECTIONS.USERS, 'EMAIL_USERS');
   const { data: systemUsers } = useCollection<SystemUser>(COLLECTIONS.SYSTEM_USERS);
+  /* Productos que llevan inventario (los servicios/cargos quedan fuera). */
+  const { tracksInventory } = useInventoryItems();
+  const [itemsOpen, setItemsOpen] = useState(false);
 
   const [tab, setTab] = useState<InventoryTab>('stock');
   const [search, setSearch] = useState('');
@@ -214,7 +219,7 @@ export function InventoryView() {
   const inRows = useMemo<MovementRow[]>(() => {
     const poById = new Map(purchaseOrders.map((po) => [po.id, po]));
     return purchaseDetails
-      .filter((line) => line.ID_COMMODITIES)
+      .filter((line) => line.ID_COMMODITIES && tracksInventory(line.ID_COMMODITIES))
       .map((line) => {
         const po = poById.get(line.ID_PURCHASEORDER);
         return {
@@ -229,7 +234,7 @@ export function InventoryView() {
           quantity: round2(line.QUANTITY ?? 0),
         };
       });
-  }, [purchaseDetails, purchaseOrders, growers]);
+  }, [purchaseDetails, purchaseOrders, growers, tracksInventory]);
 
   const toSaleRow = (line: SalesOrderDetail, prefix: string): MovementRow => {
     const so = salesById.get(line.ID_SALESORDER);
@@ -250,20 +255,32 @@ export function InventoryView() {
   const shippedRows = useMemo<MovementRow[]>(
     () =>
       salesDetails
-        .filter((line) => line.ID_COMMODITIES && !isCancelled(line.ID_SALESORDER) && isLoaded(line.ID_SALESORDER))
+        .filter(
+          (line) =>
+            line.ID_COMMODITIES &&
+            tracksInventory(line.ID_COMMODITIES) &&
+            !isCancelled(line.ID_SALESORDER) &&
+            isLoaded(line.ID_SALESORDER),
+        )
         .map((line) => toSaleRow(line, 'out')),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [salesDetails, salesById, customers],
+    [salesDetails, salesById, customers, tracksInventory],
   );
 
   /** Reservado: lineas de ordenes pendientes de cargar, no canceladas. */
   const committedRows = useMemo<MovementRow[]>(
     () =>
       salesDetails
-        .filter((line) => line.ID_COMMODITIES && !isCancelled(line.ID_SALESORDER) && !isLoaded(line.ID_SALESORDER))
+        .filter(
+          (line) =>
+            line.ID_COMMODITIES &&
+            tracksInventory(line.ID_COMMODITIES) &&
+            !isCancelled(line.ID_SALESORDER) &&
+            !isLoaded(line.ID_SALESORDER),
+        )
         .map((line) => toSaleRow(line, 'com')),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [salesDetails, salesById, customers],
+    [salesDetails, salesById, customers, tracksInventory],
   );
 
   /* ---- Resumen de stock por producto ---- */
@@ -294,6 +311,8 @@ export function InventoryView() {
         committed: e.committed,
         available: round2(e.stock - e.committed),
       }))
+      /* Sin stock ni comprometido: el producto no aparece. */
+      .filter((row) => row.stock !== 0 || row.committed !== 0)
       .filter((row) => !term || row.name.toLowerCase().includes(term))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [inRows, shippedRows, committedRows, commodities, search]);
@@ -552,6 +571,9 @@ export function InventoryView() {
           searchValue={search}
           onSearchChange={setSearch}
         >
+          <button type="button" className="btn btn--secondary" onClick={() => setItemsOpen(true)}>
+            Inventory products
+          </button>
           {tab === 'movements' && can('inventory', 'documents') && (
             <button
               type="button"
@@ -728,6 +750,12 @@ export function InventoryView() {
       </section>
 
       {renderBreakdown()}
+
+      <InventoryItemsManager
+        open={itemsOpen}
+        onClose={() => setItemsOpen(false)}
+        canEdit={can('inventory', 'edit') || can('catalogs', 'edit')}
+      />
 
       {viewingSale && (
         <SalesOrderDetailPanel

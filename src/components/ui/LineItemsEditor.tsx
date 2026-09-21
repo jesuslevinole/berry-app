@@ -2,6 +2,7 @@ import type { CatalogOption } from '../../hooks/useCatalog';
 import { CatalogSelect } from './CatalogSelect';
 import { SearchableSelect } from './SearchableSelect';
 import { COLLECTIONS } from '../../types/models';
+import { useInventoryItems } from '../../hooks/useInventoryItems';
 import { fmtMoney, round2, toNumber } from '../../utils/format';
 import './LineItemsEditor.css';
 
@@ -43,6 +44,12 @@ export function LineItemsEditor({
   descriptionOf,
   maxQtyFor,
 }: LineItemsEditorProps) {
+  /* Servicios y cargos (Temp Recorder, Freight...) no van amarrados a un lote. */
+  const { tracksInventory } = useInventoryItems();
+  const needsLot = (line: LineDraft): boolean => !line.ID_COMMODITIES || tracksInventory(line.ID_COMMODITIES);
+  const capFor = (line: LineDraft, index: number): number | null =>
+    maxQtyFor && needsLot(line) ? maxQtyFor(line, index) : null;
+
   const patch = (index: number, changes: Partial<LineDraft>) => {
     onChange(lines.map((line, i) => (i === index ? { ...line, ...changes } : line)));
   };
@@ -63,18 +70,28 @@ export function LineItemsEditor({
         <div className="line-editor__row" key={line.id ?? `new-${index}`}>
           {purchaseOrders && (
             <div className="line-editor__po">
-              <SearchableSelect
-                value={line.ID_PURCHASEORDER ?? ''}
-                onChange={(id) => patch(index, { ID_PURCHASEORDER: id })}
-                options={purchaseOrders}
-                placeholder="Lot # (PO)…"
-              />
+              {needsLot(line) ? (
+                <SearchableSelect
+                  value={line.ID_PURCHASEORDER ?? ''}
+                  onChange={(id) => patch(index, { ID_PURCHASEORDER: id })}
+                  options={purchaseOrders}
+                  placeholder="Lot # (PO)…"
+                />
+              ) : (
+                <span className="line-editor__no-lot">No lot needed</span>
+              )}
             </div>
           )}
           <div className="line-editor__commodity">
             <CatalogSelect
               value={line.ID_COMMODITIES}
-              onChange={(id) => patch(index, { ID_COMMODITIES: id, DESCRIPTION: descriptionOf ? descriptionOf(id) : line.DESCRIPTION })}
+              onChange={(id) =>
+                patch(index, {
+                  ID_COMMODITIES: id,
+                  DESCRIPTION: descriptionOf ? descriptionOf(id) : line.DESCRIPTION,
+                  ...(purchaseOrders && id && !tracksInventory(id) ? { ID_PURCHASEORDER: '' } : {}),
+                })
+              }
               options={commodities}
               collection={COLLECTIONS.COMMODITIES}
               nameField="NAME_COMMODITIES"
@@ -96,16 +113,16 @@ export function LineItemsEditor({
             step="1"
             placeholder="Qty"
             value={line.QUANTITY || ''}
-            max={maxQtyFor ? (maxQtyFor(line, index) ?? undefined) : undefined}
+            max={capFor(line, index) ?? undefined}
             title={(() => {
-              const cap = maxQtyFor ? maxQtyFor(line, index) : null;
-              return cap !== null && cap !== undefined ? `Available on this lot: ${cap}` : undefined;
+              const cap = capFor(line, index);
+              return cap !== null ? `Available on this lot: ${cap}` : undefined;
             })()}
             onChange={(e) => {
               /* Tope duro: nunca mas cantidad que la disponible en la Purchase Order. */
-              const cap = maxQtyFor ? maxQtyFor(line, index) : null;
+              const cap = capFor(line, index);
               const qty = toNumber(e.target.value);
-              patch(index, { QUANTITY: cap !== null && cap !== undefined && qty > cap ? cap : qty });
+              patch(index, { QUANTITY: cap !== null && qty > cap ? cap : qty });
             }}
           />
           <input
