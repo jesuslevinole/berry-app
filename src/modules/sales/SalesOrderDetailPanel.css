@@ -1,0 +1,46 @@
+/* Selector Loaded / Not loaded en la cabecera del detalle de la venta. */
+.so-load {
+  display: inline-flex;
+  margin-left: 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.so-load__opt {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.so-load__opt + .so-load__opt {
+  border-left: 1px solid var(--line-strong);
+}
+
+.so-load__opt:hover:not(:disabled) {
+  background: var(--green-50);
+  color: var(--ink);
+}
+
+.so-load__opt:disabled {
+  cursor: default;
+}
+
+.so-load__opt--pending,
+.so-load__opt--pending:hover:not(:disabled) {
+  background: #fdf3d7;
+  color: #8a6d1a;
+}
+
+.so-load__opt--loaded,
+.so-load__opt--loaded:hover:not(:disabled) {
+  background: var(--green-600);
+  color: #ffffff;
+}

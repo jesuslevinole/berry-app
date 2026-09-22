@@ -1,7 +1,9 @@
+import { useState } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import { useCollection } from '../../hooks/useCollection';
 import { useCatalog } from '../../hooks/useCatalog';
 import { useAppConfig } from '../../context/AppConfigContext';
-import { where } from '../../services/firestore';
+import { updateDocument, where } from '../../services/firestore';
 import { RecordDetail, DetailSection, type DetailField } from '../../components/ui/RecordDetail';
 import { InlineLineItems } from '../../components/ui/InlineLineItems';
 import { InlinePayments } from '../../components/ui/InlinePayments';
@@ -16,6 +18,17 @@ import {
   type SalesOrderDetail,
 } from '../../types/models';
 import { fmtMoney, round2 } from '../../utils/format';
+import './SalesOrderDetailPanel.css';
+
+/** Estados que ya implican que la mercancia salio del almacen. */
+const ESTADOS_CARGADOS = ['Loaded', 'Delivered', 'Paid'];
+
+/**
+ * Misma regla que Inventory e Invoice Queue: una orden esta cargada si tiene
+ * el palomeo LOADED o su estado ya paso de "pendiente de carga".
+ */
+const estaCargada = (so: { LOADED?: boolean; STATUS?: string }): boolean =>
+  !!so.LOADED || ESTADOS_CARGADOS.includes(so.STATUS ?? '');
 
 const fmtDate = (iso: string): string => {
   if (!iso) return '';
@@ -33,6 +46,62 @@ interface Props {
 
 export function SalesOrderDetailPanel({ order, purchaseOrders, buyerName, onClose, onEdit }: Props) {
   const { fieldsFor } = useAppConfig();
+  const { can } = useAuth();
+
+  /* ---- Loaded / Not loaded ----
+     Controla Invoice Queue (lista las ordenes NO cargadas) y el inventario
+     (una orden cargada ya salio del almacen). Se guarda el palomeo LOADED y
+     el estado se sincroniza, porque ambos modulos miran las dos cosas. */
+  const [carga, setCarga] = useState({ loaded: estaCargada(order), status: order.STATUS ?? '' });
+  const [guardandoCarga, setGuardandoCarga] = useState(false);
+
+  const cambiarCarga = async (loaded: boolean) => {
+    if (loaded === carga.loaded || guardandoCarga) return;
+    let status = carga.status;
+    if (loaded && ['', 'Draft', 'Pending Load'].includes(status)) status = 'Loaded';
+    if (!loaded && ESTADOS_CARGADOS.includes(status)) {
+      if (status !== 'Loaded' && !window.confirm(`This order is "${status}". Mark it as not loaded and move it back to "Pending Load"?`)) return;
+      status = 'Pending Load';
+    }
+    const anterior = carga;
+    setCarga({ loaded, status }); // optimista: el cambio se ve al instante
+    setGuardandoCarga(true);
+    try {
+      await updateDocument<SalesOrder>(COLLECTIONS.SALES_ORDER, order.id, {
+        LOADED: loaded,
+        STATUS: status as SalesOrder['STATUS'],
+      });
+    } catch {
+      setCarga(anterior);
+      alert('The load status could not be saved. Try again.');
+    } finally {
+      setGuardandoCarga(false);
+    }
+  };
+
+  const puedeEditarCarga = can('sales', 'edit');
+  const controlCarga = (
+    <div className="so-load" role="group" aria-label="Load status">
+      <button
+        type="button"
+        className={`so-load__opt${!carga.loaded ? ' so-load__opt--pending' : ''}`}
+        disabled={!puedeEditarCarga || guardandoCarga}
+        onClick={() => void cambiarCarga(false)}
+        title="Not loaded yet: the order shows in Invoice Queue"
+      >
+        Not loaded
+      </button>
+      <button
+        type="button"
+        className={`so-load__opt${carga.loaded ? ' so-load__opt--loaded' : ''}`}
+        disabled={!puedeEditarCarga || guardandoCarga}
+        onClick={() => void cambiarCarga(true)}
+        title="Loaded: the product left the warehouse and the order leaves Invoice Queue"
+      >
+        {carga.loaded ? '✓ Loaded' : 'Loaded'}
+      </button>
+    </div>
+  );
   const { data: lines, loading } = useCollection<SalesOrderDetail>(
     COLLECTIONS.SALES_ORDER_DETAIL,
     [where('ID_SALESORDER', '==', order.id)],
@@ -85,7 +154,12 @@ export function SalesOrderDetailPanel({ order, purchaseOrders, buyerName, onClos
   return (
     <RecordDetail
       title={`Sales order ${order.SALES_ORDER_NUMBER || ''}`}
-      badge={<StatusBadge value={order.STATUS} />}
+      badge={
+        <>
+          <StatusBadge value={carga.status} />
+          {controlCarga}
+        </>
+      }
       onClose={onClose}
       onEdit={onEdit}
       fields={fields}

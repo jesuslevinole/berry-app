@@ -84,7 +84,8 @@ export interface PurchaseDetail extends BaseDoc {
 }
 
 /* ---------- Modulo de ventas ---------- */
-export const SALES_STATUSES = ['Draft', 'Loaded', 'Delivered', 'Paid', 'Cancelled'] as const;
+/* 'Pending Load' = lista para cargar (los datos importados de AppSheet ya lo usan). */
+export const SALES_STATUSES = ['Draft', 'Pending Load', 'Loaded', 'Delivered', 'Paid', 'Cancelled'] as const;
 export type SalesStatus = (typeof SALES_STATUSES)[number];
 
 export interface SalesOrder extends BaseDoc {
