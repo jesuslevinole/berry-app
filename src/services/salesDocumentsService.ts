@@ -6,6 +6,7 @@
  */
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase/config';
+import { tenantPath } from './tenant';
 import { COLLECTIONS, type CompanyInfo, type SalesOrder, type SalesOrderDetail } from '../types/models';
 
 const GREEN = '#6aa84f';
@@ -55,7 +56,8 @@ const paymentTermDays = (order: SalesOrder): string => {
 
 async function fetchLines(orderId: string): Promise<SalesOrderDetail[]> {
   const snap = await getDocs(
-    query(collection(db, COLLECTIONS.SALES_ORDER_DETAIL), where('ID_SALESORDER', '==', orderId)),
+    /* Lineas de la empresa activa (companies/{id}/...), no la copia legada de la raiz. */
+    query(collection(db, tenantPath(COLLECTIONS.SALES_ORDER_DETAIL)), where('ID_SALESORDER', '==', orderId)),
   );
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as SalesOrderDetail);
 }
