@@ -190,9 +190,9 @@ export function SalesDeskView() {
     { id: 'bol', label: 'Bill of Lading', description: 'Straight BOL with carrier contract terms', run: printBillOfLading },
   ];
   /** Borrado desde la tabla: detalle + pagos + encabezado, en segundo plano. */
-  const handleDeleteRow = (so: SalesOrder) => {
-    if (!window.confirm(`Delete sales order ${so.SALES_ORDER_NUMBER || ''}?`)) return;
-    const persist = async () => {
+  /** Borra una orden con sus lineas y pagos (sin preguntar: quien llama confirma). */
+  const eliminarOrden = async (so: SalesOrder) => {
+    {
       /* Las lineas se borran una a una por la capa central: van a la papelera,
          quedan en el historial y el inventario se actualiza al instante. */
       const lines = await listDocuments<SalesOrderDetail>(COLLECTIONS.SALES_ORDER_DETAIL, [
@@ -204,10 +204,19 @@ export function SalesDeskView() {
       ]);
       for (const payment of orderPayments) await deleteDocument(COLLECTIONS.PAYMENT_SALES, payment.id);
       await deleteDocument(COLLECTIONS.SALES_ORDER, so.id);
-    };
-    persist().catch((error: unknown) =>
+    }
+  };
+
+  const handleDeleteRow = (so: SalesOrder) => {
+    if (!window.confirm(`Delete sales order ${so.SALES_ORDER_NUMBER || ''}?`)) return;
+    eliminarOrden(so).catch((error: unknown) =>
       alert(`Failed to delete: ${(error as Error).message ?? 'Unknown error'}`),
     );
+  };
+
+  /** Borrado masivo desde las casillas de la tabla. */
+  const eliminarSeleccionadas = async (filas: SalesOrder[]) => {
+    for (const so of filas) await eliminarOrden(so);
   };
 
   return (
@@ -247,6 +256,8 @@ export function SalesDeskView() {
           onRowClick={setViewing}
           onEdit={can('sales', 'edit') ? (so) => { setEditing(so); setFormOpen(true); } : undefined}
           onDelete={can('sales', 'delete') ? handleDeleteRow : undefined}
+          onBulkDelete={can('sales', 'delete') ? eliminarSeleccionadas : undefined}
+          bulkLabel="sales orders"
         />
       ) : tab === 'details' ? (
         <SalesDetailsView embedded />

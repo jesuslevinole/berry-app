@@ -152,9 +152,9 @@ export function PurchaseOrdersView() {
   };
 
   /** Borrado desde la tabla: detalle + encabezado, en segundo plano. */
-  const handleDeleteRow = (po: PurchaseOrder) => {
-    if (!window.confirm(`Delete purchase order ${po.LOT_NUMBER || po.REF_NUMBER || ''}?`)) return;
-    const persist = async () => {
+  /** Borra un lote con sus lineas (sin preguntar: quien llama confirma). */
+  const eliminarLote = async (po: PurchaseOrder) => {
+    {
       /* Las lineas se borran por la capa central (papelera + historial) para que
          el inventario deje de contarlas de inmediato. */
       const lines = await listDocuments<PurchaseDetail>(COLLECTIONS.PURCHASE_DETAILS, [
@@ -162,10 +162,19 @@ export function PurchaseOrdersView() {
       ]);
       for (const line of lines) await deleteDocument(COLLECTIONS.PURCHASE_DETAILS, line.id);
       await deleteDocument(COLLECTIONS.PURCHASE_ORDER, po.id);
-    };
-    persist().catch((error: unknown) =>
+    }
+  };
+
+  const handleDeleteRow = (po: PurchaseOrder) => {
+    if (!window.confirm(`Delete purchase order ${po.LOT_NUMBER || po.REF_NUMBER || ''}?`)) return;
+    eliminarLote(po).catch((error: unknown) =>
       alert(`Failed to delete: ${(error as Error).message ?? 'Unknown error'}`),
     );
+  };
+
+  /** Borrado masivo desde las casillas de la tabla. */
+  const eliminarSeleccionados = async (filas: PurchaseOrder[]) => {
+    for (const po of filas) await eliminarLote(po);
   };
 
   /** Repara en bloque los totales de todos los lotes desde sus lineas. */
@@ -235,6 +244,8 @@ export function PurchaseOrdersView() {
           onRowClick={setViewing}
           onEdit={can('purchases', 'edit') ? (po) => { setEditing(po); setFormOpen(true); } : undefined}
           onDelete={can('purchases', 'delete') ? handleDeleteRow : undefined}
+          onBulkDelete={can('purchases', 'delete') ? eliminarSeleccionados : undefined}
+          bulkLabel="purchase orders"
         />
       ) : tab === 'details' ? (
         <PurchaseDetailsView embedded />

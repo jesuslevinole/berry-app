@@ -110,15 +110,22 @@ export function ExpensesView() {
   };
 
   /** Borrado desde la tabla: pagos + gasto, en segundo plano. */
+  /** Borra un gasto con sus pagos (sin preguntar: quien llama confirma). */
+  const eliminarGasto = async (expense: Expense) => {
+    await replaceChildren(COLLECTIONS.PAYMENT_BILL, 'ID_EXPENSES', expense.id, []);
+    await deleteDocument(COLLECTIONS.EXPENSES, expense.id);
+  };
+
   const handleDeleteRow = (expense: Expense) => {
     if (!window.confirm(`Delete expense ${expense.INVOICE_NUMBER || ''}?`)) return;
-    const persist = async () => {
-      await replaceChildren(COLLECTIONS.PAYMENT_BILL, 'ID_EXPENSES', expense.id, []);
-      await deleteDocument(COLLECTIONS.EXPENSES, expense.id);
-    };
-    persist().catch((error: unknown) =>
+    eliminarGasto(expense).catch((error: unknown) =>
       alert(`Failed to delete: ${(error as Error).message ?? 'Unknown error'}`),
     );
+  };
+
+  /** Borrado masivo desde las casillas de la tabla. */
+  const eliminarSeleccionados = async (filas: Expense[]) => {
+    for (const expense of filas) await eliminarGasto(expense);
   };
 
   return (
@@ -162,6 +169,8 @@ export function ExpensesView() {
           onRowClick={setViewing}
           onEdit={can('expenses', 'edit') ? (expense) => { setEditing(expense); setFormOpen(true); } : undefined}
           onDelete={can('expenses', 'delete') ? handleDeleteRow : undefined}
+          onBulkDelete={can('expenses', 'delete') ? eliminarSeleccionados : undefined}
+          bulkLabel="expenses"
         />
       ) : (
         <PaymentsView kind="out" embedded moduleId="expenses" />

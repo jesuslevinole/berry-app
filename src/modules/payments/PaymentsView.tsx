@@ -189,8 +189,8 @@ export function PaymentsView({ kind = 'in', embedded = false, moduleId }: Props)
     if (order) setViewingSale(order);
   };
 
-  const removeRow = async (row: Row) => {
-    if (!window.confirm('Delete this payment?')) return;
+  /** Borra un pago y recalcula el saldo de su orden (sin preguntar). */
+  const eliminarPago = async (row: Row) => {
     const target =
       row.kind === 'in'
         ? COLLECTIONS.PAYMENT_SALES
@@ -199,6 +199,16 @@ export function PaymentsView({ kind = 'in', embedded = false, moduleId }: Props)
           : COLLECTIONS.PAYMENT_BILL;
     await deleteDocument(target, row.id);
     if (row.kind === 'in' && row.salesOrderId) void syncSalesOrderTotals([row.salesOrderId]);
+  };
+
+  const removeRow = async (row: Row) => {
+    if (!window.confirm('Delete this payment?')) return;
+    await eliminarPago(row);
+  };
+
+  /** Borrado masivo desde las casillas de la tabla. */
+  const eliminarSeleccionados = async (filas: Row[]) => {
+    for (const row of filas) await eliminarPago(row);
   };
 
   return (
@@ -241,6 +251,8 @@ export function PaymentsView({ kind = 'in', embedded = false, moduleId }: Props)
         emptyMessage="No payments registered yet."
         onRowClick={tab === 'in' ? openRow : undefined}
         onDelete={can(meta.moduleId, 'delete') ? (row) => void removeRow(row) : undefined}
+        onBulkDelete={can(meta.moduleId, 'delete') ? eliminarSeleccionados : undefined}
+        bulkLabel="payments"
       />
 
       <p className="payments__hint">

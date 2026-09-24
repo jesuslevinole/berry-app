@@ -22,6 +22,13 @@ interface DataTableProps<T extends { id: string }> {
   onDelete?: (row: T) => void;
   /** Filas por pagina (por defecto 50, definido en config/limits). */
   pageSize?: number;
+  /**
+   * Borrado masivo: al pasarlo aparece una casilla al inicio de cada fila y
+   * una barra con "N seleccionados". Recibe las filas marcadas y las borra.
+   */
+  onBulkDelete?: (rows: T[]) => Promise<void>;
+  /** Texto de lo que se borra, para el mensaje de confirmacion ("orders", "expenses"). */
+  bulkLabel?: string;
 }
 
 /**
@@ -41,9 +48,24 @@ export function DataTable<T extends { id: string }>({
   onEdit,
   onDelete,
   pageSize = PAGE_SIZE,
+  onBulkDelete,
+  bulkLabel = 'records',
 }: DataTableProps<T>) {
   const hasActions = !!onEdit || !!onDelete;
-  const colCount = columns.length + (hasActions ? 1 : 0);
+  const selectable = !!onBulkDelete;
+  const colCount = columns.length + (hasActions ? 1 : 0) + (selectable ? 1 : 0);
+
+  /* ---- Seleccion multiple ---- */
+  const [seleccion, setSeleccion] = useState<Set<string>>(new Set());
+  const [borrando, setBorrando] = useState(false);
+
+  const alternar = (id: string) =>
+    setSeleccion((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   /* Paginacion: nunca se pintan mas de pageSize filas a la vez. */
   const [requestedPage, setPage] = useState(1);
@@ -57,12 +79,72 @@ export function DataTable<T extends { id: string }>({
   const firstShown = rows.length === 0 ? 0 : (page - 1) * pageSize + 1;
   const lastShown = Math.min(page * pageSize, rows.length);
 
+  /* Solo cuentan las filas visibles en la lista actual (filtros incluidos). */
+  const idsVisibles = useMemo(() => new Set(rows.map((r) => r.id)), [rows]);
+  const seleccionados = useMemo(() => rows.filter((r) => seleccion.has(r.id)), [rows, seleccion]);
+  const paginaMarcada = visibleRows.length > 0 && visibleRows.every((r) => seleccion.has(r.id));
+
+  const alternarPagina = () =>
+    setSeleccion((prev) => {
+      const next = new Set([...prev].filter((id) => idsVisibles.has(id)));
+      if (paginaMarcada) visibleRows.forEach((r) => next.delete(r.id));
+      else visibleRows.forEach((r) => next.add(r.id));
+      return next;
+    });
+
+  const borrarSeleccionados = async () => {
+    if (!onBulkDelete || seleccionados.length === 0) return;
+    const total = seleccionados.length;
+    if (!window.confirm(`Delete ${total} ${bulkLabel}?\n\nThey go to the Recycle Bin and can be restored.`)) return;
+    setBorrando(true);
+    try {
+      await onBulkDelete(seleccionados);
+      setSeleccion(new Set());
+    } catch (error) {
+      alert(`Some records could not be deleted: ${(error as Error).message ?? 'Unknown error'}`);
+    } finally {
+      setBorrando(false);
+    }
+  };
+
   return (
     <div className="data-table">
+      {selectable && seleccionados.length > 0 && (
+        <div className="data-table__bulk">
+          <span className="data-table__bulk-info">
+            <b>{seleccionados.length}</b> selected
+          </span>
+          <span className="data-table__bulk-actions">
+            {seleccionados.length < rows.length && (
+              <button type="button" className="data-table__bulk-link" disabled={borrando}
+                onClick={() => setSeleccion(new Set(rows.map((r) => r.id)))}>
+                Select all {rows.length}
+              </button>
+            )}
+            <button type="button" className="data-table__bulk-link" disabled={borrando} onClick={() => setSeleccion(new Set())}>
+              Clear
+            </button>
+            <button type="button" className="data-table__bulk-delete" disabled={borrando} onClick={() => void borrarSeleccionados()}>
+              {borrando ? 'Deleting…' : `Delete ${seleccionados.length}`}
+            </button>
+          </span>
+        </div>
+      )}
+
       <div className="data-table__scroll">
         <table className="data-table__table">
           <thead>
             <tr>
+              {selectable && (
+                <th className="data-table__th data-table__check">
+                  <input
+                    type="checkbox"
+                    aria-label="Select the rows on this page"
+                    checked={paginaMarcada}
+                    onChange={alternarPagina}
+                  />
+                </th>
+              )}
               {columns.map((col) => (
                 <th
                   key={col.key}
@@ -95,6 +177,16 @@ export function DataTable<T extends { id: string }>({
                   className={`data-table__row${onRowClick ? ' data-table__row--clickable' : ''}`}
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
                 >
+                  {selectable && (
+                    <td className="data-table__td data-table__check" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        aria-label="Select row"
+                        checked={seleccion.has(row.id)}
+                        onChange={() => alternar(row.id)}
+                      />
+                    </td>
+                  )}
                   {columns.map((col) => (
                     <td key={col.key} className={`data-table__td data-table__cell--${col.align ?? 'left'}`}>
                       {col.render ? col.render(row) : String((row as Record<string, unknown>)[col.key] ?? '')}

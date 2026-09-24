@@ -110,6 +110,11 @@ export function CatalogsView() {
   ];
 
   /** Borrado directo desde la tabla (en segundo plano). */
+  /** Borrado masivo desde las casillas de la tabla. */
+  const eliminarSeleccionados = async (filas: CatalogDoc[]) => {
+    for (const row of filas) await deleteDocument(def.collection, row.id);
+  };
+
   const handleDeleteRow = (row: CatalogDoc) => {
     if (!window.confirm(`Delete "${String(row[def.nameField] ?? '')}"?`)) return;
     deleteDocument(def.collection, row.id).catch((error: unknown) =>
@@ -156,6 +161,8 @@ export function CatalogsView() {
           onRowClick={openEdit}
           onEdit={can('catalogs', 'edit') ? openEdit : undefined}
           onDelete={can('catalogs', 'delete') ? handleDeleteRow : undefined}
+          onBulkDelete={can('catalogs', 'delete') ? eliminarSeleccionados : undefined}
+          bulkLabel={`${def.label.toLowerCase()} records`}
         />
       </section>
 
