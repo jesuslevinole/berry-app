@@ -168,7 +168,7 @@ export function InventoryView() {
   const legacyUsers = useCatalog(COLLECTIONS.USERS, 'EMAIL_USERS');
   const { data: systemUsers } = useCollection<SystemUser>(COLLECTIONS.SYSTEM_USERS);
   /* Productos que llevan inventario (los servicios/cargos quedan fuera). */
-  const { tracksInventory } = useInventoryItems();
+  const { tracksInventory, lineDescription } = useInventoryItems();
   const [itemsOpen, setItemsOpen] = useState(false);
 
   const [tab, setTab] = useState<InventoryTab>('stock');
@@ -228,13 +228,14 @@ export function InventoryView() {
           sourceId: line.ID_PURCHASEORDER,
           date: po?.ARRIVAL_DATE ?? '',
           documentNumber: po?.LOT_NUMBER || po?.REF_NUMBER || '(no lot #)',
-          commodityId: line.ID_COMMODITIES,
-          description: line.DESCRIPTION ?? '',
+          /* ID canonico: la misma columna aunque la linea use el ID de AppSheet. */
+          commodityId: commodities.canonicalId(line.ID_COMMODITIES),
+          description: lineDescription(line),
           party: growers.nameOf(po?.ID_GROWER ?? ''),
           quantity: round2(line.QUANTITY ?? 0),
         };
       });
-  }, [purchaseDetails, purchaseOrders, growers, tracksInventory]);
+  }, [purchaseDetails, purchaseOrders, growers, tracksInventory, commodities, lineDescription]);
 
   const toSaleRow = (line: SalesOrderDetail, prefix: string): MovementRow => {
     const so = salesById.get(line.ID_SALESORDER);
@@ -244,8 +245,8 @@ export function InventoryView() {
       sourceId: line.ID_SALESORDER,
       date: so?.DATE ?? '',
       documentNumber: so?.SALES_ORDER_NUMBER || '(no order #)',
-      commodityId: line.ID_COMMODITIES,
-      description: line.DESCRIPTION ?? '',
+      commodityId: commodities.canonicalId(line.ID_COMMODITIES),
+      description: lineDescription(line),
       party: customers.nameOf(so?.ID_CUSTOMER ?? ''),
       quantity: round2(line.QUANTITY ?? 0),
     };
@@ -264,7 +265,7 @@ export function InventoryView() {
         )
         .map((line) => toSaleRow(line, 'out')),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [salesDetails, salesById, customers, tracksInventory],
+    [salesDetails, salesById, customers, tracksInventory, commodities, lineDescription],
   );
 
   /** Reservado: lineas de ordenes pendientes de cargar, no canceladas. */
@@ -280,7 +281,7 @@ export function InventoryView() {
         )
         .map((line) => toSaleRow(line, 'com')),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [salesDetails, salesById, customers, tracksInventory],
+    [salesDetails, salesById, customers, tracksInventory, commodities, lineDescription],
   );
 
   /* ---- Resumen de stock por producto ---- */

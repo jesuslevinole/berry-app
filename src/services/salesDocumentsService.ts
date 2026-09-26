@@ -30,6 +30,8 @@ export interface SalesDocContext {
   warehousePhone: string;
   lotOf: (purchaseOrderId: string) => string;
   commodityName: (id: string) => string;
+  /** Descripcion del catalogo de Commodities; manda sobre la guardada en la linea. */
+  commodityDescription?: (id: string) => string;
 }
 
 const esc = (value: string): string =>
@@ -166,7 +168,7 @@ export async function printSalesInvoice(order: SalesOrder, ctx: SalesDocContext)
       (l) => `
       <tr>
         <td class="center">${esc(ctx.commodityName(l.ID_COMMODITIES))}</td>
-        <td class="left">${esc(l.DESCRIPTION || '')}</td>
+        <td class="left">${esc(ctx.commodityDescription?.(l.ID_COMMODITIES) || l.DESCRIPTION || '')}</td>
         <td class="center">${fmtQty(l.QUANTITY ?? 0)}</td>
         <td class="num">$${fmtUsd(l.PRICE ?? 0)}</td>
         <td class="num">$${fmtUsd(l.TOTAL ?? 0)}</td>
@@ -225,7 +227,7 @@ export async function printPickTicket(order: SalesOrder, ctx: SalesDocContext): 
       (l) => `
       <tr>
         <td class="center">${esc(ctx.commodityName(l.ID_COMMODITIES))}</td>
-        <td class="left">${esc(l.DESCRIPTION || '')}</td>
+        <td class="left">${esc(ctx.commodityDescription?.(l.ID_COMMODITIES) || l.DESCRIPTION || '')}</td>
         <td class="center">${fmtQty(l.QUANTITY ?? 0)}</td>
         <td class="center">${TEMP_RANGE}</td>
         <td class="center">${esc(ctx.lotOf(l.ID_PURCHASEORDER))}</td>
@@ -273,7 +275,7 @@ export async function printSalesOrderDoc(order: SalesOrder, ctx: SalesDocContext
       (l) => `
       <tr>
         <td class="center">${esc(ctx.commodityName(l.ID_COMMODITIES))}</td>
-        <td class="center">${esc(l.DESCRIPTION || '')}</td>
+        <td class="center">${esc(ctx.commodityDescription?.(l.ID_COMMODITIES) || l.DESCRIPTION || '')}</td>
         <td class="center">${fmtQty(l.QUANTITY ?? 0)}</td>
         <td class="num">$${fmtUsd(l.PRICE ?? 0)}</td>
         <td class="num">$${fmtUsd(l.TOTAL ?? 0)}</td>
@@ -367,7 +369,7 @@ export async function printBillOfLading(order: SalesOrder, ctx: SalesDocContext)
       (l) => `
       <tr>
         <td class="center b1">${esc(ctx.commodityName(l.ID_COMMODITIES))}</td>
-        <td class="center b1">${esc(l.DESCRIPTION || '')}</td>
+        <td class="center b1">${esc(ctx.commodityDescription?.(l.ID_COMMODITIES) || l.DESCRIPTION || '')}</td>
         <td class="center b1">${fmtQty(l.QUANTITY ?? 0)}</td>
         <td class="center b1">${TEMP_RANGE}</td>
         <td class="center b1"></td>

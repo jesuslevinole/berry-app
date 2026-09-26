@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useAppConfig } from '../../context/AppConfigContext';
 import { where } from 'firebase/firestore';
 import { useCatalog } from '../../hooks/useCatalog';
+import { useInventoryItems } from '../../hooks/useInventoryItems';
 import { useCollection } from '../../hooks/useCollection';
 import { isAutoLot, nextLotForGrower } from '../../services/lotNumberService';
 import type { SystemUser } from '../../types/models';
@@ -33,9 +34,8 @@ export function PurchaseOrderForm({ open, initial, onClose }: PurchaseOrderFormP
   const { missingRequired } = useAppConfig();
   const growers = useCatalog(COLLECTIONS.GROWER, 'NAME_GROWER');
   const { data: growerDocs } = useCollection<{ id: string; PREFIX_GROWER?: string }>(COLLECTIONS.GROWER);
-  const { data: commodityDocs } = useCollection<{ id: string; DESCRIPTION_COMMODITIES?: string }>(COLLECTIONS.COMMODITIES);
-  const descriptionOf = (id: string): string =>
-    (commodityDocs.find((c) => c.id === id)?.DESCRIPTION_COMMODITIES ?? '').trim();
+  /* Descripcion del catalogo de Commodities (acepta ID de documento o ID_COMMODITIES). */
+  const { descriptionOf } = useInventoryItems();
   const customers = useCatalog(COLLECTIONS.CUSTOMER, 'NAME_CUSTOMER');
   const { data: systemUsers } = useCollection<SystemUser>(COLLECTIONS.SYSTEM_USERS);
   const carriers = useCatalog(COLLECTIONS.CARRIER, 'NAME_CARRIER');

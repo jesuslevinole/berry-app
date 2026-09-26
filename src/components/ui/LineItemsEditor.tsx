@@ -45,7 +45,7 @@ export function LineItemsEditor({
   maxQtyFor,
 }: LineItemsEditorProps) {
   /* Servicios y cargos (Temp Recorder, Freight...) no van amarrados a un lote. */
-  const { tracksInventory } = useInventoryItems();
+  const { tracksInventory, canonicalId } = useInventoryItems();
   const needsLot = (line: LineDraft): boolean => !line.ID_COMMODITIES || tracksInventory(line.ID_COMMODITIES);
   const capFor = (line: LineDraft, index: number): number | null =>
     maxQtyFor && needsLot(line) ? maxQtyFor(line, index) : null;
@@ -84,7 +84,7 @@ export function LineItemsEditor({
           )}
           <div className="line-editor__commodity">
             <CatalogSelect
-              value={line.ID_COMMODITIES}
+              value={canonicalId(line.ID_COMMODITIES)}
               onChange={(id) =>
                 patch(index, {
                   ID_COMMODITIES: id,

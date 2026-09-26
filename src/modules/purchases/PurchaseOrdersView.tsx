@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useCollection } from '../../hooks/useCollection';
 import { useCatalog } from '../../hooks/useCatalog';
+import { useInventoryItems } from '../../hooks/useInventoryItems';
 import { limit } from 'firebase/firestore';
 import { READ_LIMIT } from '../../config/limits';
 import { COLLECTIONS, type PurchaseOrder, type SystemUser, type SalesOrder, type PurchaseDetail } from '../../types/models';
@@ -34,6 +35,7 @@ export function PurchaseOrdersView() {
   const carriers = useCatalog(COLLECTIONS.CARRIER, 'NAME_CARRIER');
   const paymentTermsCat = useCatalog(COLLECTIONS.PAYMENTTERM, 'NAME_PAYMENTTERM');
   const commodities = useCatalog(COLLECTIONS.COMMODITIES, 'NAME_COMMODITIES');
+  const { descriptionOf } = useInventoryItems();
   const { data: customerDocs } = useCollection<{ id: string; ADDRESS_CUSTOMER?: string; CITY_CUSTOMER?: string }>(COLLECTIONS.CUSTOMER);
   const { company } = useCompany();
   const { data: salesOrders } = useCollection<SalesOrder>(COLLECTIONS.SALES_ORDER);
@@ -137,6 +139,7 @@ export function PurchaseOrdersView() {
       salesPerson: buyerName(po.ID_USERS),
       payTerms: po.ID_PAYMENTTERM ? paymentTermsCat.nameOf(po.ID_PAYMENTTERM) : '',
       commodityName: (id) => commodities.nameOf(id),
+      commodityDescription: descriptionOf,
     });
   };
 

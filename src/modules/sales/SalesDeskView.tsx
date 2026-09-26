@@ -4,6 +4,7 @@ import { limit } from 'firebase/firestore';
 import { READ_LIMIT } from '../../config/limits';
 import { useCollection } from '../../hooks/useCollection';
 import { useCatalog, type CatalogOption } from '../../hooks/useCatalog';
+import { useInventoryItems } from '../../hooks/useInventoryItems';
 import { deleteDocument, listDocuments, updateDocument, where } from '../../services/firestore';
 import { COLLECTIONS, type PurchaseOrder, type SalesOrder, type SystemUser, type SalesOrderDetail, type PaymentSales } from '../../types/models';
 import { byNewest, fmtDate, fmtMoney, round2 } from '../../utils/format';
@@ -38,6 +39,7 @@ export function SalesDeskView() {
   const termShipping = useCatalog(COLLECTIONS.TERMSHIPPING, 'NAME_TERMSHIPPING');
   const paymentTermsCat = useCatalog(COLLECTIONS.PAYMENTTERM, 'NAME_PAYMENTTERM');
   const commodities = useCatalog(COLLECTIONS.COMMODITIES, 'NAME_COMMODITIES');
+  const { descriptionOf } = useInventoryItems();
   const { data: customerDocs } = useCollection<{ id: string; ADDRESS_CUSTOMER?: string; CITY_CUSTOMER?: string }>(COLLECTIONS.CUSTOMER);
   const { data: supplierDocs } = useCollection<{ id: string; ADDRESS_SUPPLIERS?: string; PHONE_SUPPLIERS?: string }>(COLLECTIONS.SUPPLIERS);
   const { data: locationDocs } = useCollection<{ id: string; ADDRESS_LOCATIONS?: string; PHONE_LOCATIONS?: string }>(COLLECTIONS.LOCATIONS);
@@ -180,6 +182,7 @@ export function SalesDeskView() {
       warehousePhone: warehouseDoc?.PHONE_LOCATIONS ?? supplierDoc?.PHONE_SUPPLIERS ?? '',
       lotOf: (id) => lotMap.get(id) ?? '',
       commodityName: (id) => commodities.nameOf(id),
+      commodityDescription: descriptionOf,
     };
   };
 

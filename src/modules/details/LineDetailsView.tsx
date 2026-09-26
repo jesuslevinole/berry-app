@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useCollection } from '../../hooks/useCollection';
 import { useCatalog } from '../../hooks/useCatalog';
+import { useInventoryItems } from '../../hooks/useInventoryItems';
 import { Toolbar } from '../../components/ui/Toolbar';
 import { DataTable, type Column } from '../../components/ui/DataTable';
 import { SearchableSelect } from '../../components/ui/SearchableSelect';
@@ -47,6 +48,7 @@ export function PurchaseDetailsView({ embedded = false }: { embedded?: boolean }
   const { data: orders } = useCollection<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER);
   const { data: systemUsers } = useCollection<SystemUser>(COLLECTIONS.SYSTEM_USERS);
   const commodities = useCatalog(COLLECTIONS.COMMODITIES, 'NAME_COMMODITIES');
+  const { lineDescription } = useInventoryItems();
   const growers = useCatalog(COLLECTIONS.GROWER, 'NAME_GROWER');
   const legacyUsers = useCatalog(COLLECTIONS.USERS, 'EMAIL_USERS');
 
@@ -71,7 +73,7 @@ export function PurchaseDetailsView({ embedded = false }: { embedded?: boolean }
           date: po?.ARRIVAL_DATE ?? '',
           party: growers.nameOf(po?.ID_GROWER ?? ''),
           commodity: commodities.labelOf(line.ID_COMMODITIES),
-          description: line.DESCRIPTION ?? '',
+          description: lineDescription(line),
           quantity: round2(line.QUANTITY ?? 0),
           price: line.PRICE ?? 0,
           total: line.TOTAL ?? 0,
@@ -81,7 +83,7 @@ export function PurchaseDetailsView({ embedded = false }: { embedded?: boolean }
       .filter((r) => !commodityFilter || commodities.labelOf(commodityFilter) === r.commodity)
       .filter((r) => !term || [r.document, r.party, r.commodity, r.description].join(' ').toLowerCase().includes(term))
       .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? '') || b.document.localeCompare(a.document));
-  }, [lines, orders, growers, commodities, commodityFilter, search]);
+  }, [lines, orders, growers, commodities, lineDescription, commodityFilter, search]);
 
   const totals = useMemo(
     () => ({
@@ -166,6 +168,7 @@ export function SalesDetailsView({ embedded = false }: { embedded?: boolean }) {
   const { data: purchaseOrders } = useCollection<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER);
   const { data: systemUsers } = useCollection<SystemUser>(COLLECTIONS.SYSTEM_USERS);
   const commodities = useCatalog(COLLECTIONS.COMMODITIES, 'NAME_COMMODITIES');
+  const { lineDescription } = useInventoryItems();
   const customers = useCatalog(COLLECTIONS.CUSTOMER, 'NAME_CUSTOMER');
   const legacyUsers = useCatalog(COLLECTIONS.USERS, 'EMAIL_USERS');
 
@@ -193,7 +196,7 @@ export function SalesDetailsView({ embedded = false }: { embedded?: boolean }) {
           lot: lotOf.get(line.ID_PURCHASEORDER) || '\u2014',
           status: so?.STATUS ?? '\u2014',
           commodity: commodities.labelOf(line.ID_COMMODITIES),
-          description: line.DESCRIPTION ?? '',
+          description: lineDescription(line),
           quantity: round2(line.QUANTITY ?? 0),
           price: line.PRICE ?? 0,
           total: line.TOTAL ?? 0,
@@ -203,7 +206,7 @@ export function SalesDetailsView({ embedded = false }: { embedded?: boolean }) {
       .filter((r) => !commodityFilter || commodities.labelOf(commodityFilter) === r.commodity)
       .filter((r) => !term || [r.document, r.party, r.commodity, r.lot, r.description].join(' ').toLowerCase().includes(term))
       .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? '') || b.document.localeCompare(a.document));
-  }, [lines, orders, purchaseOrders, customers, commodities, commodityFilter, search]);
+  }, [lines, orders, purchaseOrders, customers, commodities, lineDescription, commodityFilter, search]);
 
   const totals = useMemo(
     () => ({

@@ -28,6 +28,8 @@ export interface PurchaseOrderPdfContext {
   /** Payment term del catalogo (vacio = fallback). */
   payTerms: string;
   commodityName: (id: string) => string;
+  /** Descripcion del catalogo de Commodities; manda sobre la guardada en la linea. */
+  commodityDescription?: (id: string) => string;
 }
 
 const esc = (value: string): string =>
@@ -62,7 +64,7 @@ export async function printPurchaseOrderPdf(
     .map(
       (line) => `
       <tr>
-        <td class="td">${esc(line.DESCRIPTION?.trim() || ctx.commodityName(line.ID_COMMODITIES))}</td>
+        <td class="td">${esc(ctx.commodityDescription?.(line.ID_COMMODITIES) || line.DESCRIPTION?.trim() || ctx.commodityName(line.ID_COMMODITIES))}</td>
         <td class="td num">${fmtUsd(line.QUANTITY ?? 0, 0)}</td>
         <td class="td center">${DEFAULT_UOM}</td>
         <td class="td num">${money(line.PRICE ?? 0, 6)}</td>

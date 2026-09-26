@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useAppConfig } from '../../context/AppConfigContext';
 import { where } from 'firebase/firestore';
 import { useCatalog, type CatalogOption } from '../../hooks/useCatalog';
+import { useInventoryItems } from '../../hooks/useInventoryItems';
 import { useCollection } from '../../hooks/useCollection';
 import { createDocument, deleteDocument, listDocuments, replaceChildren, updateDocument } from '../../services/firestore';
 import { COLLECTIONS, SALES_STATUSES, type PurchaseDetail, type SalesOrder, type SalesOrderDetail, type SalesStatus, type SystemUser } from '../../types/models';
@@ -43,10 +44,9 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
   const { missingRequired } = useAppConfig();
   const customers = useCatalog(COLLECTIONS.CUSTOMER, 'NAME_CUSTOMER');
   const { data: systemUsers } = useCollection<SystemUser>(COLLECTIONS.SYSTEM_USERS);
-  const { data: commodityDocs } = useCollection<{ id: string; DESCRIPTION_COMMODITIES?: string }>(COLLECTIONS.COMMODITIES);
   const { data: allSalesOrders } = useCollection<SalesOrder>(COLLECTIONS.SALES_ORDER);
-  const descriptionOf = (id: string): string =>
-    (commodityDocs.find((c) => c.id === id)?.DESCRIPTION_COMMODITIES ?? '').trim();
+  /* Descripcion del catalogo de Commodities (acepta ID de documento o ID_COMMODITIES). */
+  const { descriptionOf } = useInventoryItems();
   const buyerOptions = useMemo(
     () =>
       [...systemUsers]
@@ -102,21 +102,24 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
    */
   const availableFor = (line: LineDraft, index: number): number | null => {
     if (!line.ID_PURCHASEORDER || !line.ID_COMMODITIES) return null;
+    /* Mismo producto aunque una linea use el ID del documento y otra el de AppSheet. */
+    const sameCommodity = (other?: string): boolean =>
+      commodities.canonicalId(other) === commodities.canonicalId(line.ID_COMMODITIES);
     const purchased = allPurchaseDetails
-      .filter((d) => d.ID_PURCHASEORDER === line.ID_PURCHASEORDER && d.ID_COMMODITIES === line.ID_COMMODITIES)
+      .filter((d) => d.ID_PURCHASEORDER === line.ID_PURCHASEORDER && sameCommodity(d.ID_COMMODITIES))
       .reduce((acc, d) => acc + (d.QUANTITY ?? 0), 0);
     const cancelled = new Set(allSalesOrders.filter((so) => so.STATUS === 'Cancelled').map((so) => so.id));
     const soldElsewhere = allSalesDetails
       .filter(
         (d) =>
           d.ID_PURCHASEORDER === line.ID_PURCHASEORDER &&
-          d.ID_COMMODITIES === line.ID_COMMODITIES &&
+          sameCommodity(d.ID_COMMODITIES) &&
           d.ID_SALESORDER !== (initial?.id ?? '') &&
           !cancelled.has(d.ID_SALESORDER),
       )
       .reduce((acc, d) => acc + (d.QUANTITY ?? 0), 0);
     const inThisDraft = lines
-      .filter((l, i) => i !== index && l.ID_PURCHASEORDER === line.ID_PURCHASEORDER && l.ID_COMMODITIES === line.ID_COMMODITIES)
+      .filter((l, i) => i !== index && l.ID_PURCHASEORDER === line.ID_PURCHASEORDER && sameCommodity(l.ID_COMMODITIES))
       .reduce((acc, l) => acc + (l.QUANTITY ?? 0), 0);
     return Math.max(round2(purchased - soldElsewhere - inThisDraft), 0);
   };

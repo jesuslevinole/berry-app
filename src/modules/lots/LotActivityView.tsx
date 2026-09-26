@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useCollection } from '../../hooks/useCollection';
 import { useCatalog } from '../../hooks/useCatalog';
+import { useInventoryItems } from '../../hooks/useInventoryItems';
 import { SearchableSelect } from '../../components/ui/SearchableSelect';
 import { useAuth } from '../../context/AuthContext';
 import { Toolbar } from '../../components/ui/Toolbar';
@@ -31,6 +32,7 @@ export function LotActivityView() {
   const { data: salesOrders } = useCollection<SalesOrder>(COLLECTIONS.SALES_ORDER);
   const { data: salesDetails } = useCollection<SalesOrderDetail>(COLLECTIONS.SALES_ORDER_DETAIL);
   const commodities = useCatalog(COLLECTIONS.COMMODITIES, 'NAME_COMMODITIES');
+  const { lineDescription } = useInventoryItems();
   const customers = useCatalog(COLLECTIONS.CUSTOMER, 'NAME_CUSTOMER');
   const growers = useCatalog(COLLECTIONS.GROWER, 'NAME_GROWER');
 
@@ -272,7 +274,7 @@ export function LotActivityView() {
                       {group.lines.map((line) => (
                         <tr key={line.id}>
                           <td className="lot-activity__td lot-activity__td--strong">{commodities.nameOf(line.ID_COMMODITIES)}</td>
-                          <td className="lot-activity__td lot-activity__td--muted">{line.DESCRIPTION || '—'}</td>
+                          <td className="lot-activity__td lot-activity__td--muted">{lineDescription(line) || '—'}</td>
                           <td className="lot-activity__td lot-activity__td--num">{line.QUANTITY}</td>
                           <td className="lot-activity__td lot-activity__td--num">{fmtMoney(line.PRICE)}</td>
                           <td className="lot-activity__td lot-activity__td--num lot-activity__td--strong">{fmtMoney(line.TOTAL)}</td>
