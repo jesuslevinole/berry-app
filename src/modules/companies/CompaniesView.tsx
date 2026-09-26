@@ -188,7 +188,7 @@ export function CompaniesView() {
             </tr>
           </thead>
           <tbody>
-            {loading && <tr><td className="companies__empty" colSpan={5}>Loading\u2026</td></tr>}
+            {loading && <tr><td className="companies__empty" colSpan={5}>Loading…</td></tr>}
             {!loading && rows.length === 0 && (
               <tr><td className="companies__empty" colSpan={5}>No companies yet. Create the first one.</td></tr>
             )}
@@ -262,7 +262,7 @@ export function CompaniesView() {
             <input className="input" value={draft.name} onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))} />
           </FormField>
           <FormField label="Code">
-            <input className="input" value={draft.code} placeholder="BERRY, GATOR\u2026" onChange={(e) => setDraft((d) => ({ ...d, code: e.target.value }))} />
+            <input className="input" value={draft.code} placeholder="BERRY, GATOR…" onChange={(e) => setDraft((d) => ({ ...d, code: e.target.value }))} />
           </FormField>
           <FormField label="Status">
             <select className="input" value={draft.status} onChange={(e) => setDraft((d) => ({ ...d, status: e.target.value as Company['status'] }))}>

@@ -1,0 +1,17 @@
+/* Modales de edicion rapida (lineas y pagos) desde las pestanas de detalle. */
+.record-edit__muted {
+  color: var(--text);
+  font-size: 0.875rem;
+  padding: 0.5rem 0;
+}
+
+.record-edit__total {
+  margin: 1rem 0 0;
+  text-align: right;
+  color: var(--text);
+}
+
+.record-edit__total b {
+  color: var(--text-h);
+  margin-left: 0.5rem;
+}

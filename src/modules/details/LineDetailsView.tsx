@@ -6,6 +6,9 @@ import { useInventoryItems } from '../../hooks/useInventoryItems';
 import { Toolbar } from '../../components/ui/Toolbar';
 import { DataTable, type Column } from '../../components/ui/DataTable';
 import { SearchableSelect } from '../../components/ui/SearchableSelect';
+import { LineEditModal, type EditableLine } from '../../components/ui/RecordEditModals';
+import { deleteDocument } from '../../services/firestore';
+import { syncPurchaseOrderTotals, syncSalesOrderTotals } from '../../services/orderTotalsService';
 import { PurchaseOrderDetailPanel } from '../purchases/PurchaseOrderDetailPanel';
 import { SalesOrderDetailPanel } from '../sales/SalesOrderDetailPanel';
 import { fmtMoney, round2 } from '../../utils/format';
@@ -55,6 +58,7 @@ export function PurchaseDetailsView({ embedded = false }: { embedded?: boolean }
   const [search, setSearch] = useState('');
   const [commodityFilter, setCommodityFilter] = useState('');
   const [viewing, setViewing] = useState<PurchaseOrder | null>(null);
+  const [editingLine, setEditingLine] = useState<EditableLine | null>(null);
 
   const buyerName = useMemo(() => {
     const map = new Map(systemUsers.map((u) => [u.id, `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email]));
@@ -93,6 +97,30 @@ export function PurchaseDetailsView({ embedded = false }: { embedded?: boolean }
     [rows],
   );
 
+  /* ---- Editar / eliminar lineas sin abrir el lote ---- */
+  const editLine = (row: Row) => {
+    const line = lines.find((l) => l.id === row.id);
+    if (line) setEditingLine(line);
+  };
+
+  /** Borra lineas y recalcula los totales de sus lotes (sin preguntar: quien llama confirma). */
+  const deleteLines = async (targets: Row[]) => {
+    for (const row of targets) await deleteDocument(COLLECTIONS.PURCHASE_DETAILS, row.id);
+    const parents = [...new Set(targets.map((r) => r.parentId).filter(Boolean))];
+    if (parents.length > 0) void syncPurchaseOrderTotals(parents);
+  };
+
+  const removeLine = async (row: Row) => {
+    if (!window.confirm(`Delete this line (${row.commodity}, qty ${row.quantity}) from lot ${row.document}?`)) return;
+    try {
+      await deleteLines([row]);
+    } catch {
+      alert('The line could not be deleted. Try again.');
+    }
+  };
+
+  const removeSelected = (targets: Row[]) => deleteLines(targets);
+
   const columns: Column<Row>[] = [
     { key: 'document', header: 'Lot #', render: (r) => r.document },
     { key: 'date', header: 'Arrival', render: (r) => fmtDate(r.date) },
@@ -125,7 +153,7 @@ export function PurchaseDetailsView({ embedded = false }: { embedded?: boolean }
           <input
             className="input line-details__search"
             value={search}
-            placeholder="Search\u2026"
+            placeholder="Search…"
             onChange={(e) => setSearch(e.target.value)}
           />
         )}
@@ -135,7 +163,7 @@ export function PurchaseDetailsView({ embedded = false }: { embedded?: boolean }
             value={commodityFilter}
             onChange={setCommodityFilter}
             options={commodities.options}
-            placeholder="All commodities\u2026"
+            placeholder="All commodities…"
           />
         </div>
       </div>
@@ -149,7 +177,20 @@ export function PurchaseDetailsView({ embedded = false }: { embedded?: boolean }
           const po = orders.find((o) => o.id === row.parentId);
           if (po) setViewing(po);
         }}
+        onEdit={can('purchases', 'edit') ? editLine : undefined}
+        onDelete={can('purchases', 'delete') ? (row) => void removeLine(row) : undefined}
+        onBulkDelete={can('purchases', 'delete') ? removeSelected : undefined}
+        bulkLabel="purchase lines"
       />
+
+      {editingLine && (
+        <LineEditModal
+          collection={COLLECTIONS.PURCHASE_DETAILS}
+          line={editingLine}
+          onClose={() => setEditingLine(null)}
+          onSaved={() => editingLine.ID_PURCHASEORDER && void syncPurchaseOrderTotals([editingLine.ID_PURCHASEORDER])}
+        />
+      )}
 
       {viewing && can('purchases', 'view') && (
         <PurchaseOrderDetailPanel order={viewing} buyerName={buyerName} onClose={() => setViewing(null)} />
@@ -175,6 +216,7 @@ export function SalesDetailsView({ embedded = false }: { embedded?: boolean }) {
   const [search, setSearch] = useState('');
   const [commodityFilter, setCommodityFilter] = useState('');
   const [viewing, setViewing] = useState<SalesOrder | null>(null);
+  const [editingLine, setEditingLine] = useState<EditableLine | null>(null);
 
   const buyerName = useMemo(() => {
     const map = new Map(systemUsers.map((u) => [u.id, `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || u.email]));
@@ -217,6 +259,39 @@ export function SalesDetailsView({ embedded = false }: { embedded?: boolean }) {
   );
 
   type SalesRow = (typeof rows)[number];
+
+  /* Lotes para el select del modal de edicion (mas reciente primero). */
+  const lotOptions = useMemo(
+    () =>
+      [...purchaseOrders]
+        .sort((a, b) => (b.LOT_NUMBER ?? '').localeCompare(a.LOT_NUMBER ?? ''))
+        .map((po) => ({ id: po.id, name: po.LOT_NUMBER || po.REF_NUMBER || '(PO without lot #)' })),
+    [purchaseOrders],
+  );
+
+  /* ---- Editar / eliminar lineas sin abrir la orden ---- */
+  const editLine = (row: SalesRow) => {
+    const line = lines.find((l) => l.id === row.id);
+    if (line) setEditingLine(line);
+  };
+
+  /** Borra lineas y recalcula los totales de sus ordenes (sin preguntar: quien llama confirma). */
+  const deleteLines = async (targets: SalesRow[]) => {
+    for (const row of targets) await deleteDocument(COLLECTIONS.SALES_ORDER_DETAIL, row.id);
+    const parents = [...new Set(targets.map((r) => r.parentId).filter(Boolean))];
+    if (parents.length > 0) void syncSalesOrderTotals(parents);
+  };
+
+  const removeLine = async (row: SalesRow) => {
+    if (!window.confirm(`Delete this line (${row.commodity}, qty ${row.quantity}) from sales order ${row.document}?`)) return;
+    try {
+      await deleteLines([row]);
+    } catch {
+      alert('The line could not be deleted. Try again.');
+    }
+  };
+
+  const removeSelected = (targets: SalesRow[]) => deleteLines(targets);
   const columns: Column<SalesRow>[] = [
     { key: 'document', header: '# Sales order', render: (r) => r.document },
     { key: 'date', header: 'Date', render: (r) => fmtDate(r.date) },
@@ -250,7 +325,7 @@ export function SalesDetailsView({ embedded = false }: { embedded?: boolean }) {
           <input
             className="input line-details__search"
             value={search}
-            placeholder="Search\u2026"
+            placeholder="Search…"
             onChange={(e) => setSearch(e.target.value)}
           />
         )}
@@ -260,7 +335,7 @@ export function SalesDetailsView({ embedded = false }: { embedded?: boolean }) {
             value={commodityFilter}
             onChange={setCommodityFilter}
             options={commodities.options}
-            placeholder="All commodities\u2026"
+            placeholder="All commodities…"
           />
         </div>
       </div>
@@ -274,7 +349,24 @@ export function SalesDetailsView({ embedded = false }: { embedded?: boolean }) {
           const so = orders.find((o) => o.id === row.parentId);
           if (so) setViewing(so);
         }}
+        onEdit={can('sales', 'edit') ? editLine : undefined}
+        onDelete={can('sales', 'delete') ? (row) => void removeLine(row) : undefined}
+        onBulkDelete={can('sales', 'delete') ? removeSelected : undefined}
+        bulkLabel="sales lines"
       />
+
+      {editingLine && (
+        <LineEditModal
+          collection={COLLECTIONS.SALES_ORDER_DETAIL}
+          line={editingLine}
+          lotOptions={lotOptions}
+          onClose={() => setEditingLine(null)}
+          onSaved={() => {
+            const parent = lines.find((l) => l.id === editingLine.id)?.ID_SALESORDER;
+            if (parent) void syncSalesOrderTotals([parent]);
+          }}
+        />
+      )}
 
       {viewing && can('sales', 'view') && (
         <SalesOrderDetailPanel

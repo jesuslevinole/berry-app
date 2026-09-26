@@ -8,7 +8,8 @@ import { DataTable, type Column } from '../../components/ui/DataTable';
 import { DataPortButtons } from '../../components/ui/DataPortButtons';
 import { PAYMENT_BILL_SCHEMA, PAYMENT_PURCHASE_SCHEMA, PAYMENT_SALES_SCHEMA } from '../../config/entitySchemas';
 import { deleteDocument } from '../../services/firestore';
-import { syncSalesOrderTotals } from '../../services/orderTotalsService';
+import { syncExpenseTotals, syncPurchaseOrderTotals, syncSalesOrderTotals } from '../../services/orderTotalsService';
+import { PaymentEditModal, type EditablePayment } from '../../components/ui/RecordEditModals';
 import { SalesOrderDetailPanel } from '../sales/SalesOrderDetailPanel';
 import { READ_LIMIT } from '../../config/limits';
 import { fmtMoney, round2 } from '../../utils/format';
@@ -38,6 +39,10 @@ interface Row {
   amount: number;
   /** Orden de venta asociada, para abrir su detalle. */
   salesOrderId?: string;
+  /** Documento padre del pago (orden, lote o gasto), para recalcular su saldo. */
+  parentId: string;
+  /** Pago original, para el modal de edicion. */
+  source: EditablePayment;
 }
 
 const fmtDate = (iso?: string): string => {
@@ -65,6 +70,7 @@ export function PaymentsView({ kind = 'in', embedded = false, moduleId }: Props)
   const tab = kind;
   const [search, setSearch] = useState('');
   const [viewingSale, setViewingSale] = useState<SalesOrder | null>(null);
+  const [editingPayment, setEditingPayment] = useState<Row | null>(null);
 
   const { data: salesPayments, loading: loadingIn } = useCollection<PaymentSales>(COLLECTIONS.PAYMENT_SALES, [limit(READ_LIMIT)]);
   const { data: billPayments, loading: loadingOut } = useCollection<PaymentBill>(COLLECTIONS.PAYMENT_BILL, [limit(READ_LIMIT)]);
@@ -104,6 +110,8 @@ export function PaymentsView({ kind = 'in', embedded = false, moduleId }: Props)
         refNumber: p.REF_NUMBER ?? '',
         amount: p.AMOUNT ?? 0,
         salesOrderId: p.ID_SALESORDER,
+        parentId: p.ID_SALESORDER,
+        source: p,
       };
     });
 
@@ -119,6 +127,8 @@ export function PaymentsView({ kind = 'in', embedded = false, moduleId }: Props)
         checkNumber: p.CHECK_NUMBER ?? '',
         refNumber: p.REF_NUMBER ?? '',
         amount: p.AMOUNT ?? 0,
+        parentId: p.ID_EXPENSES,
+        source: p,
       };
     });
 
@@ -135,6 +145,8 @@ export function PaymentsView({ kind = 'in', embedded = false, moduleId }: Props)
         checkNumber: p.CHECK_NUMBER ?? '',
         refNumber: p.REF_NUMBER ?? '',
         amount: p.AMOUNT ?? 0,
+        parentId: p.ID_PURCHASEORDER,
+        source: p,
       };
     });
 
@@ -189,16 +201,21 @@ export function PaymentsView({ kind = 'in', embedded = false, moduleId }: Props)
     if (order) setViewingSale(order);
   };
 
-  /** Borra un pago y recalcula el saldo de su orden (sin preguntar). */
+  const collectionFor = (kind: Tab): string =>
+    kind === 'in' ? COLLECTIONS.PAYMENT_SALES : kind === 'po' ? COLLECTIONS.PAYMENT_PURCHASE : COLLECTIONS.PAYMENT_BILL;
+
+  /** Recalcula el saldo del documento padre (orden, lote o gasto) tras un cambio. */
+  const syncParent = (row: Row) => {
+    if (!row.parentId) return;
+    if (row.kind === 'in') void syncSalesOrderTotals([row.parentId]);
+    else if (row.kind === 'po') void syncPurchaseOrderTotals([row.parentId]);
+    else void syncExpenseTotals([row.parentId]);
+  };
+
+  /** Borra un pago y recalcula el saldo de su documento (sin preguntar). */
   const eliminarPago = async (row: Row) => {
-    const target =
-      row.kind === 'in'
-        ? COLLECTIONS.PAYMENT_SALES
-        : row.kind === 'po'
-          ? COLLECTIONS.PAYMENT_PURCHASE
-          : COLLECTIONS.PAYMENT_BILL;
-    await deleteDocument(target, row.id);
-    if (row.kind === 'in' && row.salesOrderId) void syncSalesOrderTotals([row.salesOrderId]);
+    await deleteDocument(collectionFor(row.kind), row.id);
+    syncParent(row);
   };
 
   const removeRow = async (row: Row) => {
@@ -236,7 +253,7 @@ export function PaymentsView({ kind = 'in', embedded = false, moduleId }: Props)
             <input
               className="input payments__search"
               value={search}
-              placeholder="Search\u2026"
+              placeholder="Search…"
               onChange={(e) => setSearch(e.target.value)}
             />
             {can(meta.moduleId, 'documents') && <DataPortButtons schemas={meta.schemas} fileName={meta.fileName} />}
@@ -250,6 +267,7 @@ export function PaymentsView({ kind = 'in', embedded = false, moduleId }: Props)
         loading={tab === 'in' ? loadingIn : tab === 'po' ? loadingPo : loadingOut}
         emptyMessage="No payments registered yet."
         onRowClick={tab === 'in' ? openRow : undefined}
+        onEdit={can(meta.moduleId, 'edit') ? setEditingPayment : undefined}
         onDelete={can(meta.moduleId, 'delete') ? (row) => void removeRow(row) : undefined}
         onBulkDelete={can(meta.moduleId, 'delete') ? eliminarSeleccionados : undefined}
         bulkLabel="payments"
@@ -262,6 +280,15 @@ export function PaymentsView({ kind = 'in', embedded = false, moduleId }: Props)
             ? 'Open a lot to add, edit or delete its payments; Amount paid updates on the spot.'
             : 'Expense payments are edited inside their expense.'}
       </p>
+
+      {editingPayment && (
+        <PaymentEditModal
+          collection={collectionFor(editingPayment.kind)}
+          payment={editingPayment.source}
+          onClose={() => setEditingPayment(null)}
+          onSaved={() => syncParent(editingPayment)}
+        />
+      )}
 
       {viewingSale && (
         <SalesOrderDetailPanel
