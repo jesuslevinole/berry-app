@@ -9,6 +9,17 @@ export interface CatalogFieldDef {
   format?: 'phone';
 }
 
+/** Interruptor on/off que se cambia directo desde la tabla del catalogo. */
+export interface CatalogToggleDef {
+  key: string;
+  /** Encabezado de la columna. */
+  label: string;
+  /** Texto accesible / tooltip del interruptor. */
+  title: string;
+  /** Valor cuando el registro no tiene el campo guardado. */
+  defaultOn: boolean;
+}
+
 export interface CatalogDef {
   collection: string;
   label: string;
@@ -19,6 +30,8 @@ export interface CatalogDef {
   extraFields: CatalogFieldDef[];
   /** Limite de registros permitidos (ej. Payment Terms = 1). */
   maxRecords?: number;
+  /** Interruptores booleanos editables desde la tabla. */
+  toggleFields?: CatalogToggleDef[];
 }
 
 /**
@@ -64,6 +77,9 @@ export const CATALOG_DEFS: CatalogDef[] = [
     nameField: 'NAME_COMMODITIES',
     nameLabel: 'Name',
     extraFields: [{ key: 'DESCRIPTION_COMMODITIES', label: 'Description', required: true }],
+    toggleFields: [
+      { key: 'SHOW_IN_INVENTORY', label: 'Show in inventory', title: 'Show in the Inventory summary', defaultOn: true },
+    ],
   },
   { collection: COLLECTIONS.SHIPVIA, label: 'Ship via', idField: 'ID_SHIPVIA', nameField: 'NAME_SHIPVIA', nameLabel: 'Name', extraFields: [] },
   { collection: COLLECTIONS.TERMSHIPPING, label: 'Shipping terms', idField: 'ID_TERMSHIPPING', nameField: 'NAME_TERMSHIPPING', nameLabel: 'Name', extraFields: [] },

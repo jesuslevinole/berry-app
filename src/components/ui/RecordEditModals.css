@@ -1,6 +1,6 @@
 /* Modales de edicion rapida (lineas y pagos) desde las pestanas de detalle. */
 .record-edit__muted {
-  color: var(--text);
+  color: var(--muted);
   font-size: 0.875rem;
   padding: 0.5rem 0;
 }
@@ -8,10 +8,10 @@
 .record-edit__total {
   margin: 1rem 0 0;
   text-align: right;
-  color: var(--text);
+  color: var(--muted);
 }
 
 .record-edit__total b {
-  color: var(--text-h);
+  color: var(--ink);
   margin-left: 0.5rem;
 }

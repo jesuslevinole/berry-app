@@ -9,8 +9,9 @@ import { Toolbar } from '../../components/ui/Toolbar';
 import { confirmClose, Modal } from '../../components/ui/Modal';
 import { FormField, FormGrid } from '../../components/ui/FormField';
 import { DataPortButtons } from '../../components/ui/DataPortButtons';
+import { ToggleSwitch } from '../../components/ui/ToggleSwitch';
 import type { EntitySchema } from '../../config/entitySchemas';
-import { CATALOG_DEFS, type CatalogDef } from './catalogConfig';
+import { CATALOG_DEFS, type CatalogDef, type CatalogToggleDef } from './catalogConfig';
 import './CatalogsView.css';
 
 type CatalogDoc = BaseDoc & Record<string, unknown>;
@@ -22,6 +23,8 @@ export function CatalogsView() {
   const [editing, setEditing] = useState<CatalogDoc | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [draft, setDraft] = useState<Record<string, string>>({});
+  /* Interruptor en curso ("<id>:<campo>") para bloquearlo mientras guarda. */
+  const [togglingKey, setTogglingKey] = useState('');
 
   const { data, loading } = useCollection<CatalogDoc>(def.collection);
 
@@ -100,12 +103,41 @@ export function CatalogsView() {
     );
   };
 
+  const isToggleOn = (row: CatalogDoc, field: CatalogToggleDef): boolean =>
+    typeof row[field.key] === 'boolean' ? (row[field.key] as boolean) : field.defaultOn;
+
+  /** Cambia el interruptor directo en Firestore; la tabla se actualiza por onSnapshot. */
+  const toggleField = async (row: CatalogDoc, field: CatalogToggleDef) => {
+    const key = `${row.id}:${field.key}`;
+    setTogglingKey(key);
+    try {
+      await updateDocument(def.collection, row.id, { [field.key]: !isToggleOn(row, field) });
+    } catch (error: unknown) {
+      alert(`Failed to save: ${(error as Error).message ?? 'Unknown error'}`);
+    } finally {
+      setTogglingKey('');
+    }
+  };
+
   const columns: Array<Column<CatalogDoc>> = [
     { key: def.nameField, header: def.nameLabel, render: (row) => String(row[def.nameField] ?? '') },
     ...def.extraFields.map<Column<CatalogDoc>>((field) => ({
       key: field.key,
       header: field.label,
       render: (row) => String(row[field.key] ?? '') || '—',
+    })),
+    ...(def.toggleFields ?? []).map<Column<CatalogDoc>>((field) => ({
+      key: field.key,
+      header: field.label,
+      align: 'center',
+      render: (row) => (
+        <ToggleSwitch
+          on={isToggleOn(row, field)}
+          label={`${field.title}: ${String(row[def.nameField] ?? '')}`}
+          disabled={!can('catalogs', 'edit') || togglingKey === `${row.id}:${field.key}`}
+          onToggle={() => void toggleField(row, field)}
+        />
+      ),
     })),
   ];
 

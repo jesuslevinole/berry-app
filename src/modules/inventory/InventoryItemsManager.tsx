@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Modal } from '../../components/ui/Modal';
+import { ToggleSwitch } from '../../components/ui/ToggleSwitch';
 import { updateDocument } from '../../services/firestore';
 import { useInventoryItems, type CommodityDoc } from '../../hooks/useInventoryItems';
 import { COLLECTIONS } from '../../types/models';
@@ -74,17 +75,12 @@ export function InventoryItemsManager({ open, onClose, canEdit }: Props) {
                     {on ? 'Counts in inventory · tied to a lot (PO)' : 'Service / charge · not tied to a lot'}
                   </span>
                 </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={on}
-                  aria-label={`Track inventory for ${item.NAME_COMMODITIES ?? 'product'}`}
-                  className={`inv-items__switch${on ? ' inv-items__switch--on' : ''}`}
+                <ToggleSwitch
+                  on={on}
+                  label={`Track inventory for ${item.NAME_COMMODITIES ?? 'product'}`}
                   disabled={!canEdit || savingId === item.id}
-                  onClick={() => void toggle(item)}
-                >
-                  <span className="inv-items__knob" />
-                </button>
+                  onToggle={() => void toggle(item)}
+                />
               </div>
             );
           })}

@@ -168,7 +168,7 @@ export function InventoryView() {
   const legacyUsers = useCatalog(COLLECTIONS.USERS, 'EMAIL_USERS');
   const { data: systemUsers } = useCollection<SystemUser>(COLLECTIONS.SYSTEM_USERS);
   /* Productos que llevan inventario (los servicios/cargos quedan fuera). */
-  const { tracksInventory, lineDescription } = useInventoryItems();
+  const { tracksInventory, showsInInventory, lineDescription } = useInventoryItems();
   const [itemsOpen, setItemsOpen] = useState(false);
 
   const [tab, setTab] = useState<InventoryTab>('stock');
@@ -314,9 +314,11 @@ export function InventoryView() {
       }))
       /* Sin stock ni comprometido: el producto no aparece. */
       .filter((row) => row.stock !== 0 || row.committed !== 0)
+      /* Oculto desde Catalogs > Commodities ("Show in inventory" apagado). */
+      .filter((row) => showsInInventory(row.commodityId))
       .filter((row) => !term || row.name.toLowerCase().includes(term))
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [inRows, shippedRows, committedRows, commodities, search]);
+  }, [inRows, shippedRows, committedRows, commodities, showsInInventory, search]);
 
   const stockTotals = useMemo(
     () => ({

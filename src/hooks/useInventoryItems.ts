@@ -14,6 +14,12 @@ export interface CommodityDoc extends BaseDoc {
    * Sin valor = si lleva inventario (comportamiento de siempre).
    */
   TRACK_INVENTORY?: boolean;
+  /**
+   * false = el producto NO aparece en el resumen de arriba del Inventory
+   * (solo visual: sigue contando y sus movimientos se ven igual).
+   * Sin valor = se muestra.
+   */
+  SHOW_IN_INVENTORY?: boolean;
 }
 
 const normKey = (value: string): string => value.trim().toLowerCase();
@@ -52,6 +58,12 @@ export function useInventoryItems() {
     [findCommodity],
   );
 
+  /** true si el producto se muestra en el resumen de arriba del Inventory. */
+  const showsInInventory = useMemo(
+    () => (commodityId?: string): boolean => findCommodity(commodityId)?.SHOW_IN_INVENTORY !== false,
+    [findCommodity],
+  );
+
   /** Descripcion del catalogo de Commodities ('' si no tiene o no existe). */
   const descriptionOf = useMemo(
     () => (commodityId?: string): string => (findCommodity(commodityId)?.DESCRIPTION_COMMODITIES ?? '').trim(),
@@ -65,5 +77,5 @@ export function useInventoryItems() {
     [descriptionOf],
   );
 
-  return { commodities, loading, tracksInventory, canonicalId, descriptionOf, lineDescription };
+  return { commodities, loading, tracksInventory, showsInInventory, canonicalId, descriptionOf, lineDescription };
 }
