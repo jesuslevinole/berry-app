@@ -515,6 +515,24 @@ export function InventoryView() {
           {kind === 'stock' && result.excess.length > 0 && salesTable(`Sales over their lot (${result.excess.length})`, result.excess, 'Short', 'bad')}
           {kind === 'available' && result.excess.length > 0 && salesTable(`Orders over their lot (${result.excess.length})`, result.excess, 'Short', 'bad')}
 
+          {/* Cuadre: los lotes con saldo menos lo vendido de mas en otros lotes = el numero de arriba. */}
+          {kind !== 'committed' && result.remaining.length > 0 && result.excess.length > 0 && (
+            <div className="inventory__bd-reconcile">
+              <div className="inventory__bd-reconcile-math">
+                <span>{kind === 'stock' ? 'Lots in stock' : 'Available lots'} <b>{fmtQty(sumOf(result.remaining))}</b></span>
+                <span className="inventory__bd-op">{MINUS}</span>
+                <span>Sold over their lot <b className="text-bad">{fmtQty(sumOf(result.excess))}</b></span>
+                <span className="inventory__bd-op">=</span>
+                <span>{kindLabel} <b>{fmtQty(value)}</b></span>
+              </div>
+              <p className="inventory__bd-reconcile-note">
+                Those {fmtQty(sumOf(result.excess))} units were sold from lots that had already run out, so they must have come
+                out of another lot. Until those lines are corrected (Data issues → Lot oversold), the lots above show a bit more
+                than what is really on the floor.
+              </p>
+            </div>
+          )}
+
           {kind === 'committed' &&
             salesTable(
               `Pending to load (${reserved.length})`,

@@ -50,6 +50,22 @@ const overdueDays = (dueDate: string): number | null => {
   return Math.round((due.getTime() - today.getTime()) / 86400000);
 };
 
+/** Dias de credito por defecto con los growers si el PO no trae payment term. */
+const DEFAULT_GROWER_TERM_DAYS = 21;
+
+/** yyyy-mm-dd + n dias. */
+const addDaysISO = (iso: string, days: number): string => {
+  const d = new Date(`${iso}T00:00:00`);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+};
+
+/** "21 Days" / "Net 30" -> 21 / 30. */
+const termDaysFrom = (name: string): number | null => {
+  const match = /\d+/.exec(name);
+  return match ? parseInt(match[0], 10) : null;
+};
+
 interface ExportColumn {
   header: string;
   values: (string | number)[];
@@ -146,6 +162,7 @@ export function ReportsView({ report }: ReportsViewProps) {
   const suppliers = useCatalog(COLLECTIONS.SUPPLIERS, 'NAME_SUPPLIERS');
   const categories = useCatalog(COLLECTIONS.CATEGORY_BILL, 'NAME');
   const legacyUsers = useCatalog(COLLECTIONS.USERS, 'EMAIL_USERS');
+  const paymentTerms = useCatalog(COLLECTIONS.PAYMENTTERM, 'NAME_PAYMENTTERM');
   const { data: systemUsers } = useCollection<SystemUser>(COLLECTIONS.SYSTEM_USERS);
 
   const term = search.trim().toLowerCase();
@@ -234,12 +251,37 @@ export function ReportsView({ report }: ReportsViewProps) {
   const queueTotal = round2(queueRows.reduce((acc, so) => acc + (so.TOTAL ?? 0), 0));
 
   /* ---- 2. A/P Growers: POs con saldo pendiente al grower, agrupadas por grower ---- */
+  /* Grower seleccionado en el panel izquierdo ('' = All), como en AppSheet. */
+  const [apGrower, setApGrower] = useState('');
+
+  /** Vencimiento del lote: llegada + dias del payment term (del PO o el de la empresa). */
+  const poDueDate = useMemo(() => {
+    const companyTerm = paymentTerms.options[0]?.name ?? '';
+    return (po: PurchaseOrder): string => {
+      if (!po.ARRIVAL_DATE) return '';
+      const termName = po.ID_PAYMENTTERM ? paymentTerms.nameOf(po.ID_PAYMENTTERM) : companyTerm;
+      const days = termDaysFrom(termName) ?? termDaysFrom(companyTerm) ?? DEFAULT_GROWER_TERM_DAYS;
+      return addDaysISO(po.ARRIVAL_DATE, days);
+    };
+  }, [paymentTerms]);
+
   const apGrowerGroups = useMemo(() => {
+    const today = todayISO();
     const pending = purchaseOrders
-      .map((po) => ({ po, balance: round2(po.BALANCE ?? (po.TOTAL ?? 0) - (po.AMOUNT_PAID ?? 0)) }))
+      .map((po) => {
+        const dueDate = poDueDate(po);
+        return {
+          po,
+          balance: round2(po.BALANCE ?? (po.TOTAL ?? 0) - (po.AMOUNT_PAID ?? 0)),
+          growerName: growers.nameOf(po.ID_GROWER),
+          dueDate,
+          /* Rojo: ya paso el due date y sigue sin pagarse. */
+          overdue: !!dueDate && dueDate < today,
+        };
+      })
       .filter((r) => r.balance > SETTLED)
       .filter((r) =>
-        matches(growers.nameOf(r.po.ID_GROWER), customers.nameOf(r.po.ID_CUSTOMER), r.po.LOT_NUMBER ?? '', r.po.REF_NUMBER ?? ''),
+        matches(r.growerName, customers.nameOf(r.po.ID_CUSTOMER), r.po.LOT_NUMBER ?? '', r.po.REF_NUMBER ?? ''),
       );
     const byGrower = new Map<string, typeof pending>();
     for (const row of pending) {
@@ -250,14 +292,37 @@ export function ReportsView({ report }: ReportsViewProps) {
       .map(([growerId, rows]) => ({
         growerId,
         growerName: growers.nameOf(growerId),
-        rows: rows.sort((a, b) => (b.po.LOT_NUMBER ?? '').localeCompare(a.po.LOT_NUMBER ?? '')),
+        /* Mas recientes arriba, por Arrival Date. */
+        rows: rows.sort(
+          (a, b) =>
+            (b.po.ARRIVAL_DATE ?? '').localeCompare(a.po.ARRIVAL_DATE ?? '') ||
+            (b.po.LOT_NUMBER ?? '').localeCompare(a.po.LOT_NUMBER ?? ''),
+        ),
         total: round2(rows.reduce((acc, r) => acc + r.balance, 0)),
+        overdue: rows.some((r) => r.overdue),
       }))
       .sort((a, b) => a.growerName.localeCompare(b.growerName));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [purchaseOrders, growers, customers, term]);
+  }, [purchaseOrders, growers, customers, poDueDate, term]);
 
   const apGrowersTotal = round2(apGrowerGroups.reduce((acc, g) => acc + g.total, 0));
+
+  /** Filas del grower elegido (o de todos), mas recientes arriba por Arrival Date. */
+  const apGrowerRows = useMemo(() => {
+    const groups = apGrower ? apGrowerGroups.filter((g) => g.growerId === apGrower) : apGrowerGroups;
+    return groups
+      .flatMap((g) => g.rows)
+      .sort(
+        (a, b) =>
+          (b.po.ARRIVAL_DATE ?? '').localeCompare(a.po.ARRIVAL_DATE ?? '') ||
+          (b.po.LOT_NUMBER ?? '').localeCompare(a.po.LOT_NUMBER ?? ''),
+      );
+  }, [apGrowerGroups, apGrower]);
+
+  const selectApGrower = (growerId: string) => {
+    setApGrower(growerId);
+    setPage(1);
+  };
 
   /* ---- 3. Accounts Payable: gastos con saldo pendiente (en cero salen de la lista) ---- */
   const apRows = useMemo(() => {
@@ -282,7 +347,12 @@ export function ReportsView({ report }: ReportsViewProps) {
         .map((so) => ({ so, ...saleBalance(so), days: overdueDays(so.DUE_DATE ?? '') }))
         .filter((r) => r.balance > SETTLED)
         .filter((r) => matches(r.so.SALES_ORDER_NUMBER ?? '', customers.nameOf(r.so.ID_CUSTOMER), r.so.REF ?? ''))
-        .sort((a, b) => (a.days ?? 0) - (b.days ?? 0)),
+        /* Mas recientes arriba (por fecha de la orden). */
+        .sort(
+          (a, b) =>
+            (b.so.DATE ?? '').localeCompare(a.so.DATE ?? '') ||
+            (b.so.SALES_ORDER_NUMBER ?? '').localeCompare(a.so.SALES_ORDER_NUMBER ?? ''),
+        ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [salesOrders, collectedBySale, customers, term],
   );
@@ -385,15 +455,17 @@ export function ReportsView({ report }: ReportsViewProps) {
         { header: 'Buyer', values: queueRows.map((so) => so.BUYER ?? '') },
       ]);
     } else if (report === 'apgrowers') {
-      const flat = apGrowerGroups.flatMap((g) => g.rows.map((r) => ({ g, r })));
+      const flat = apGrowerRows;
       void exportReport('AP Growers', [
-        { header: 'Grower', values: flat.map(({ g }) => g.growerName) },
-        { header: 'Vendor', values: flat.map(({ r }) => customers.nameOf(r.po.ID_CUSTOMER)) },
-        { header: 'Lot #', values: flat.map(({ r }) => r.po.LOT_NUMBER ?? '') },
-        { header: '# Ref', values: flat.map(({ r }) => r.po.REF_NUMBER ?? '') },
-        { header: 'Amount paid', values: flat.map(({ r }) => r.po.AMOUNT_PAID ?? 0) },
-        { header: 'Balance', values: flat.map(({ r }) => r.balance) },
-        { header: 'Arrival date', values: flat.map(({ r }) => fmtDate(r.po.ARRIVAL_DATE ?? '')) },
+        { header: 'Grower', values: flat.map((r) => r.growerName) },
+        { header: 'Vendor', values: flat.map((r) => customers.nameOf(r.po.ID_CUSTOMER)) },
+        { header: 'Lot #', values: flat.map((r) => r.po.LOT_NUMBER ?? '') },
+        { header: '# Ref', values: flat.map((r) => r.po.REF_NUMBER ?? '') },
+        { header: 'Amount paid', values: flat.map((r) => r.po.AMOUNT_PAID ?? 0) },
+        { header: 'Balance', values: flat.map((r) => r.balance) },
+        { header: 'Arrival date', values: flat.map((r) => fmtDate(r.po.ARRIVAL_DATE ?? '')) },
+        { header: 'Due date', values: flat.map((r) => fmtDate(r.dueDate)) },
+        { header: 'Overdue', values: flat.map((r) => (r.overdue ? 'Yes' : 'No')) },
       ]);
     } else if (report === 'ap') {
       void exportReport('Accounts Payable', apVisible.map((f) => ({
@@ -485,44 +557,79 @@ export function ReportsView({ report }: ReportsViewProps) {
             <span className="reports__chip">Pending to pay <b className="num">{fmtMoney(apGrowersTotal)}</b></span>
             <span className="reports__chip">{apGrowerGroups.reduce((acc, g) => acc + g.rows.length, 0)} purchase orders</span>
             <span className="reports__chip">{apGrowerGroups.length} growers</span>
+            {apGrowerRows.some((r) => r.overdue) && (
+              <span className="reports__chip reports__chip--bad">
+                {apGrowerRows.filter((r) => r.overdue).length} past due
+              </span>
+            )}
           </div>
-          <div className="reports__card">
-            <table className="reports__table">
-              <thead>
-                <tr>
-                  <th className="reports__th">Vendor</th>
-                  <th className="reports__th">Lot #</th>
-                  <th className="reports__th"># Ref</th>
-                  <th className="reports__th reports__th--num">Amount paid</th>
-                  <th className="reports__th reports__th--num">Balance</th>
-                  <th className="reports__th">Arrival date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {apGrowerGroups.length === 0 && (
-                  <tr><td className="reports__empty" colSpan={6}>Nothing pending to pay growers. All caught up.</td></tr>
-                )}
-                {apGrowerGroups.map((group) => (
-                  [
-                    <tr className="reports__group-row" key={`g-${group.growerId}`}>
-                      <td className="reports__group-cell" colSpan={4}>{group.growerName}</td>
-                      <td className="reports__group-cell reports__td--num">{fmtMoney(group.total)}</td>
-                      <td className="reports__group-cell" />
-                    </tr>,
-                    ...group.rows.map((r) => (
-                      <tr key={r.po.id} className="reports__row--click" onClick={() => openPurchase(r.po.id)} title="Open purchase order detail">
+
+          <div className="reports__ap">
+            {/* Panel de growers con saldo pendiente (como el de AppSheet). */}
+            <nav className="reports__ap-side" aria-label="Growers with pending balance">
+              <button
+                type="button"
+                className={`reports__ap-item${apGrower === '' ? ' reports__ap-item--active' : ''}`}
+                onClick={() => selectApGrower('')}
+              >
+                <span className="reports__ap-name">All</span>
+                <span className="reports__ap-pill">{fmtMoney(apGrowersTotal)}</span>
+              </button>
+              {apGrowerGroups.map((group) => (
+                <button
+                  key={group.growerId}
+                  type="button"
+                  className={`reports__ap-item${apGrower === group.growerId ? ' reports__ap-item--active' : ''}${group.overdue ? ' reports__ap-item--overdue' : ''}`}
+                  onClick={() => selectApGrower(group.growerId)}
+                  title={group.overdue ? 'Has unpaid lots past their due date' : undefined}
+                >
+                  <span className="reports__ap-name">{group.growerName}</span>
+                  <span className="reports__ap-pill">{fmtMoney(group.total)}</span>
+                </button>
+              ))}
+            </nav>
+
+            <div className="reports__ap-main">
+              <div className="reports__card">
+                <table className="reports__table">
+                  <thead>
+                    <tr>
+                      <th className="reports__th">Grower</th>
+                      <th className="reports__th">Vendor</th>
+                      <th className="reports__th">Lot #</th>
+                      <th className="reports__th"># Ref</th>
+                      <th className="reports__th reports__th--num">Amount paid</th>
+                      <th className="reports__th reports__th--num">Balance</th>
+                      <th className="reports__th">Arrival date</th>
+                      <th className="reports__th">Due date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {apGrowerRows.length === 0 && (
+                      <tr><td className="reports__empty" colSpan={8}>Nothing pending to pay growers. All caught up.</td></tr>
+                    )}
+                    {paginate(apGrowerRows).map((r) => (
+                      <tr
+                        key={r.po.id}
+                        className={`reports__row--click${r.overdue ? ' reports__row--overdue' : ''}`}
+                        onClick={() => openPurchase(r.po.id)}
+                        title={r.overdue ? 'Past due and not paid — open purchase order' : 'Open purchase order detail'}
+                      >
+                        <td className="reports__td">{r.growerName}</td>
                         <td className="reports__td">{customers.nameOf(r.po.ID_CUSTOMER)}</td>
                         <td className="reports__td reports__td--mono">{r.po.LOT_NUMBER}</td>
-                        <td className="reports__td reports__td--muted">{r.po.REF_NUMBER || '\u2014'}</td>
+                        <td className="reports__td">{r.po.REF_NUMBER || '\u2014'}</td>
                         <td className="reports__td reports__td--num">{fmtMoney(r.po.AMOUNT_PAID ?? 0)}</td>
-                        <td className="reports__td reports__td--num reports__td--bad">{fmtMoney(r.balance)}</td>
-                        <td className="reports__td reports__td--muted">{fmtDate(r.po.ARRIVAL_DATE ?? '')}</td>
+                        <td className="reports__td reports__td--num">{fmtMoney(r.balance)}</td>
+                        <td className="reports__td">{fmtDate(r.po.ARRIVAL_DATE ?? '')}</td>
+                        <td className="reports__td">{fmtDate(r.dueDate)}</td>
                       </tr>
-                    )),
-                  ]
-                ))}
-              </tbody>
-            </table>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {pagerFor(apGrowerRows.length)}
+            </div>
           </div>
         </>
       )}

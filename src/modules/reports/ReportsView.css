@@ -186,3 +186,74 @@
 .reports__pager-info,
 .reports__pager-page { font-size: 0.82rem; color: var(--muted); }
 .reports__pager-actions { display: flex; align-items: center; gap: 10px; }
+
+/* ---- A/P Growers: panel de growers + tabla (formato AppSheet) ---- */
+.reports__ap {
+  display: grid;
+  grid-template-columns: 230px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+.reports__ap-main { min-width: 0; }
+
+.reports__ap-side {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 8px;
+  position: sticky;
+  top: calc(var(--topbar-h) + 16px);
+  max-height: calc(100vh - var(--topbar-h) - 32px);
+  overflow-y: auto;
+}
+
+.reports__ap-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  border-radius: 8px;
+  padding: 8px 10px;
+  text-align: left;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--ink);
+  cursor: pointer;
+}
+.reports__ap-item:hover { background: var(--line); }
+.reports__ap-item--active { background: var(--line-strong); font-weight: 700; }
+.reports__ap-item--active:hover { background: var(--line-strong); }
+/* Grower con lotes vencidos sin pagar: en rojo, como en AppSheet. */
+.reports__ap-item--overdue { color: var(--bad); }
+
+.reports__ap-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.reports__ap-pill {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  background: var(--line);
+  border-radius: 6px;
+  padding: 2px 7px;
+}
+.reports__ap-item--active .reports__ap-pill { background: var(--surface); }
+
+/* Fila vencida y sin pagar: todo el texto en rojo. */
+.reports__row--overdue .reports__td { color: var(--bad); }
+
+@media (max-width: 900px) {
+  .reports__ap { grid-template-columns: minmax(0, 1fr); }
+  .reports__ap-side {
+    position: static;
+    flex-direction: row;
+    overflow-x: auto;
+    max-height: none;
+  }
+  .reports__ap-item { flex-shrink: 0; }
+}

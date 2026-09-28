@@ -403,3 +403,24 @@
 /* Boton "Data issues" cuando hay lineas por corregir. */
 .inventory__issues-btn--alert { color: var(--bad); border-color: var(--bad); }
 .inventory__issues-btn--alert:hover:not(:disabled) { background: var(--bad-bg); }
+
+/* Cuadre del desglose cuando hay lotes con saldo y ventas por encima de su lote. */
+.inventory__bd-reconcile {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--warn-bg);
+  border: 1px solid var(--line);
+}
+.inventory__bd-reconcile-math {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.9rem;
+  color: var(--ink);
+}
+.inventory__bd-reconcile-math b { margin-left: 6px; font-variant-numeric: tabular-nums; }
+.inventory__bd-reconcile-note { margin: 0; font-size: 0.8rem; color: var(--warn); line-height: 1.5; }
