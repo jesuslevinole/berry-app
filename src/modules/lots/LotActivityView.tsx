@@ -57,10 +57,11 @@ export function LotActivityView() {
     [purchaseDetails, lotId],
   );
 
-  const lotSalesLines = useMemo(
-    () => salesDetails.filter((d) => d.ID_PURCHASEORDER === lotId),
-    [salesDetails, lotId],
-  );
+  /* Ordenes canceladas no cuentan como vendidas (misma regla que Inventory). */
+  const lotSalesLines = useMemo(() => {
+    const cancelled = new Set(salesOrders.filter((so) => so.STATUS === 'Cancelled').map((so) => so.id));
+    return salesDetails.filter((d) => d.ID_PURCHASEORDER === lotId && !cancelled.has(d.ID_SALESORDER));
+  }, [salesDetails, salesOrders, lotId]);
 
   /* Ventas agrupadas por orden de venta, mas recientes primero. */
   const salesGroups = useMemo(() => {

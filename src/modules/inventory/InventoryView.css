@@ -399,3 +399,7 @@
 .inventory__bd-td { padding: 8px 14px; font-size: 0.85rem; border-bottom: 1px solid var(--line); }
 .inventory__bd-td--muted { color: var(--muted); }
 .inventory__bd-td--num { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+
+/* Boton "Data issues" cuando hay lineas por corregir. */
+.inventory__issues-btn--alert { color: var(--bad); border-color: var(--bad); }
+.inventory__issues-btn--alert:hover:not(:disabled) { background: var(--bad-bg); }

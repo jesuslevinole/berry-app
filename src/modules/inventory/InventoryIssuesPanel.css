@@ -1,0 +1,65 @@
+/* Panel de problemas de datos del inventario. */
+.inv-issues { display: flex; flex-direction: column; gap: 12px; }
+.inv-issues__hint,
+.inv-issues__help { margin: 0; font-size: 0.84rem; color: var(--muted); line-height: 1.5; }
+.inv-issues__help { padding: 10px 12px; border-radius: 8px; background: var(--warn-bg); color: var(--warn); }
+.inv-issues__ok { margin: 0; padding: 24px; text-align: center; color: var(--green-600); font-weight: 600; }
+
+.inv-issues__bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.inv-issues__filters { display: flex; gap: 6px; flex-wrap: wrap; }
+.inv-issues__filter {
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--muted);
+  border-radius: 16px;
+  padding: 5px 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.inv-issues__filter:hover { color: var(--ink); border-color: var(--green-600); }
+.inv-issues__filter--active { background: var(--green-600); border-color: var(--green-600); color: #ffffff; }
+.inv-issues__filter--active:hover { color: #ffffff; }
+
+.inv-issues__table-wrap {
+  max-height: min(480px, calc(100vh - 320px));
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.inv-issues__table { width: 100%; border-collapse: collapse; }
+.inv-issues__th {
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  text-align: left;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+.inv-issues__th--num,
+.inv-issues__td--num { text-align: right; font-variant-numeric: tabular-nums; }
+.inv-issues__th--actions,
+.inv-issues__td--actions { text-align: right; white-space: nowrap; }
+.inv-issues__td { padding: 9px 12px; border-bottom: 1px solid var(--line); font-size: 0.85rem; color: var(--ink); }
+.inv-issues__td--strong { font-weight: 600; }
+.inv-issues__muted { color: var(--muted); }
+
+.inv-issues__badge {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 10px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+  background: var(--warn-bg);
+  color: var(--warn);
+}
+.inv-issues__badge--lot-oversold,
+.inv-issues__badge--sale-no-order,
+.inv-issues__badge--purchase-no-order { background: var(--bad-bg); color: var(--bad); }

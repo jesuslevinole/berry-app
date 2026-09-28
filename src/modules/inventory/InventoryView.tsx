@@ -10,6 +10,8 @@ import { PurchaseOrderDetailPanel } from '../purchases/PurchaseOrderDetailPanel'
 import { SalesDeskView } from '../sales/SalesDeskView';
 import { InventoryItemsManager } from './InventoryItemsManager';
 import { useInventoryItems } from '../../hooks/useInventoryItems';
+import { allocateByLot, buildLedger, type LedgerOut } from './inventoryLedger';
+import { InventoryIssuesPanel } from './InventoryIssuesPanel';
 import { round2, todayISO } from '../../utils/format';
 import {
   COLLECTIONS,
@@ -26,17 +28,22 @@ type MovementType = 'all' | 'in' | 'out';
 type BreakdownRow = 'stock' | 'committed' | 'available';
 
 /**
- * Regla de inventario:
- * - Entradas (IN): lineas de Purchase Order.
- * - Salidas reales (OUT): lineas de ordenes de venta ya despachadas (Loaded).
+ * Regla de inventario (por lote, igual que Lot Activity):
+ * - Entradas (IN): lineas de Purchase Order cuyo PO existe.
+ * - Salidas reales (OUT): lineas de ordenes ya despachadas (Loaded), descontadas
+ *   del lote que indican. Si el producto de la venta no esta en su lote y el lote
+ *   tiene un solo producto, se descuenta el producto del lote (y se reporta).
  * - Committed: lineas de ordenes pendientes de cargar, no canceladas.
  * - STOCK = entradas - salidas.  AVAILABLE = STOCK - COMMITTED.
+ * Las lineas huerfanas (sin orden) no cuentan: aparecen en "Data issues".
  */
 interface MovementRow {
   id: string;
   type: 'in' | 'out';
   /** Id del documento origen (Purchase Order o Sales Order) para abrir su detalle. */
   sourceId: string;
+  /** Lote (PO) del movimiento: el propio PO en entradas, el lote de la linea en ventas ('' si no tiene). */
+  lotId: string;
   date: string;
   documentNumber: string;
   commodityId: string;
@@ -61,41 +68,6 @@ const fmtDate = (iso: string): string => {
 const fmtQty = (n: number): string => n.toLocaleString('en-US', { maximumFractionDigits: 2 });
 
 const MINUS = '\u2212';
-
-const byDateAsc = (a: MovementRow, b: MovementRow): number =>
-  (a.date ?? '').localeCompare(b.date ?? '') || a.documentNumber.localeCompare(b.documentNumber);
-
-/**
- * FIFO: las salidas consumen primero las entradas mas antiguas.
- * Devuelve lo que queda de cada entrada (el inventario actual, lote por lote)
- * y lo que sobra de las salidas cuando no alcanzo lo comprado (faltante).
- * Las cantidades negativas (creditos) se tratan como movimiento inverso.
- */
-function fifo(entries: MovementRow[], exits: MovementRow[]): { remaining: Allocation[]; excess: Allocation[] } {
-  const inRows = [
-    ...entries.filter((r) => r.quantity > 0),
-    ...exits.filter((r) => r.quantity < 0).map((r) => ({ ...r, quantity: -r.quantity })),
-  ].sort(byDateAsc);
-  const outRows = [
-    ...exits.filter((r) => r.quantity > 0),
-    ...entries.filter((r) => r.quantity < 0).map((r) => ({ ...r, quantity: -r.quantity })),
-  ].sort(byDateAsc);
-
-  const queue = inRows.map((row) => ({ row, qty: row.quantity }));
-  const excess: Allocation[] = [];
-  let cursor = 0;
-  for (const exit of outRows) {
-    let need = exit.quantity;
-    while (need > 0 && cursor < queue.length) {
-      const take = Math.min(queue[cursor].qty, need);
-      queue[cursor].qty = round2(queue[cursor].qty - take);
-      need = round2(need - take);
-      if (queue[cursor].qty <= 0) cursor += 1;
-    }
-    if (need > 0) excess.push({ row: exit, qty: need });
-  }
-  return { remaining: queue.filter((a) => a.qty > 0), excess };
-}
 
 /** Exporta el reporte de movimientos a Excel con el formato de marca. */
 async function exportMovements(rows: MovementRow[], commodityName: (id: string) => string): Promise<void> {
@@ -204,84 +176,75 @@ export function InventoryView() {
 
   /* Clasificacion de ordenes de venta por su estado real de inventario. */
   const salesById = useMemo(() => new Map(salesOrders.map((so) => [so.id, so])), [salesOrders]);
-  const isCancelled = (id: string): boolean => salesById.get(id)?.STATUS === 'Cancelled';
-  /**
-   * Una venta ya salio del almacen cuando esta palomeada como Loaded O cuando
-   * su estado ya paso de "pendiente de carga" (Loaded / Delivered / Paid).
-   */
-  const isLoaded = (id: string): boolean => {
-    const so = salesById.get(id);
-    if (!so) return false;
-    return !!so.LOADED || so.STATUS === 'Loaded' || so.STATUS === 'Delivered' || so.STATUS === 'Paid';
-  };
+
+  /** Libro por lote: entradas, salidas y problemas de datos. */
+  const ledger = useMemo(
+    () =>
+      buildLedger({
+        purchaseDetails,
+        purchaseOrderIds: new Set(purchaseOrders.map((po) => po.id)),
+        salesDetails,
+        salesById,
+        canonicalId: commodities.canonicalId,
+        tracksInventory,
+        /* Ya salio del almacen: palomeada Loaded o estado posterior a la carga. */
+        isLoaded: (so) => !!so.LOADED || so.STATUS === 'Loaded' || so.STATUS === 'Delivered' || so.STATUS === 'Paid',
+      }),
+    [purchaseDetails, purchaseOrders, salesDetails, salesById, commodities, tracksInventory],
+  );
+  const [issuesOpen, setIssuesOpen] = useState(false);
 
   /** Entradas: cada linea de Purchase Order es un ingreso al inventario. */
   const inRows = useMemo<MovementRow[]>(() => {
     const poById = new Map(purchaseOrders.map((po) => [po.id, po]));
-    return purchaseDetails
-      .filter((line) => line.ID_COMMODITIES && tracksInventory(line.ID_COMMODITIES))
-      .map((line) => {
-        const po = poById.get(line.ID_PURCHASEORDER);
-        return {
-          id: `in-${line.id}`,
-          type: 'in' as const,
-          sourceId: line.ID_PURCHASEORDER,
-          date: po?.ARRIVAL_DATE ?? '',
-          documentNumber: po?.LOT_NUMBER || po?.REF_NUMBER || '(no lot #)',
-          /* ID canonico: la misma columna aunque la linea use el ID de AppSheet. */
-          commodityId: commodities.canonicalId(line.ID_COMMODITIES),
-          description: lineDescription(line),
-          party: growers.nameOf(po?.ID_GROWER ?? ''),
-          quantity: round2(line.QUANTITY ?? 0),
-        };
-      });
-  }, [purchaseDetails, purchaseOrders, growers, tracksInventory, commodities, lineDescription]);
+    const lineById = new Map(purchaseDetails.map((l) => [l.id, l]));
+    return ledger.ins.map((entry) => {
+      const po = poById.get(entry.lotId);
+      const line = lineById.get(entry.lineId);
+      return {
+        id: `in-${entry.lineId}`,
+        type: 'in' as const,
+        sourceId: entry.lotId,
+        lotId: entry.lotId,
+        date: po?.ARRIVAL_DATE ?? '',
+        documentNumber: po?.LOT_NUMBER || po?.REF_NUMBER || '(no lot #)',
+        commodityId: entry.commodityId,
+        description: line ? lineDescription(line) : '',
+        party: growers.nameOf(po?.ID_GROWER ?? ''),
+        quantity: entry.quantity,
+      };
+    });
+  }, [ledger, purchaseDetails, purchaseOrders, growers, lineDescription]);
 
-  const toSaleRow = (line: SalesOrderDetail, prefix: string): MovementRow => {
-    const so = salesById.get(line.ID_SALESORDER);
+  const toSaleRow = (out: LedgerOut, prefix: string): MovementRow => {
+    const so = salesById.get(out.line.ID_SALESORDER);
     return {
-      id: `${prefix}-${line.id}`,
+      id: `${prefix}-${out.line.id}`,
       type: 'out',
-      sourceId: line.ID_SALESORDER,
+      sourceId: out.line.ID_SALESORDER,
+      lotId: out.lotId,
       date: so?.DATE ?? '',
       documentNumber: so?.SALES_ORDER_NUMBER || '(no order #)',
-      commodityId: commodities.canonicalId(line.ID_COMMODITIES),
-      description: lineDescription(line),
+      /* Producto que realmente sale: el del lote cuando la linea no coincide. */
+      commodityId: out.commodityId,
+      description: lineDescription({ ...out.line, ID_COMMODITIES: out.commodityId }),
       party: customers.nameOf(so?.ID_CUSTOMER ?? ''),
-      quantity: round2(line.QUANTITY ?? 0),
+      quantity: out.quantity,
     };
   };
 
   /** Salidas reales: lineas de ordenes ya despachadas. */
   const shippedRows = useMemo<MovementRow[]>(
-    () =>
-      salesDetails
-        .filter(
-          (line) =>
-            line.ID_COMMODITIES &&
-            tracksInventory(line.ID_COMMODITIES) &&
-            !isCancelled(line.ID_SALESORDER) &&
-            isLoaded(line.ID_SALESORDER),
-        )
-        .map((line) => toSaleRow(line, 'out')),
+    () => ledger.outs.filter((out) => out.loaded).map((out) => toSaleRow(out, 'out')),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [salesDetails, salesById, customers, tracksInventory, commodities, lineDescription],
+    [ledger, salesById, customers, lineDescription],
   );
 
   /** Reservado: lineas de ordenes pendientes de cargar, no canceladas. */
   const committedRows = useMemo<MovementRow[]>(
-    () =>
-      salesDetails
-        .filter(
-          (line) =>
-            line.ID_COMMODITIES &&
-            tracksInventory(line.ID_COMMODITIES) &&
-            !isCancelled(line.ID_SALESORDER) &&
-            !isLoaded(line.ID_SALESORDER),
-        )
-        .map((line) => toSaleRow(line, 'com')),
+    () => ledger.outs.filter((out) => !out.loaded).map((out) => toSaleRow(out, 'com')),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [salesDetails, salesById, customers, tracksInventory, commodities, lineDescription],
+    [ledger, salesById, customers, lineDescription],
   );
 
   /* ---- Resumen de stock por producto ---- */
@@ -404,13 +367,14 @@ export function InventoryView() {
     const kindLabel = kind === 'stock' ? 'Stock' : kind === 'committed' ? 'Committed' : 'Available';
     const title = `${commodities.labelOf(commodityId)} \u2014 ${kindLabel}`;
 
-    /* Stock: las ventas despachadas consumen los lotes mas antiguos primero.
-       Available: ademas consumen las ordenes pendientes (committed). */
+    /* Cada venta consume su propio lote; las que no tienen lote, los mas antiguos.
+       Stock: solo despachadas. Available: ademas las pendientes (committed). */
+    const toAlloc = (r: MovementRow) => ({ row: r, lotId: r.lotId, date: r.date, quantity: r.quantity });
     const result =
       kind === 'stock'
-        ? fifo(entries, shipped)
+        ? allocateByLot(entries.map(toAlloc), shipped.map(toAlloc))
         : kind === 'available'
-          ? fifo(entries, [...shipped, ...reserved])
+          ? allocateByLot(entries.map(toAlloc), [...shipped, ...reserved].map(toAlloc))
           : { remaining: [] as Allocation[], excess: [] as Allocation[] };
 
     const docLink = (item: MovementRow) => (
@@ -537,20 +501,19 @@ export function InventoryView() {
           {kind !== 'committed' && (
             <p className="inventory__bd-note">
               {negative
-                ? kind === 'stock'
-                  ? 'More was shipped than purchased. These are the sales that go beyond the purchased quantity (oldest lots are used first).'
-                  : 'More is sold than there is in stock. These are the orders that go beyond what is on hand (oldest lots are used first).'
+                ? 'More was sold than purchased. Each sale takes from its own lot; the orders below took more than their lot had (or have no lot and nothing was left). Check them in Data issues.'
                 : kind === 'stock'
-                  ? 'Only the lots that make up the current stock are listed. Sales use the oldest lots first (FIFO).'
-                  : 'Only the lots still available after shipped and pending orders are listed (FIFO: oldest lots first).'}
+                  ? 'Lots that make up the current stock. Each sale takes from its own lot; sales without a lot use the oldest lots first.'
+                  : 'Lots still available after shipped and pending orders. Each sale takes from its own lot.'}
             </p>
           )}
 
-          {kind === 'stock' && !negative && lotsTable(`Lots in stock (${result.remaining.length})`, result.remaining, 'In stock')}
-          {kind === 'available' && !negative && lotsTable(`Available lots (${result.remaining.length})`, result.remaining, 'Available')}
+          {/* Pueden coexistir: un lote sobrevendido y otro con stock. Se muestran ambos. */}
+          {kind === 'stock' && result.remaining.length > 0 && lotsTable(`Lots in stock (${result.remaining.length})`, result.remaining, 'In stock')}
+          {kind === 'available' && result.remaining.length > 0 && lotsTable(`Available lots (${result.remaining.length})`, result.remaining, 'Available')}
 
-          {kind === 'stock' && negative && salesTable(`Sales over stock (${result.excess.length})`, result.excess, 'Short', 'bad')}
-          {kind === 'available' && negative && salesTable(`Orders over stock (${result.excess.length})`, result.excess, 'Short', 'bad')}
+          {kind === 'stock' && result.excess.length > 0 && salesTable(`Sales over their lot (${result.excess.length})`, result.excess, 'Short', 'bad')}
+          {kind === 'available' && result.excess.length > 0 && salesTable(`Orders over their lot (${result.excess.length})`, result.excess, 'Short', 'bad')}
 
           {kind === 'committed' &&
             salesTable(
@@ -574,6 +537,14 @@ export function InventoryView() {
           searchValue={search}
           onSearchChange={setSearch}
         >
+          <button
+            type="button"
+            className={`btn btn--secondary${ledger.issues.length > 0 ? ' inventory__issues-btn--alert' : ''}`}
+            onClick={() => setIssuesOpen(true)}
+            title="Sales and purchase lines that make the inventory disagree with Lot Activity"
+          >
+            Data issues{ledger.issues.length > 0 ? ` (${ledger.issues.length})` : ''}
+          </button>
           <button type="button" className="btn btn--secondary" onClick={() => setItemsOpen(true)}>
             Inventory products
           </button>
@@ -753,6 +724,17 @@ export function InventoryView() {
       </section>
 
       {renderBreakdown()}
+
+      {issuesOpen && (
+        <InventoryIssuesPanel
+          issues={ledger.issues}
+          purchaseOrders={purchaseOrders}
+          salesOrders={salesOrders}
+          onOpenSale={(so) => setViewingSale(so)}
+          onOpenPurchase={(po) => setViewingPurchase(po)}
+          onClose={() => setIssuesOpen(false)}
+        />
+      )}
 
       <InventoryItemsManager
         open={itemsOpen}
