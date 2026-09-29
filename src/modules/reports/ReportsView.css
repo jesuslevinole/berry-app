@@ -257,3 +257,12 @@
   }
   .reports__ap-item { flex-shrink: 0; }
 }
+
+/* Columna de cobro ($) en Accounts Receivable. */
+.reports__th--pay,
+.reports__td--pay { width: 52px; text-align: center; }
+.reports__pay-btn { color: var(--green-600); }
+.reports__pay-btn:hover:not(:disabled) { color: var(--green-800); }
+/* En filas vencidas, el texto gris tambien pasa a rojo (menos la etiqueta de estado). */
+.reports__row--overdue .reports__td-inner--muted,
+.reports__row--overdue .reports__td-inner--mono { color: var(--bad); }

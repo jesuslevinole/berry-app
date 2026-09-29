@@ -8,6 +8,9 @@ import { Toolbar } from '../../components/ui/Toolbar';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { SalesOrderDetailPanel } from '../sales/SalesOrderDetailPanel';
 import { PurchaseOrderDetailPanel } from '../purchases/PurchaseOrderDetailPanel';
+import { PaymentsPanel } from '../payments/PaymentsPanel';
+import { Modal } from '../../components/ui/Modal';
+import { updateDocument } from '../../services/firestore';
 import { fmtMoney, round2, todayISO } from '../../utils/format';
 import { PAGE_SIZE } from '../../config/limits';
 import {
@@ -347,18 +350,55 @@ export function ReportsView({ report }: ReportsViewProps) {
         .map((so) => ({ so, ...saleBalance(so), days: overdueDays(so.DUE_DATE ?? '') }))
         .filter((r) => r.balance > SETTLED)
         .filter((r) => matches(r.so.SALES_ORDER_NUMBER ?? '', customers.nameOf(r.so.ID_CUSTOMER), r.so.REF ?? ''))
-        /* Mas recientes arriba (por fecha de la orden). */
+        /* Mas antiguas arriba: lo que se va venciendo queda primero (en rojo). */
         .sort(
           (a, b) =>
-            (b.so.DATE ?? '').localeCompare(a.so.DATE ?? '') ||
-            (b.so.SALES_ORDER_NUMBER ?? '').localeCompare(a.so.SALES_ORDER_NUMBER ?? ''),
+            (a.so.DATE ?? '').localeCompare(b.so.DATE ?? '') ||
+            (a.so.SALES_ORDER_NUMBER ?? '').localeCompare(b.so.SALES_ORDER_NUMBER ?? ''),
         ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [salesOrders, collectedBySale, customers, term],
   );
 
-  const arTotal = round2(arRows.reduce((acc, r) => acc + r.balance, 0));
-  const arOverdue = arRows.filter((r) => (r.days ?? 0) < 0).length;
+  /* Cliente seleccionado en el panel izquierdo ('' = All), como en AppSheet. */
+  const [arCustomer, setArCustomer] = useState('');
+
+  /** Clientes con saldo por cobrar, con su total y si tienen algo vencido. */
+  const arGroups = useMemo(() => {
+    const byCustomer = new Map<string, { total: number; overdue: boolean }>();
+    for (const r of arRows) {
+      const key = r.so.ID_CUSTOMER || '';
+      const prev = byCustomer.get(key) ?? { total: 0, overdue: false };
+      byCustomer.set(key, { total: round2(prev.total + r.balance), overdue: prev.overdue || (r.days ?? 0) < 0 });
+    }
+    return [...byCustomer.entries()]
+      .map(([customerId, g]) => ({ customerId, customerName: customers.nameOf(customerId), ...g }))
+      .sort((a, b) => a.customerName.localeCompare(b.customerName));
+  }, [arRows, customers]);
+
+  /** Filas del cliente elegido (o de todos). */
+  const arVisibleRows = useMemo(
+    () => (arCustomer ? arRows.filter((r) => (r.so.ID_CUSTOMER || '') === arCustomer) : arRows),
+    [arRows, arCustomer],
+  );
+
+  const selectArCustomer = (customerId: string) => {
+    setArCustomer(customerId);
+    setPage(1);
+  };
+
+  const arGrandTotal = round2(arRows.reduce((acc, r) => acc + r.balance, 0));
+  const arTotal = round2(arVisibleRows.reduce((acc, r) => acc + r.balance, 0));
+  const arOverdue = arVisibleRows.filter((r) => (r.days ?? 0) < 0).length;
+
+  /* Cobro directo desde AR (mismo panel de pagos que Sales Desk). */
+  const [payingSale, setPayingSale] = useState<SalesOrder | null>(null);
+  const handleSalePaid = async (so: SalesOrder, totalPaid: number) => {
+    await updateDocument<SalesOrder>(COLLECTIONS.SALES_ORDER, so.id, {
+      INCOMES: totalPaid,
+      BALANCE: round2((so.TOTAL ?? 0) - totalPaid),
+    });
+  };
 
   /* ---- 5. Expenses: todos los gastos con estado y fecha de pago ---- */
   const expenseRows = useMemo(() => {
@@ -461,6 +501,7 @@ export function ReportsView({ report }: ReportsViewProps) {
         { header: 'Vendor', values: flat.map((r) => customers.nameOf(r.po.ID_CUSTOMER)) },
         { header: 'Lot #', values: flat.map((r) => r.po.LOT_NUMBER ?? '') },
         { header: '# Ref', values: flat.map((r) => r.po.REF_NUMBER ?? '') },
+        { header: 'Total', values: flat.map((r) => r.po.TOTAL ?? 0) },
         { header: 'Amount paid', values: flat.map((r) => r.po.AMOUNT_PAID ?? 0) },
         { header: 'Balance', values: flat.map((r) => r.balance) },
         { header: 'Arrival date', values: flat.map((r) => fmtDate(r.po.ARRIVAL_DATE ?? '')) },
@@ -475,7 +516,7 @@ export function ReportsView({ report }: ReportsViewProps) {
     } else if (report === 'ar') {
       void exportReport('Accounts Receivable', arVisible.map((f) => ({
         header: f.label,
-        values: arRows.map((r) => AR_COLUMNS[f.key].excel(r)),
+        values: arVisibleRows.map((r) => AR_COLUMNS[f.key].excel(r)),
       })));
     } else {
       void exportReport('Expenses', [
@@ -598,6 +639,7 @@ export function ReportsView({ report }: ReportsViewProps) {
                       <th className="reports__th">Vendor</th>
                       <th className="reports__th">Lot #</th>
                       <th className="reports__th"># Ref</th>
+                      <th className="reports__th reports__th--num">Total</th>
                       <th className="reports__th reports__th--num">Amount paid</th>
                       <th className="reports__th reports__th--num">Balance</th>
                       <th className="reports__th">Arrival date</th>
@@ -606,7 +648,7 @@ export function ReportsView({ report }: ReportsViewProps) {
                   </thead>
                   <tbody>
                     {apGrowerRows.length === 0 && (
-                      <tr><td className="reports__empty" colSpan={8}>Nothing pending to pay growers. All caught up.</td></tr>
+                      <tr><td className="reports__empty" colSpan={9}>Nothing pending to pay growers. All caught up.</td></tr>
                     )}
                     {paginate(apGrowerRows).map((r) => (
                       <tr
@@ -619,6 +661,7 @@ export function ReportsView({ report }: ReportsViewProps) {
                         <td className="reports__td">{customers.nameOf(r.po.ID_CUSTOMER)}</td>
                         <td className="reports__td reports__td--mono">{r.po.LOT_NUMBER}</td>
                         <td className="reports__td">{r.po.REF_NUMBER || '\u2014'}</td>
+                        <td className="reports__td reports__td--num">{fmtMoney(r.po.TOTAL ?? 0)}</td>
                         <td className="reports__td reports__td--num">{fmtMoney(r.po.AMOUNT_PAID ?? 0)}</td>
                         <td className="reports__td reports__td--num">{fmtMoney(r.balance)}</td>
                         <td className="reports__td">{fmtDate(r.po.ARRIVAL_DATE ?? '')}</td>
@@ -671,33 +714,102 @@ export function ReportsView({ report }: ReportsViewProps) {
         <>
           <div className="reports__chips">
             <span className="reports__chip">Pending <b className="num">{fmtMoney(arTotal)}</b></span>
-            <span className="reports__chip">{arRows.length} orders</span>
+            <span className="reports__chip">{arVisibleRows.length} orders</span>
             <span className={`reports__chip${arOverdue > 0 ? ' reports__chip--bad' : ''}`}>{arOverdue} overdue</span>
           </div>
-          <div className="reports__card">
-            <table className="reports__table">
-              <thead>
-                <tr>
-                  {arVisible.map((f) => (
-                    <th key={f.key} className={`reports__th${AR_COLUMNS[f.key].numeric ? ' reports__th--num' : ''}`}>{f.label}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {arRows.length === 0 && (
-                  <tr><td className="reports__empty" colSpan={Math.max(arVisible.length, 1)}>Nothing pending to collect. All caught up.</td></tr>
-                )}
-                {paginate(arRows).map((r) => (
-                  <tr key={r.so.id} className="reports__row--click" onClick={() => setViewingSale(r.so)} title="Open sales order detail">
-                    {arVisible.map((f) => (
-                      <td key={f.key} className={`reports__td${AR_COLUMNS[f.key].numeric ? ' reports__td--num' : ''}`}>{AR_COLUMNS[f.key].render(r)}</td>
+
+          <div className="reports__ap">
+            {/* Panel de clientes con saldo por cobrar (como el de AppSheet). */}
+            <nav className="reports__ap-side" aria-label="Customers with pending balance">
+              <button
+                type="button"
+                className={`reports__ap-item${arCustomer === '' ? ' reports__ap-item--active' : ''}`}
+                onClick={() => selectArCustomer('')}
+              >
+                <span className="reports__ap-name">All</span>
+                <span className="reports__ap-pill">{fmtMoney(arGrandTotal)}</span>
+              </button>
+              {arGroups.map((group) => (
+                <button
+                  key={group.customerId}
+                  type="button"
+                  className={`reports__ap-item${arCustomer === group.customerId ? ' reports__ap-item--active' : ''}${group.overdue ? ' reports__ap-item--overdue' : ''}`}
+                  onClick={() => selectArCustomer(group.customerId)}
+                  title={group.overdue ? 'Has overdue orders' : undefined}
+                >
+                  <span className="reports__ap-name">{group.customerName}</span>
+                  <span className="reports__ap-pill">{fmtMoney(group.total)}</span>
+                </button>
+              ))}
+            </nav>
+
+            <div className="reports__ap-main">
+              <div className="reports__card">
+                <table className="reports__table">
+                  <thead>
+                    <tr>
+                      <th className="reports__th reports__th--pay" aria-label="Receive payment" />
+                      {arVisible.map((f) => (
+                        <th key={f.key} className={`reports__th${AR_COLUMNS[f.key].numeric ? ' reports__th--num' : ''}`}>{f.label}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {arVisibleRows.length === 0 && (
+                      <tr><td className="reports__empty" colSpan={arVisible.length + 1}>Nothing pending to collect. All caught up.</td></tr>
+                    )}
+                    {paginate(arVisibleRows).map((r) => (
+                      <tr
+                        key={r.so.id}
+                        className={`reports__row--click${(r.days ?? 0) < 0 ? ' reports__row--overdue' : ''}`}
+                        onClick={() => setViewingSale(r.so)}
+                        title={(r.days ?? 0) < 0 ? 'Overdue — open sales order detail' : 'Open sales order detail'}
+                      >
+                        <td className="reports__td reports__td--pay">
+                          <button
+                            type="button"
+                            className="btn btn--icon reports__pay-btn"
+                            aria-label={`Receive payment for sales order ${r.so.SALES_ORDER_NUMBER ?? ''}`}
+                            title="Receive payment"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPayingSale(r.so);
+                            }}
+                          >
+                            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8">
+                              <path d="M12 2v20M17 6.5c0-1.9-2.2-3-5-3s-5 1.1-5 3 2 2.7 5 3.4 5 1.5 5 3.6-2.2 3-5 3-5-1.1-5-3" />
+                            </svg>
+                          </button>
+                        </td>
+                        {arVisible.map((f) => (
+                          <td key={f.key} className={`reports__td${AR_COLUMNS[f.key].numeric ? ' reports__td--num' : ''}`}>{AR_COLUMNS[f.key].render(r)}</td>
+                        ))}
+                      </tr>
                     ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                  </tbody>
+                </table>
+              </div>
+              {pagerFor(arVisibleRows.length)}
+            </div>
           </div>
-          {pagerFor(arRows.length)}
+
+          {payingSale && (
+            <Modal
+              title={`Payments — Sales order ${payingSale.SALES_ORDER_NUMBER}`}
+              open
+              onClose={() => setPayingSale(null)}
+              wide
+            >
+              <PaymentsPanel
+                moduleId="sales"
+                collectionName={COLLECTIONS.PAYMENT_SALES}
+                parentField="ID_SALESORDER"
+                parentId={payingSale.id}
+                expectedTotal={payingSale.TOTAL ?? 0}
+                onTotalPaidChange={(totalPaid) => handleSalePaid(payingSale, totalPaid)}
+              />
+            </Modal>
+          )}
         </>
       )}
 
