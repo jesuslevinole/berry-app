@@ -11,6 +11,7 @@ import { PurchaseOrderDetailPanel } from '../purchases/PurchaseOrderDetailPanel'
 import { PaymentsPanel } from '../payments/PaymentsPanel';
 import { Modal } from '../../components/ui/Modal';
 import { updateDocument } from '../../services/firestore';
+import { expenseBalanceResolver, purchaseBalance, saleBalanceResolver, SETTLED } from '../../services/balances';
 import { fmtMoney, round2, todayISO } from '../../utils/format';
 import { PAGE_SIZE } from '../../config/limits';
 import {
@@ -34,9 +35,6 @@ const REPORT_META: Record<ReportId, { title: string; moduleId: string }> = {
   ar: { title: 'Accounts Receivable', moduleId: 'ar' },
   expenses: { title: 'Expenses Report', moduleId: 'expensesreport' },
 };
-
-/** Saldos menores a medio centavo se consideran liquidados. */
-const SETTLED = 0.005;
 
 /** yyyy-mm-dd -> m/d/yyyy (formato de Estados Unidos). */
 const fmtDate = (iso: string): string => {
@@ -182,37 +180,9 @@ export function ReportsView({ report }: ReportsViewProps) {
 
   /* ---- Saldos EN VIVO desde los pagos reales (los guardados pueden estar viejos) ---- */
 
-  /** Cobrado por orden de venta: suma de sus pagos. */
-  const collectedBySale = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const p of salesPayments) {
-      if (!p.ID_SALESORDER) continue;
-      map.set(p.ID_SALESORDER, round2((map.get(p.ID_SALESORDER) ?? 0) + (p.AMOUNT ?? 0)));
-    }
-    return map;
-  }, [salesPayments]);
-
-  /** Pagado por gasto: suma de sus pagos. */
-  const paidByExpense = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const p of billPayments) {
-      if (!p.ID_EXPENSES) continue;
-      map.set(p.ID_EXPENSES, round2((map.get(p.ID_EXPENSES) ?? 0) + (p.AMOUNT ?? 0)));
-    }
-    return map;
-  }, [billPayments]);
-
-  /** Saldo de una venta: total - cobrado (pagos reales; si no hay, el dato guardado). */
-  const saleBalance = (so: SalesOrder): { paid: number; balance: number } => {
-    const paid = collectedBySale.has(so.id) ? (collectedBySale.get(so.id) as number) : round2(so.INCOMES ?? 0);
-    return { paid, balance: round2((so.TOTAL ?? 0) - paid) };
-  };
-
-  /** Saldo de un gasto: monto - pagado (pagos reales; si no hay, el dato guardado). */
-  const expenseBalance = (e: Expense): { paid: number; balance: number } => {
-    const paid = paidByExpense.has(e.id) ? (paidByExpense.get(e.id) as number) : round2(e.PAY_AMOUNT ?? 0);
-    return { paid, balance: round2((e.AMOUNT ?? 0) - paid) };
-  };
+  /** Saldo de una venta / un gasto con los pagos reales (mismo calculo que el Dashboard). */
+  const saleBalance = useMemo(() => saleBalanceResolver(salesPayments), [salesPayments]);
+  const expenseBalance = useMemo(() => expenseBalanceResolver(billPayments), [billPayments]);
 
   /* Detalle abierto dentro de Reports (sin salir de la vista). */
   const [viewingSale, setViewingSale] = useState<SalesOrder | null>(null);
@@ -275,7 +245,7 @@ export function ReportsView({ report }: ReportsViewProps) {
         const dueDate = poDueDate(po);
         return {
           po,
-          balance: round2(po.BALANCE ?? (po.TOTAL ?? 0) - (po.AMOUNT_PAID ?? 0)),
+          balance: purchaseBalance(po),
           growerName: growers.nameOf(po.ID_GROWER),
           dueDate,
           /* Rojo: ya paso el due date y sigue sin pagarse. */
@@ -338,7 +308,7 @@ export function ReportsView({ report }: ReportsViewProps) {
       )
       .sort((a, b) => (a.e.DATE ?? '').localeCompare(b.e.DATE ?? ''));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [expenses, purchaseOrders, paidByExpense, suppliers, categories, term]);
+  }, [expenses, purchaseOrders, expenseBalance, suppliers, categories, term]);
 
   const apTotal = round2(apRows.reduce((acc, r) => acc + r.balance, 0));
 
@@ -357,7 +327,7 @@ export function ReportsView({ report }: ReportsViewProps) {
             (a.so.SALES_ORDER_NUMBER ?? '').localeCompare(b.so.SALES_ORDER_NUMBER ?? ''),
         ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [salesOrders, collectedBySale, customers, term],
+    [salesOrders, saleBalance, customers, term],
   );
 
   /* Cliente seleccionado en el panel izquierdo ('' = All), como en AppSheet. */
@@ -425,7 +395,7 @@ export function ReportsView({ report }: ReportsViewProps) {
       )
       .sort((a, b) => (b.e.DATE ?? '').localeCompare(a.e.DATE ?? ''));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [expenses, purchaseOrders, billPayments, paidByExpense, suppliers, categories, term]);
+  }, [expenses, purchaseOrders, billPayments, expenseBalance, suppliers, categories, term]);
 
   const expensesTotal = round2(expenseRows.reduce((acc, r) => acc + (r.e.AMOUNT ?? 0), 0));
   const expensesPending = round2(expenseRows.reduce((acc, r) => acc + Math.max(r.balance, 0), 0));
@@ -442,7 +412,7 @@ export function ReportsView({ report }: ReportsViewProps) {
 
   const AR_COLUMNS: Record<string, ReportColumn<ArRow>> = {
     'Date': { render: (r) => <span className="reports__td-inner--muted">{fmtDate(r.so.DATE ?? '')}</span>, excel: (r) => fmtDate(r.so.DATE ?? '') },
-    'Customer': { render: (r) => customers.nameOf(r.so.ID_CUSTOMER), excel: (r) => customers.nameOf(r.so.ID_CUSTOMER) },
+    'Customer': { render: (r) => <span className="reports__td-inner--nowrap">{customers.nameOf(r.so.ID_CUSTOMER)}</span>, excel: (r) => customers.nameOf(r.so.ID_CUSTOMER) },
     '# Sales order': { render: (r) => <span className="reports__td-inner--mono">{r.so.SALES_ORDER_NUMBER || '\u2014'}</span>, excel: (r) => r.so.SALES_ORDER_NUMBER ?? '' },
     'Ref': { render: (r) => <span className="reports__td-inner--muted">{r.so.REF || '\u2014'}</span>, excel: (r) => r.so.REF ?? '' },
     'Total': { numeric: true, render: (r) => fmtMoney(r.so.TOTAL ?? 0), excel: (r) => r.so.TOTAL ?? 0 },

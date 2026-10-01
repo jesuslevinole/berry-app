@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
 import { useCollection } from '../../hooks/useCollection';
 import { useCatalog } from '../../hooks/useCatalog';
-import { COLLECTIONS, type Expense, type PurchaseOrder, type SalesOrder } from '../../types/models';
-import { fmtDate, fmtMoney, round2 } from '../../utils/format';
+import { COLLECTIONS, type Expense, type PaymentBill, type PaymentSales, type PurchaseOrder, type SalesOrder } from '../../types/models';
+import { growersPayableTotal, payableTotal, receivableTotal } from '../../services/balances';
+import { fmtDate, fmtMoney } from '../../utils/format';
 import { DataTable, type Column } from '../../components/ui/DataTable';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import type { ViewKey } from '../../components/layout/AppLayout';
@@ -16,6 +17,9 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
   const { data: purchaseOrders } = useCollection<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER);
   const { data: salesOrders } = useCollection<SalesOrder>(COLLECTIONS.SALES_ORDER);
   const { data: expenses } = useCollection<Expense>(COLLECTIONS.EXPENSES);
+  /* Pagos reales: los saldos se calculan en vivo, igual que en los reportes. */
+  const { data: salesPayments } = useCollection<PaymentSales>(COLLECTIONS.PAYMENT_SALES);
+  const { data: billPayments } = useCollection<PaymentBill>(COLLECTIONS.PAYMENT_BILL);
   const customers = useCatalog(COLLECTIONS.CUSTOMER, 'NAME_CUSTOMER');
 
   const kpis = useMemo(
@@ -25,24 +29,27 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
         label: 'Purchase orders',
         count: purchaseOrders.length,
         amountLabel: 'Outstanding balance',
-        amount: round2(purchaseOrders.reduce((acc, po) => acc + (po.BALANCE ?? 0), 0)),
+        /* = A/P Growers */
+        amount: growersPayableTotal(purchaseOrders),
       },
       {
         key: 'sales' as ViewKey,
         label: 'Sales orders',
         count: salesOrders.length,
         amountLabel: 'Receivable',
-        amount: round2(salesOrders.reduce((acc, so) => acc + (so.BALANCE ?? 0), 0)),
+        /* = Accounts Receivable */
+        amount: receivableTotal(salesOrders, salesPayments),
       },
       {
         key: 'expenses' as ViewKey,
         label: 'Expenses',
         count: expenses.length,
         amountLabel: 'Payable',
-        amount: round2(expenses.reduce((acc, exp) => acc + (exp.BALANCE ?? 0), 0)),
+        /* = Accounts Payable */
+        amount: payableTotal(expenses, billPayments),
       },
     ],
-    [purchaseOrders, salesOrders, expenses],
+    [purchaseOrders, salesOrders, expenses, salesPayments, billPayments],
   );
 
   const recentSales = useMemo(

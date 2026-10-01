@@ -266,3 +266,5 @@
 /* En filas vencidas, el texto gris tambien pasa a rojo (menos la etiqueta de estado). */
 .reports__row--overdue .reports__td-inner--muted,
 .reports__row--overdue .reports__td-inner--mono { color: var(--bad); }
+/* Nombres de cliente en una sola linea (la tabla se desliza si no cabe). */
+.reports__td-inner--nowrap { white-space: nowrap; }
