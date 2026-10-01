@@ -8,6 +8,7 @@
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { tenantPath } from './tenant';
+import { liquidationDeduction } from './orderTotalsService';
 import { COLLECTIONS, type CompanyInfo, type Expense, type PurchaseOrder, type SalesOrderDetail } from '../types/models';
 
 const GREEN = '#6aa84f';
@@ -50,10 +51,10 @@ export async function printLiquidationReport(
     query(collection(db, tenantPath(COLLECTIONS.EXPENSES)), where('ID_PURCHASEORDER', '==', order.id)),
   );
   const expenseDocs: Expense[] = expSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Expense);
-  const deductible = expenseDocs.filter((e) => e.DEDUCT);
-  const expenses = deductible.length > 0
-    ? deductible.reduce((acc, e) => acc + (e.AMOUNT ?? 0), 0)
-    : (order.TOTAL_EXPENSES ?? order.EXPENSES ?? 0);
+  /* Misma regla que el Total del lote (orderTotalsService.liquidationDeduction). */
+  const flagged = expenseDocs.filter((e) => e.DEDUCT);
+  const deductible = flagged.length > 0 ? flagged : expenseDocs;
+  const expenses = liquidationDeduction(order, expenseDocs);
 
   /* Gastos agrupados por categoria, como en la liquidacion de AppSheet. */
   const catSnap = await getDocs(collection(db, tenantPath(COLLECTIONS.CATEGORY_BILL)));

@@ -23,6 +23,7 @@ import { PaymentsView } from '../payments/PaymentsView';
 import { printSalesInvoice, printPickTicket, printSalesOrderDoc, printBillOfLading, type SalesDocContext } from '../../services/salesDocumentsService';
 import { useCompany } from '../../hooks/useCompany';
 import { DocumentPicker } from '../../components/ui/DocumentPicker';
+import { syncAllSalesOrderTotals } from '../../services/orderTotalsService';
 import './SalesDeskView.css';
 
 export function SalesDeskView() {
@@ -54,6 +55,20 @@ export function SalesDeskView() {
   }, [systemUsers, legacyUsers]);
 
   const [search, setSearch] = useState('');
+
+  /** Repara en bloque Total / Paid / Balance de todas las ordenes desde lineas y pagos. */
+  const [recalcing, setRecalcing] = useState(false);
+  const handleRecalculate = async () => {
+    setRecalcing(true);
+    try {
+      const { checked, updated } = await syncAllSalesOrderTotals();
+      alert(`Totals recalculated from line items and payments.\n\nOrders checked: ${checked}\nOrders updated: ${updated}`);
+    } catch {
+      alert('Could not recalculate totals. Try again.');
+    } finally {
+      setRecalcing(false);
+    }
+  };
   /* Pestanas: ordenes o el detalle de todas sus lineas. */
   const [tab, setTab] = useState<'orders' | 'details' | 'payments'>('orders');
   /* Conteo de lineas para la pestana de detalle. */
@@ -226,6 +241,17 @@ export function SalesDeskView() {
     <div className="sales-desk">
       <Toolbar title="Sales Desk" subtitle={`${rows.length} orders`} searchValue={search} onSearchChange={setSearch}>
         {can('sales', 'documents') && <DataPortButtons schemas={SALES_SCHEMAS} fileName="sales-orders" />}
+        {can('sales', 'edit') && (
+          <button
+            type="button"
+            className="btn btn--secondary"
+            disabled={recalcing}
+            onClick={() => void handleRecalculate()}
+            title="Recalculate Total, Paid and Balance of every sales order from its line items and payments"
+          >
+            {recalcing ? 'Recalculating…' : 'Recalculate totals'}
+          </button>
+        )}
         {can('sales', 'add') && (
           <button
             type="button"

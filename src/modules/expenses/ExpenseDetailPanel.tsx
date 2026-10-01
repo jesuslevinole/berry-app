@@ -77,7 +77,7 @@ export function ExpenseDetailPanel({ expense, purchaseOrders, onClose, onEdit }:
           parentId={expense.id}
           payments={payments}
           moduleId="expenses"
-          onChanged={() => void syncExpenseTotals([expense.id])}
+          onChanged={() => void syncExpenseTotals([expense.id], true, { paymentsChanged: true })}
         />
       </DetailSection>
     </RecordDetail>

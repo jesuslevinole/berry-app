@@ -8,7 +8,7 @@ import { RecordDetail, DetailSection, type DetailField } from '../../components/
 import { InlineLineItems } from '../../components/ui/InlineLineItems';
 import { InlinePayments } from '../../components/ui/InlinePayments';
 import { FORM_DEFS } from '../../config/formDefs';
-import { COLLECTIONS, type PaymentPurchase, type PurchaseDetail, type PurchaseOrder } from '../../types/models';
+import { COLLECTIONS, type Expense, type PaymentPurchase, type PurchaseDetail, type PurchaseOrder } from '../../types/models';
 import { fmtMoney, round2 } from '../../utils/format';
 
 const fmtDate = (iso: string): string => {
@@ -63,13 +63,19 @@ export function PurchaseOrderDetailPanel({ order, buyerName, onClose, onEdit }: 
     [where('ID_PURCHASEORDER', '==', order.id)],
     order.id,
   );
-  const live = computePurchaseTotals(order, lines, [], payments);
+  /* Gastos del lote: se descuentan al grower (misma regla que el Liquidation Report). */
+  const { data: lotExpenses } = useCollection<Expense>(
+    COLLECTIONS.EXPENSES,
+    [where('ID_PURCHASEORDER', '==', order.id)],
+    order.id,
+  );
+  const live = computePurchaseTotals(order, lines, lotExpenses, payments);
   const subtotal = hasLines ? live.SUBTOTAL : (order.SUBTOTAL ?? 0);
   const commission = hasLines ? live.COMMISION_AMOUNT : (order.COMMISION_AMOUNT ?? 0);
   const total = hasLines ? live.TOTAL : (order.TOTAL ?? 0);
   const quantity = hasLines ? live.QUANTITY : (order.QUANTITY ?? 0);
-  /* Pagado en vivo: suma de los pagos del lote. */
-  const paid = payments.length > 0 ? live.AMOUNT_PAID : (order.AMOUNT_PAID ?? 0);
+  /* Pagado en vivo: suma de los pagos del lote (o lo guardado si no hay pagos registrados). */
+  const paid = live.AMOUNT_PAID;
   const balance = round2(total - paid);
 
   /* Autocuracion: si BD_PURCHASEORDER tiene totales desfasados respecto a sus
@@ -96,7 +102,7 @@ export function PurchaseOrderDetailPanel({ order, buyerName, onClose, onEdit }: 
         <div className="record-detail__stats">
           <div className="record-detail__stat"><span className="record-detail__stat-label">Subtotal</span><span className="record-detail__stat-value">{fmtMoney(subtotal)}</span></div>
           <div className="record-detail__stat"><span className="record-detail__stat-label">Commission</span><span className="record-detail__stat-value">{fmtMoney(commission)}</span></div>
-          <div className="record-detail__stat"><span className="record-detail__stat-label">Expenses</span><span className="record-detail__stat-value">{fmtMoney(order.EXPENSES ?? 0)}</span></div>
+          <div className="record-detail__stat"><span className="record-detail__stat-label">Expenses</span><span className="record-detail__stat-value">{fmtMoney(hasLines ? live.EXPENSES : (order.EXPENSES ?? 0))}</span></div>
           <div className="record-detail__stat record-detail__stat--highlight"><span className="record-detail__stat-label">Total</span><span className="record-detail__stat-value">{fmtMoney(total)}</span></div>
           <div className="record-detail__stat"><span className="record-detail__stat-label">Amount paid</span><span className="record-detail__stat-value">{fmtMoney(paid)}</span></div>
           <div className={`record-detail__stat${balance > 0 ? ' record-detail__stat--bad' : ''}`}><span className="record-detail__stat-label">Balance</span><span className="record-detail__stat-value">{fmtMoney(balance)}</span></div>
@@ -129,7 +135,7 @@ export function PurchaseOrderDetailPanel({ order, buyerName, onClose, onEdit }: 
           parentId={order.id}
           payments={payments}
           moduleId="purchases"
-          onChanged={() => void syncPurchaseOrderTotals([order.id])}
+          onChanged={() => void syncPurchaseOrderTotals([order.id], true, { paymentsChanged: true })}
         />
       </DetailSection>
     </RecordDetail>

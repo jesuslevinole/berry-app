@@ -14,8 +14,10 @@ import {
 
 /**
  * Totales de un lote calculados desde sus lineas de BD_PURCHASEDETAILS.
- * Regla del negocio: SUBTOTAL y QUANTITY salen de las lineas relacionadas por
- * ID_PURCHASEORDER; la comision aplica el % del lote y el balance descuenta lo pagado.
+ * Regla del negocio (la misma de la liquidacion que recibe el grower):
+ *   TOTAL   = SUBTOTAL - COMISION - GASTOS DEDUCIBLES   (lo que se le debe al grower)
+ *   BALANCE = TOTAL - PAGADO
+ * La comision es de Berry Source: se DESCUENTA al grower, no se le suma.
  */
 export interface PurchaseTotals {
   SUBTOTAL: number;
@@ -31,22 +33,48 @@ export interface PurchaseTotals {
   EXPENSES: number;
 }
 
+/** Opciones de recalculo. */
+export interface SyncOptions {
+  /**
+   * true = los pagos acaban de cambiar en el app (alta, edicion o borrado), asi
+   * que la suma de pagos manda aunque quede en 0. Por defecto, si el documento no
+   * tiene pagos registrados se conserva lo pagado guardado (dato de AppSheet).
+   */
+  paymentsChanged?: boolean;
+}
+
+/**
+ * Gastos que se descuentan al grower, con la misma regla que el Liquidation Report:
+ * los marcados Deduct; si ninguno esta marcado, todos los del lote; si el lote no
+ * tiene gastos registrados, el valor guardado (importado de AppSheet).
+ */
+export function liquidationDeduction(order: PurchaseOrder, expenses: Expense[]): number {
+  if (expenses.length === 0) return round2(order.TOTAL_EXPENSES ?? order.EXPENSES ?? 0);
+  const flagged = expenses.filter((e) => e.DEDUCT);
+  const source = flagged.length > 0 ? flagged : expenses;
+  return round2(source.reduce((acc, e) => acc + (e.AMOUNT ?? 0), 0));
+}
+
 export function computePurchaseTotals(
   order: PurchaseOrder,
   lines: PurchaseDetail[],
   expenses: Expense[] = [],
   payments: PaymentPurchase[] = [],
+  options: SyncOptions = {},
 ): PurchaseTotals {
   const subtotal = round2(lines.reduce((acc, l) => acc + (l.TOTAL ?? 0), 0));
   const quantity = round2(lines.reduce((acc, l) => acc + (l.QUANTITY ?? 0), 0));
   const commission = round2((subtotal * (order.COMMISION_PERCENT ?? 0)) / 100);
-  const total = round2(subtotal + commission);
-  /* Pagado: si el lote tiene pagos registrados manda la suma; si no, el valor guardado. */
-  const paid = payments.length > 0
+  const totalExpenses = expenses.length > 0
+    ? round2(expenses.reduce((acc, e) => acc + (e.AMOUNT ?? 0), 0))
+    : round2(order.TOTAL_EXPENSES ?? 0);
+  const deductible = liquidationDeduction(order, expenses);
+  /* Lo que se le debe al grower (Total liquidation). */
+  const total = round2(subtotal - commission - deductible);
+  /* Pagado: la suma de pagos manda si hay pagos (o si acaban de cambiar); si no, el valor guardado. */
+  const paid = payments.length > 0 || options.paymentsChanged
     ? round2(payments.reduce((acc, p) => acc + (p.AMOUNT ?? 0), 0))
     : round2(order.AMOUNT_PAID ?? 0);
-  const totalExpenses = round2(expenses.reduce((acc, e) => acc + (e.AMOUNT ?? 0), 0));
-  const deductible = round2(expenses.filter((e) => e.DEDUCT).reduce((acc, e) => acc + (e.AMOUNT ?? 0), 0));
   return {
     SUBTOTAL: subtotal,
     QUANTITY: quantity,
@@ -78,7 +106,7 @@ export function purchaseTotalsDiffer(order: PurchaseOrder, totals: PurchaseTotal
  * Recalcula y guarda los totales de los lotes indicados leyendo sus lineas.
  * Se usa tras importar CSV y al abrir el detalle (autocuracion).
  */
-export async function syncPurchaseOrderTotals(orderIds: string[], silent = true): Promise<number> {
+export async function syncPurchaseOrderTotals(orderIds: string[], silent = true, options: SyncOptions = {}): Promise<number> {
   const ids = [...new Set(orderIds.filter(Boolean))];
   if (ids.length === 0) return 0;
   const orders = await listDocuments<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER);
@@ -96,7 +124,7 @@ export async function syncPurchaseOrderTotals(orderIds: string[], silent = true)
     const payments = await listDocuments<PaymentPurchase>(COLLECTIONS.PAYMENT_PURCHASE, [
       where('ID_PURCHASEORDER', '==', orderId),
     ]);
-    const totals = computePurchaseTotals(order, lines, expenses, payments);
+    const totals = computePurchaseTotals(order, lines, expenses, payments, options);
     if (!purchaseTotalsDiffer(order, totals)) continue;
     await updateDocument<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER, orderId, totals, { silent });
     updated += 1;
@@ -146,8 +174,34 @@ export async function syncAllPurchaseOrderTotals(): Promise<{ checked: number; u
   return { checked: orders.length, updated };
 }
 
+/**
+ * Totales de una orden de venta: TOTAL = suma de lineas; cobrado = suma de pagos.
+ * Si la orden no tiene pagos registrados se conserva el INCOMES guardado (cobros de
+ * AppSheet que no se importaron como pagos), salvo que los pagos acaben de cambiar.
+ * Sin lineas se conserva el TOTAL guardado.
+ */
+export function computeSalesTotals(
+  order: SalesOrder,
+  lines: SalesOrderDetail[],
+  payments: PaymentSales[],
+  options: SyncOptions = {},
+): { TOTAL: number; INCOMES: number; BALANCE: number } {
+  const total = lines.length > 0 ? round2(lines.reduce((acc, l) => acc + (l.TOTAL ?? 0), 0)) : round2(order.TOTAL ?? 0);
+  const incomes = payments.length > 0 || options.paymentsChanged
+    ? round2(payments.reduce((acc, p) => acc + (p.AMOUNT ?? 0), 0))
+    : round2(order.INCOMES ?? 0);
+  return { TOTAL: total, INCOMES: incomes, BALANCE: round2(total - incomes) };
+}
+
+const salesDiffer = (order: SalesOrder, t: { TOTAL: number; INCOMES: number; BALANCE: number }): boolean =>
+  !(
+    Math.abs((order.TOTAL ?? 0) - t.TOTAL) < 0.01 &&
+    Math.abs((order.INCOMES ?? 0) - t.INCOMES) < 0.01 &&
+    Math.abs((order.BALANCE ?? 0) - t.BALANCE) < 0.01
+  );
+
 /** Recalcula TOTAL y BALANCE de las ordenes de venta indicadas. */
-export async function syncSalesOrderTotals(orderIds: string[], silent = true): Promise<number> {
+export async function syncSalesOrderTotals(orderIds: string[], silent = true, options: SyncOptions = {}): Promise<number> {
   const ids = [...new Set(orderIds.filter(Boolean))];
   if (ids.length === 0) return 0;
   const orders = await listDocuments<SalesOrder>(COLLECTIONS.SALES_ORDER);
@@ -159,33 +213,44 @@ export async function syncSalesOrderTotals(orderIds: string[], silent = true): P
     const lines = await listDocuments<SalesOrderDetail>(COLLECTIONS.SALES_ORDER_DETAIL, [
       where('ID_SALESORDER', '==', orderId),
     ]);
-    const total = round2(lines.reduce((acc, l) => acc + (l.TOTAL ?? 0), 0));
-    /* Cobrado: suma de los pagos registrados para la orden. */
     const payments = await listDocuments<PaymentSales>(COLLECTIONS.PAYMENT_SALES, [
       where('ID_SALESORDER', '==', orderId),
     ]);
-    const incomes = round2(payments.reduce((acc, p) => acc + (p.AMOUNT ?? 0), 0));
-    const balance = round2(total - incomes);
-    if (
-      Math.abs((order.TOTAL ?? 0) - total) < 0.01 &&
-      Math.abs((order.INCOMES ?? 0) - incomes) < 0.01 &&
-      Math.abs((order.BALANCE ?? 0) - balance) < 0.01
-    ) {
-      continue;
-    }
-    await updateDocument<SalesOrder>(
-      COLLECTIONS.SALES_ORDER,
-      orderId,
-      { TOTAL: total, INCOMES: incomes, BALANCE: balance },
-      { silent },
-    );
+    const totals = computeSalesTotals(order, lines, payments, options);
+    if (!salesDiffer(order, totals)) continue;
+    await updateDocument<SalesOrder>(COLLECTIONS.SALES_ORDER, orderId, totals, { silent });
     updated += 1;
   }
   return updated;
 }
 
+/** Recalcula TODAS las ordenes de venta de una pasada (reparacion en bloque). */
+export async function syncAllSalesOrderTotals(): Promise<{ checked: number; updated: number }> {
+  const orders = await listDocuments<SalesOrder>(COLLECTIONS.SALES_ORDER);
+  const allLines = await listDocuments<SalesOrderDetail>(COLLECTIONS.SALES_ORDER_DETAIL);
+  const allPayments = await listDocuments<PaymentSales>(COLLECTIONS.PAYMENT_SALES);
+  const group = <T,>(rows: T[], keyOf: (r: T) => string | undefined): Map<string, T[]> => {
+    const map = new Map<string, T[]>();
+    for (const r of rows) {
+      const k = keyOf(r);
+      if (k) map.set(k, [...(map.get(k) ?? []), r]);
+    }
+    return map;
+  };
+  const linesBy = group(allLines, (l) => l.ID_SALESORDER);
+  const paymentsBy = group(allPayments, (p) => p.ID_SALESORDER);
+  let updated = 0;
+  for (const order of orders) {
+    const totals = computeSalesTotals(order, linesBy.get(order.id) ?? [], paymentsBy.get(order.id) ?? []);
+    if (!salesDiffer(order, totals)) continue;
+    await updateDocument<SalesOrder>(COLLECTIONS.SALES_ORDER, order.id, totals, { silent: true });
+    updated += 1;
+  }
+  return { checked: orders.length, updated };
+}
+
 /** Recalcula pagado y saldo de los gastos indicados desde sus pagos. */
-export async function syncExpenseTotals(expenseIds: string[], silent = true): Promise<number> {
+export async function syncExpenseTotals(expenseIds: string[], silent = true, options: SyncOptions = {}): Promise<number> {
   const ids = [...new Set(expenseIds.filter(Boolean))];
   if (ids.length === 0) return 0;
   const expenses = await listDocuments<Expense>(COLLECTIONS.EXPENSES);
@@ -197,7 +262,10 @@ export async function syncExpenseTotals(expenseIds: string[], silent = true): Pr
     const payments = await listDocuments<PaymentBill>(COLLECTIONS.PAYMENT_BILL, [
       where('ID_EXPENSES', '==', expenseId),
     ]);
-    const paid = round2(payments.reduce((acc, p) => acc + (p.AMOUNT ?? 0), 0));
+    /* Sin pagos registrados se conserva lo pagado guardado, salvo que los pagos acaben de cambiar. */
+    const paid = payments.length > 0 || options.paymentsChanged
+      ? round2(payments.reduce((acc, p) => acc + (p.AMOUNT ?? 0), 0))
+      : round2(expense.PAY_AMOUNT ?? 0);
     const balance = round2((expense.AMOUNT ?? 0) - paid);
     if (Math.abs((expense.PAY_AMOUNT ?? 0) - paid) < 0.01 && Math.abs((expense.BALANCE ?? 0) - balance) < 0.01) continue;
     await updateDocument<Expense>(COLLECTIONS.EXPENSES, expenseId, { PAY_AMOUNT: paid, BALANCE: balance }, { silent });

@@ -207,9 +207,10 @@ export function PaymentsView({ kind = 'in', embedded = false, moduleId }: Props)
   /** Recalcula el saldo del documento padre (orden, lote o gasto) tras un cambio. */
   const syncParent = (row: Row) => {
     if (!row.parentId) return;
-    if (row.kind === 'in') void syncSalesOrderTotals([row.parentId]);
-    else if (row.kind === 'po') void syncPurchaseOrderTotals([row.parentId]);
-    else void syncExpenseTotals([row.parentId]);
+    /* Los pagos acaban de cambiar: la suma de pagos manda aunque quede en 0. */
+    if (row.kind === 'in') void syncSalesOrderTotals([row.parentId], true, { paymentsChanged: true });
+    else if (row.kind === 'po') void syncPurchaseOrderTotals([row.parentId], true, { paymentsChanged: true });
+    else void syncExpenseTotals([row.parentId], true, { paymentsChanged: true });
   };
 
   /** Borra un pago y recalcula el saldo de su documento (sin preguntar). */

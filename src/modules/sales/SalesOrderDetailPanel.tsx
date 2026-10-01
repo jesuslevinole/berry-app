@@ -200,7 +200,7 @@ export function SalesOrderDetailPanel({ order, purchaseOrders, buyerName, onClos
           parentId={order.id}
           payments={payments}
           moduleId="sales"
-          onChanged={() => void syncSalesOrderTotals([order.id])}
+          onChanged={() => void syncSalesOrderTotals([order.id], true, { paymentsChanged: true })}
         />
       </DetailSection>
     </RecordDetail>
