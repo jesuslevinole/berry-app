@@ -11,6 +11,7 @@ import { deleteDocument } from '../../services/firestore';
 import { syncExpenseTotals, syncPurchaseOrderTotals, syncSalesOrderTotals } from '../../services/orderTotalsService';
 import { PaymentEditModal, type EditablePayment } from '../../components/ui/RecordEditModals';
 import { SalesOrderDetailPanel } from '../sales/SalesOrderDetailPanel';
+import { PaymentsAuditPanel } from './PaymentsAuditPanel';
 import { READ_LIMIT } from '../../config/limits';
 import { fmtMoney, round2 } from '../../utils/format';
 import {
@@ -229,6 +230,18 @@ export function PaymentsView({ kind = 'in', embedded = false, moduleId }: Props)
     for (const row of filas) await eliminarPago(row);
   };
 
+  const [auditOpen, setAuditOpen] = useState(false);
+  const checkButton = (
+    <button
+      type="button"
+      className="btn btn--secondary"
+      onClick={() => setAuditOpen(true)}
+      title="Compare every document with its payment records and fix what does not match"
+    >
+      Check payments
+    </button>
+  );
+
   return (
     <div className="payments">
       {!embedded && (
@@ -238,8 +251,15 @@ export function PaymentsView({ kind = 'in', embedded = false, moduleId }: Props)
           searchValue={search}
           onSearchChange={setSearch}
         >
+          {checkButton}
           {can(meta.moduleId, 'documents') && <DataPortButtons schemas={meta.schemas} fileName={meta.fileName} />}
         </Toolbar>
+      )}
+      {auditOpen && (
+        <PaymentsAuditPanel
+          initialArea={tab === 'in' ? 'sales' : tab === 'po' ? 'lots' : 'expenses'}
+          onClose={() => setAuditOpen(false)}
+        />
       )}
 
       <div className="payments__bar">
@@ -257,6 +277,7 @@ export function PaymentsView({ kind = 'in', embedded = false, moduleId }: Props)
               placeholder="Search…"
               onChange={(e) => setSearch(e.target.value)}
             />
+            {checkButton}
             {can(meta.moduleId, 'documents') && <DataPortButtons schemas={meta.schemas} fileName={meta.fileName} />}
           </div>
         )}

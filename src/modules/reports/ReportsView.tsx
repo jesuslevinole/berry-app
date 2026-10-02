@@ -9,6 +9,7 @@ import { StatusBadge } from '../../components/ui/StatusBadge';
 import { SalesOrderDetailPanel } from '../sales/SalesOrderDetailPanel';
 import { PurchaseOrderDetailPanel } from '../purchases/PurchaseOrderDetailPanel';
 import { PaymentsPanel } from '../payments/PaymentsPanel';
+import { PaymentsAuditPanel } from '../payments/PaymentsAuditPanel';
 import { Modal } from '../../components/ui/Modal';
 import { updateDocument } from '../../services/firestore';
 import { expenseBalanceResolver, purchaseBalance, saleBalanceResolver, SETTLED } from '../../services/balances';
@@ -297,6 +298,16 @@ export function ReportsView({ report }: ReportsViewProps) {
     setPage(1);
   };
 
+  /** Check # del gasto; si no lo tiene, el de sus pagos (para que coincida con Payments). */
+  const checkOf = useMemo(() => {
+    const byExpense = new Map<string, string[]>();
+    for (const p of billPayments) {
+      if (!p.ID_EXPENSES || !p.CHECK_NUMBER) continue;
+      byExpense.set(p.ID_EXPENSES, [...(byExpense.get(p.ID_EXPENSES) ?? []), p.CHECK_NUMBER]);
+    }
+    return (e: Expense): string => e.CHECK_NUMBER || [...new Set(byExpense.get(e.id) ?? [])].join(', ');
+  }, [billPayments]);
+
   /* ---- 3. Accounts Payable: gastos con saldo pendiente (en cero salen de la lista) ---- */
   const apRows = useMemo(() => {
     const lotOf = new Map(purchaseOrders.map((po) => [po.id, po.LOT_NUMBER ?? '']));
@@ -363,6 +374,7 @@ export function ReportsView({ report }: ReportsViewProps) {
 
   /* Cobro directo desde AR (mismo panel de pagos que Sales Desk). */
   const [payingSale, setPayingSale] = useState<SalesOrder | null>(null);
+  const [auditOpen, setAuditOpen] = useState(false);
   const handleSalePaid = async (so: SalesOrder, totalPaid: number) => {
     await updateDocument<SalesOrder>(COLLECTIONS.SALES_ORDER, so.id, {
       INCOMES: totalPaid,
@@ -443,14 +455,16 @@ export function ReportsView({ report }: ReportsViewProps) {
     'Amount': { numeric: true, render: (r) => fmtMoney(r.e.AMOUNT ?? 0), excel: (r) => r.e.AMOUNT ?? 0 },
     'Pay amount': { numeric: true, render: (r) => fmtMoney(r.paid), excel: (r) => r.paid },
     'Balance': { numeric: true, render: (r) => <span className="reports__td-inner--bad">{fmtMoney(r.balance)}</span>, excel: (r) => r.balance },
-    'Check #': { render: (r) => <span className="reports__td-inner--mono">{r.e.CHECK_NUMBER || '\u2014'}</span>, excel: (r) => r.e.CHECK_NUMBER ?? '' },
+    'Check #': { render: (r) => <span className="reports__td-inner--mono">{checkOf(r.e) || '\u2014'}</span>, excel: (r) => checkOf(r.e) },
     'Note': { render: (r) => <span className="reports__td-inner--muted">{r.e.NOTE || '\u2014'}</span>, excel: (r) => r.e.NOTE ?? '' },
   };
 
   const arFields = FORM_DEFS.find((f) => f.id === 'report-ar')?.fields ?? [];
   const apFields = FORM_DEFS.find((f) => f.id === 'report-ap')?.fields ?? [];
+  /* "Pay amount" se muestra como "Amount paid" (la clave se conserva para no romper configuraciones guardadas). */
+  const relabel = <F extends { label: string }>(f: F): F => (f.label === 'Pay amount' ? { ...f, label: 'Amount paid' } : f);
   const arVisible = fieldsFor('report-ar', arFields).filter((f) => !f.hidden && AR_COLUMNS[f.key]);
-  const apVisible = fieldsFor('report-ap', apFields).filter((f) => !f.hidden && AP_COLUMNS[f.key]);
+  const apVisible = fieldsFor('report-ap', apFields).filter((f) => !f.hidden && AP_COLUMNS[f.key]).map(relabel);
 
   const handleExport = () => {
     if (report === 'queue') {
@@ -496,7 +510,7 @@ export function ReportsView({ report }: ReportsViewProps) {
         { header: 'Category', values: expenseRows.map((r) => categories.nameOf(r.e.ID_CATEGORYBILL)) },
         { header: 'Invoice #', values: expenseRows.map((r) => r.e.INVOICE_NUMBER ?? '') },
         { header: 'Amount', values: expenseRows.map((r) => r.e.AMOUNT ?? 0) },
-        { header: 'Pay amount', values: expenseRows.map((r) => r.paidAmount) },
+        { header: 'Amount paid', values: expenseRows.map((r) => r.paidAmount) },
         { header: 'Balance', values: expenseRows.map((r) => r.balance) },
         { header: 'Payment date', values: expenseRows.map((r) => fmtDate(r.paymentDate)) },
         { header: 'Status', values: expenseRows.map((r) => (r.paid ? 'Paid' : 'Pending')) },
@@ -512,6 +526,16 @@ export function ReportsView({ report }: ReportsViewProps) {
         searchValue={search}
         onSearchChange={setSearch}
       >
+        {(report === 'ap' || report === 'ar' || report === 'apgrowers') && (
+          <button
+            type="button"
+            className="btn btn--secondary"
+            onClick={() => setAuditOpen(true)}
+            title="Compare every document with its payment records and fix what does not match"
+          >
+            Check payments
+          </button>
+        )}
         {can(REPORT_META[report].moduleId, 'documents') && (
           <button type="button" className="btn btn--secondary" onClick={handleExport}>
             Export Excel
@@ -802,7 +826,7 @@ export function ReportsView({ report }: ReportsViewProps) {
                   <th className="reports__th">Category</th>
                   <th className="reports__th">Invoice #</th>
                   <th className="reports__th reports__th--num">Amount</th>
-                  <th className="reports__th reports__th--num">Pay amount</th>
+                  <th className="reports__th reports__th--num">Amount paid</th>
                   <th className="reports__th reports__th--num">Balance</th>
                   <th className="reports__th">Payment date</th>
                   <th className="reports__th">Status</th>
@@ -851,6 +875,12 @@ export function ReportsView({ report }: ReportsViewProps) {
           order={viewingPurchase}
           buyerName={buyerName}
           onClose={() => setViewingPurchase(null)}
+        />
+      )}
+      {auditOpen && (
+        <PaymentsAuditPanel
+          initialArea={report === 'ar' ? 'sales' : report === 'apgrowers' ? 'lots' : 'expenses'}
+          onClose={() => setAuditOpen(false)}
         />
       )}
     </div>

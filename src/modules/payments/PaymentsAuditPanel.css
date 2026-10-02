@@ -1,0 +1,92 @@
+/* Panel de problemas de datos del inventario. */
+.pay-audit { display: flex; flex-direction: column; gap: 12px; }
+.pay-audit__hint,
+.pay-audit__help { margin: 0; font-size: 0.84rem; color: var(--muted); line-height: 1.5; }
+.pay-audit__help { padding: 10px 12px; border-radius: 8px; background: var(--warn-bg); color: var(--warn); }
+.pay-audit__ok { margin: 0; padding: 24px; text-align: center; color: var(--green-600); font-weight: 600; }
+
+.pay-audit__bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.pay-audit__filters { display: flex; gap: 6px; flex-wrap: wrap; }
+.pay-audit__filter {
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--muted);
+  border-radius: 16px;
+  padding: 5px 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.pay-audit__filter:hover { color: var(--ink); border-color: var(--green-600); }
+.pay-audit__filter--active { background: var(--green-600); border-color: var(--green-600); color: #ffffff; }
+.pay-audit__filter--active:hover { color: #ffffff; }
+
+.pay-audit__table-wrap {
+  max-height: min(480px, calc(100vh - 320px));
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.pay-audit__table { width: 100%; border-collapse: collapse; }
+.pay-audit__th {
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  text-align: left;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+.pay-audit__th--num,
+.pay-audit__td--num { text-align: right; font-variant-numeric: tabular-nums; }
+.pay-audit__th--actions,
+.pay-audit__td--actions { text-align: right; white-space: nowrap; }
+.pay-audit__td { padding: 9px 12px; border-bottom: 1px solid var(--line); font-size: 0.85rem; color: var(--ink); }
+.pay-audit__td--strong { font-weight: 600; }
+.pay-audit__muted { color: var(--muted); }
+
+.pay-audit__badge {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 10px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+  background: var(--warn-bg);
+  color: var(--warn);
+}
+
+
+
+
+/* Pestanas por area (ventas, lotes, gastos). */
+.pay-audit__tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.pay-audit__tab {
+  border: 0;
+  background: transparent;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+}
+.pay-audit__tab:hover { color: var(--ink); }
+.pay-audit__tab--active { color: var(--green-600); border-bottom-color: var(--green-600); }
+.pay-audit__tab b { margin-left: 4px; }
+
+.pay-audit__area {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.pay-audit__badge--orphan,
+.pay-audit__badge--overpaid { background: var(--bad-bg); color: var(--bad); }

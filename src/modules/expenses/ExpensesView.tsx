@@ -69,7 +69,7 @@ export function ExpensesView() {
     { key: 'ID_SUPPLIERS', header: 'Supplier', render: (exp) => suppliers.nameOf(exp.ID_SUPPLIERS) },
     { key: 'ID_CATEGORYBILL', header: 'Category', render: (exp) => categories.nameOf(exp.ID_CATEGORYBILL) },
     { key: 'AMOUNT', header: 'Amount', align: 'right', render: (exp) => <span className="num">{fmtMoney(exp.AMOUNT)}</span> },
-    { key: 'PAY_AMOUNT', header: 'Pay amount', align: 'right', render: (exp) => <span className="num">{fmtMoney(exp.PAY_AMOUNT)}</span> },
+    { key: 'PAY_AMOUNT', header: 'Amount paid', align: 'right', render: (exp) => <span className="num">{fmtMoney(exp.PAY_AMOUNT)}</span> },
     {
       key: 'BALANCE',
       header: 'Balance',
