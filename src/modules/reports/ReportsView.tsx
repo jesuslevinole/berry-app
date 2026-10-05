@@ -10,6 +10,8 @@ import { SalesOrderDetailPanel } from '../sales/SalesOrderDetailPanel';
 import { PurchaseOrderDetailPanel } from '../purchases/PurchaseOrderDetailPanel';
 import { PaymentsPanel } from '../payments/PaymentsPanel';
 import { PaymentsAuditPanel } from '../payments/PaymentsAuditPanel';
+import { CustomerStatementModal } from './CustomerStatementModal';
+import { useCompany } from '../../hooks/useCompany';
 import { Modal } from '../../components/ui/Modal';
 import { updateDocument } from '../../services/firestore';
 import { expenseBalanceResolver, purchaseBalance, saleBalanceResolver, SETTLED } from '../../services/balances';
@@ -341,6 +343,18 @@ export function ReportsView({ report }: ReportsViewProps) {
     [salesOrders, saleBalance, customers, term],
   );
 
+  /* Cuentas pendientes sin el filtro de busqueda: base del estado de cuenta. */
+  const arPendingAll = useMemo(
+    () =>
+      salesOrders
+        .filter((so) => so.STATUS !== 'Cancelled')
+        .map((so) => ({ so, balance: saleBalance(so).balance, days: overdueDays(so.DUE_DATE ?? '') }))
+        .filter((r) => r.balance > SETTLED),
+    [salesOrders, saleBalance],
+  );
+  const { company } = useCompany();
+  const [statementOpen, setStatementOpen] = useState(false);
+
   /* Cliente seleccionado en el panel izquierdo ('' = All), como en AppSheet. */
   const [arCustomer, setArCustomer] = useState('');
 
@@ -526,6 +540,16 @@ export function ReportsView({ report }: ReportsViewProps) {
         searchValue={search}
         onSearchChange={setSearch}
       >
+        {report === 'ar' && (
+          <button
+            type="button"
+            className="btn btn--primary"
+            onClick={() => setStatementOpen(true)}
+            title="Download a customer statement (Aging by Customer) with its pending invoices"
+          >
+            Statement
+          </button>
+        )}
         {(report === 'ap' || report === 'ar' || report === 'apgrowers') && (
           <button
             type="button"
@@ -875,6 +899,15 @@ export function ReportsView({ report }: ReportsViewProps) {
           order={viewingPurchase}
           buyerName={buyerName}
           onClose={() => setViewingPurchase(null)}
+        />
+      )}
+      {statementOpen && (
+        <CustomerStatementModal
+          company={company}
+          pending={arPendingAll}
+          defaultCustomerId={arCustomer}
+          customerName={customers.nameOf}
+          onClose={() => setStatementOpen(false)}
         />
       )}
       {auditOpen && (

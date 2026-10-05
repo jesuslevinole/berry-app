@@ -1,0 +1,21 @@
+/* Filtro del estado de cuenta del cliente. */
+.statement-filter__summary {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--green-50);
+  border: 1px solid var(--line);
+}
+.statement-filter__label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.statement-filter__total { font-size: 1.15rem; color: var(--ink); }
+.statement-filter__count { font-size: 0.82rem; color: var(--muted); }
