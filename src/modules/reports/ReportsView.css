@@ -282,3 +282,18 @@
   /* Con border-collapse el borde inferior no viaja con el sticky: se dibuja con sombra. */
   box-shadow: inset 0 -1px 0 var(--line);
 }
+
+/* Accion para sacar un proveedor de Accounts Payable. */
+.reports__ap-hide {
+  margin-top: 8px;
+  border: 1px dashed var(--line-strong);
+  background: transparent;
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  text-align: left;
+}
+.reports__ap-hide:hover { color: var(--bad); border-color: var(--bad); }

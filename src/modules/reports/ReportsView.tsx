@@ -14,11 +14,12 @@ import { CustomerStatementModal } from './CustomerStatementModal';
 import { useCompany } from '../../hooks/useCompany';
 import { Modal } from '../../components/ui/Modal';
 import { updateDocument } from '../../services/firestore';
-import { expenseBalanceResolver, purchaseBalance, saleBalanceResolver, SETTLED } from '../../services/balances';
+import { expenseBalanceResolver, nonPayableSupplierIds, purchaseBalance, saleBalanceResolver, SETTLED, type SupplierFlag } from '../../services/balances';
 import { fmtMoney, round2, todayISO } from '../../utils/format';
 import { PAGE_SIZE } from '../../config/limits';
 import {
   COLLECTIONS,
+  type BaseDoc,
   type Expense,
   type PaymentBill,
   type PaymentSales,
@@ -311,7 +312,11 @@ export function ReportsView({ report }: ReportsViewProps) {
   }, [billPayments]);
 
   /* ---- 3. Accounts Payable: gastos con saldo pendiente (en cero salen de la lista) ---- */
-  const apRows = useMemo(() => {
+  /* Proveedores que no son cuentas por pagar (Catalogs > Suppliers > Accounts Payable apagado). */
+  const { data: supplierFlags } = useCollection<SupplierFlag>(COLLECTIONS.SUPPLIERS);
+  const nonPayable = useMemo(() => nonPayableSupplierIds(supplierFlags), [supplierFlags]);
+
+  const apAllRows = useMemo(() => {
     const lotOf = new Map(purchaseOrders.map((po) => [po.id, po.LOT_NUMBER ?? '']));
     return expenses
       .map((e) => ({ e, lot: lotOf.get(e.ID_PURCHASEORDER) ?? '\u2014', ...expenseBalance(e) }))
@@ -323,7 +328,52 @@ export function ReportsView({ report }: ReportsViewProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expenses, purchaseOrders, expenseBalance, suppliers, categories, term]);
 
+  /** Lo que de verdad se debe a proveedores. */
+  const apPayableRows = useMemo(() => apAllRows.filter((r) => !nonPayable.has(r.e.ID_SUPPLIERS)), [apAllRows, nonPayable]);
+  const apHidden = apAllRows.length - apPayableRows.length;
+
+  /* Proveedor seleccionado en el panel izquierdo ('' = All). */
+  const [apSupplier, setApSupplier] = useState('');
+  const apGroups = useMemo(() => {
+    const bySupplier = new Map<string, number>();
+    for (const r of apPayableRows) {
+      const key = r.e.ID_SUPPLIERS || '';
+      bySupplier.set(key, round2((bySupplier.get(key) ?? 0) + r.balance));
+    }
+    return [...bySupplier.entries()]
+      .map(([supplierId, total]) => ({ supplierId, supplierName: suppliers.nameOf(supplierId), total }))
+      .sort((a, b) => a.supplierName.localeCompare(b.supplierName));
+  }, [apPayableRows, suppliers]);
+
+  const apRows = useMemo(
+    () => (apSupplier ? apPayableRows.filter((r) => (r.e.ID_SUPPLIERS || '') === apSupplier) : apPayableRows),
+    [apPayableRows, apSupplier],
+  );
+  const apGrandTotal = round2(apPayableRows.reduce((acc, r) => acc + r.balance, 0));
   const apTotal = round2(apRows.reduce((acc, r) => acc + r.balance, 0));
+
+  const selectApSupplier = (supplierId: string) => {
+    setApSupplier(supplierId);
+    setPage(1);
+  };
+
+  /** Saca un proveedor de Accounts Payable (mismo interruptor que Catalogs > Suppliers). */
+  const hideSupplierFromAp = async (supplierId: string) => {
+    const name = suppliers.nameOf(supplierId);
+    if (
+      !window.confirm(
+        `Hide "${name}" from Accounts Payable?\n\nIts bills will no longer count as pending to pay. You can turn it back on in Catalogs > Suppliers.`,
+      )
+    )
+      return;
+    try {
+      await updateDocument<BaseDoc & Record<string, unknown>>(COLLECTIONS.SUPPLIERS, supplierId, { IN_ACCOUNTS_PAYABLE: false });
+      setApSupplier('');
+      setPage(1);
+    } catch {
+      alert('Could not update the supplier. Try again.');
+    }
+  };
 
   /* ---- 4. Accounts Receivable: ventas con saldo pendiente (en cero salen de la lista) ---- */
   const arRows = useMemo(
@@ -700,31 +750,77 @@ export function ReportsView({ report }: ReportsViewProps) {
           <div className="reports__chips">
             <span className="reports__chip">Pending <b className="num">{fmtMoney(apTotal)}</b></span>
             <span className="reports__chip">{apRows.length} invoices</span>
+            {apHidden > 0 && (
+              <span
+                className="reports__chip"
+                title="Bills from suppliers that are not accounts payable (Catalogs > Suppliers > Accounts Payable off)"
+              >
+                {apHidden} hidden (non-payable suppliers)
+              </span>
+            )}
           </div>
-          <div className="reports__card">
-            <table className="reports__table">
-              <thead>
-                <tr>
-                  {apVisible.map((f) => (
-                    <th key={f.key} className={`reports__th${AP_COLUMNS[f.key].numeric ? ' reports__th--num' : ''}`}>{f.label}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {apRows.length === 0 && (
-                  <tr><td className="reports__empty" colSpan={Math.max(apVisible.length, 1)}>No pending bills. All caught up.</td></tr>
-                )}
-                {paginate(apRows).map((r) => (
-                  <tr key={r.e.id} className="reports__row--click" onClick={() => openPurchase(r.e.ID_PURCHASEORDER)} title="Open purchase order detail">
-                    {apVisible.map((f) => (
-                      <td key={f.key} className={`reports__td${AP_COLUMNS[f.key].numeric ? ' reports__td--num' : ''}`}>{AP_COLUMNS[f.key].render(r)}</td>
+
+          <div className="reports__ap">
+            {/* Panel de proveedores con saldo por pagar. */}
+            <nav className="reports__ap-side" aria-label="Suppliers with pending bills">
+              <button
+                type="button"
+                className={`reports__ap-item${apSupplier === '' ? ' reports__ap-item--active' : ''}`}
+                onClick={() => selectApSupplier('')}
+              >
+                <span className="reports__ap-name">All</span>
+                <span className="reports__ap-pill">{fmtMoney(apGrandTotal)}</span>
+              </button>
+              {apGroups.map((group) => (
+                <button
+                  key={group.supplierId}
+                  type="button"
+                  className={`reports__ap-item${apSupplier === group.supplierId ? ' reports__ap-item--active' : ''}`}
+                  onClick={() => selectApSupplier(group.supplierId)}
+                >
+                  <span className="reports__ap-name">{group.supplierName}</span>
+                  <span className="reports__ap-pill">{fmtMoney(group.total)}</span>
+                </button>
+              ))}
+              {apSupplier && can('catalogs', 'edit') && (
+                <button
+                  type="button"
+                  className="reports__ap-hide"
+                  onClick={() => void hideSupplierFromAp(apSupplier)}
+                  title="This supplier's bills are not paid to a vendor (e.g. wire or factoring fees)"
+                >
+                  Not payable — hide from AP
+                </button>
+              )}
+            </nav>
+
+            <div className="reports__ap-main">
+              <div className="reports__card">
+                <table className="reports__table">
+                  <thead>
+                    <tr>
+                      {apVisible.map((f) => (
+                        <th key={f.key} className={`reports__th${AP_COLUMNS[f.key].numeric ? ' reports__th--num' : ''}`}>{f.label}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {apRows.length === 0 && (
+                      <tr><td className="reports__empty" colSpan={Math.max(apVisible.length, 1)}>No pending bills. All caught up.</td></tr>
+                    )}
+                    {paginate(apRows).map((r) => (
+                      <tr key={r.e.id} className="reports__row--click" onClick={() => openPurchase(r.e.ID_PURCHASEORDER)} title="Open purchase order detail">
+                        {apVisible.map((f) => (
+                          <td key={f.key} className={`reports__td${AP_COLUMNS[f.key].numeric ? ' reports__td--num' : ''}`}>{AP_COLUMNS[f.key].render(r)}</td>
+                        ))}
+                      </tr>
                     ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                  </tbody>
+                </table>
+              </div>
+              {pagerFor(apRows.length)}
+            </div>
           </div>
-          {pagerFor(apRows.length)}
         </>
       )}
 

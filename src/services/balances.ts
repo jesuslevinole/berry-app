@@ -61,11 +61,23 @@ export function receivableTotal(salesOrders: SalesOrder[], salesPayments: Paymen
   );
 }
 
+/** Proveedor marcado como "no es cuenta por pagar" en Catalogs > Suppliers. */
+export interface SupplierFlag {
+  id: string;
+  IN_ACCOUNTS_PAYABLE?: boolean;
+}
+
+/** Ids de proveedores cuyos gastos no van a Accounts Payable. */
+export const nonPayableSupplierIds = (suppliers: SupplierFlag[]): Set<string> =>
+  new Set(suppliers.filter((s) => s.IN_ACCOUNTS_PAYABLE === false).map((s) => s.id));
+
 /** Total por pagar de gastos con saldo pendiente (= Accounts Payable). */
-export function payableTotal(expenses: Expense[], billPayments: PaymentBill[]): number {
+export function payableTotal(expenses: Expense[], billPayments: PaymentBill[], suppliers: SupplierFlag[] = []): number {
   const balanceOf = expenseBalanceResolver(billPayments);
+  const excluded = nonPayableSupplierIds(suppliers);
   return round2(
     expenses
+      .filter((e) => !excluded.has(e.ID_SUPPLIERS))
       .map((e) => balanceOf(e).balance)
       .filter((b) => b > SETTLED)
       .reduce((acc, b) => acc + b, 0),
