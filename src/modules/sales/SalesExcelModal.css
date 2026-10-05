@@ -1,0 +1,31 @@
+/* Resumen del filtro del Excel de ventas. */
+.sales-excel__summary {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--green-50);
+  border: 1px solid var(--line);
+  color: var(--ink);
+}
+.sales-excel__label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.sales-excel__clear {
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  color: var(--green-600);
+  font-weight: 600;
+  font-size: 0.82rem;
+  cursor: pointer;
+  text-decoration: underline;
+}
+.sales-excel__clear:hover { color: var(--green-800); }

@@ -24,6 +24,7 @@ import { printSalesInvoice, printPickTicket, printSalesOrderDoc, printBillOfLadi
 import { useCompany } from '../../hooks/useCompany';
 import { DocumentPicker } from '../../components/ui/DocumentPicker';
 import { syncAllSalesOrderTotals } from '../../services/orderTotalsService';
+import { SalesExcelModal } from './SalesExcelModal';
 import './SalesDeskView.css';
 
 export function SalesDeskView() {
@@ -55,6 +56,7 @@ export function SalesDeskView() {
   }, [systemUsers, legacyUsers]);
 
   const [search, setSearch] = useState('');
+  const [excelOpen, setExcelOpen] = useState(false);
 
   /** Repara en bloque Total / Paid / Balance de todas las ordenes desde lineas y pagos. */
   const [recalcing, setRecalcing] = useState(false);
@@ -240,6 +242,16 @@ export function SalesDeskView() {
   return (
     <div className="sales-desk">
       <Toolbar title="Sales Desk" subtitle={`${rows.length} orders`} searchValue={search} onSearchChange={setSearch}>
+        {can('sales', 'documents') && (
+          <button
+            type="button"
+            className="btn btn--secondary"
+            onClick={() => setExcelOpen(true)}
+            title="Export sales to Excel (date range, customer, product, sales person)"
+          >
+            Export Excel
+          </button>
+        )}
         {can('sales', 'documents') && <DataPortButtons schemas={SALES_SCHEMAS} fileName="sales-orders" />}
         {can('sales', 'edit') && (
           <button
@@ -346,6 +358,13 @@ export function SalesDeskView() {
             onTotalPaidChange={(totalPaid) => handleTotalPaidChange(paymentsFor, totalPaid)}
           />
         </Modal>
+      )}
+      {excelOpen && (
+        <SalesExcelModal
+          customerName={customers.nameOf}
+          salesPersonName={buyerName}
+          onClose={() => setExcelOpen(false)}
+        />
       )}
     </div>
   );
