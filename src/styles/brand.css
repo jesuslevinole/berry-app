@@ -119,3 +119,24 @@ textarea.input { resize: vertical; min-height: 64px; }
 ::-webkit-scrollbar { height: 10px; width: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
+
+/* ============================================================
+   Encabezados de TODAS las tablas (listas, reportes, detalles, paneles).
+   Oscuros con texto claro para que se distingan del contenido.
+   Para cambiar el tono basta con estas dos variables.
+   ============================================================ */
+:root {
+  --table-head-bg: var(--green-700);
+  --table-head-ink: #FFFFFF;
+}
+
+/* thead th[class] gana a las reglas de cada modulo (.x__th) sin tocarlas una por una. */
+thead th,
+thead th[class] {
+  background-color: var(--table-head-bg);
+  color: var(--table-head-ink);
+  border-bottom-color: var(--table-head-bg);
+}
+
+/* Casillas de "seleccionar todo" legibles sobre el fondo oscuro. */
+thead th input[type='checkbox'] { accent-color: var(--green-100); }
