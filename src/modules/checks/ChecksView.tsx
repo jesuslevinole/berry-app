@@ -31,6 +31,10 @@ export function ChecksView() {
   const { checkSettings } = useAppConfig();
   const { data: checks } = useCollection<Check>(COLLECTIONS.CHECKS, [limit(READ_LIMIT)]);
   const customers = useCatalog(COLLECTIONS.CUSTOMER, 'NAME_CUSTOMER');
+  /* Direccion del beneficiario para el cheque (calle y ciudad del catalogo de clientes). */
+  const { data: customerDocs } = useCollection<{ id: string; ADDRESS_CUSTOMER?: string; CITY_CUSTOMER?: string }>(
+    COLLECTIONS.CUSTOMER,
+  );
   /* Checking Set-Up: cuentas emisoras (empresa) con sus bancos. */
   const { accounts, accountOf, bankOf } = useCheckAccounts();
   const [setupOpen, setSetupOpen] = useState(false);
@@ -182,7 +186,9 @@ export function ChecksView() {
       return;
     }
     const bank = bankOf(account, check.ID_BANK) ?? null;
-    printCheck(check, customers.nameOf(check.ID_CUSTOMER), accountAsCompany(account), bank, checkSettings);
+    const payee = customerDocs.find((c) => c.id === check.ID_CUSTOMER);
+    const payeeAddress = [payee?.ADDRESS_CUSTOMER ?? '', payee?.CITY_CUSTOMER ?? ''].filter((l) => l.trim()).join('\n');
+    printCheck(check, customers.nameOf(check.ID_CUSTOMER), accountAsCompany(account), bank, checkSettings, payeeAddress);
   };
 
   /** Borrado directo desde la tabla (en segundo plano). */

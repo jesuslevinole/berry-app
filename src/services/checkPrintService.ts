@@ -50,6 +50,20 @@ const fmtMonthYear = (iso: string): string => {
   return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }).toUpperCase();
 };
 
+/**
+ * Direccion del banco en dos lineas: calle arriba y ciudad abajo.
+ *   "1701 E Expressway 83, San Juan, TX 78599" -> ["1701 E Expressway 83", "San Juan, TX 78599"]
+ *   "Bank of America, San Juan Corners, San Juan, TX" -> ["San Juan Corners", "San Juan, TX"]
+ */
+export function bankAddressLines(address: string, bankName = ''): string[] {
+  const parts = address.split(',').map((p) => p.trim()).filter(Boolean);
+  if (parts.length > 1 && bankName && parts[0].toLowerCase() === bankName.trim().toLowerCase()) parts.shift();
+  if (parts.length <= 1) return parts;
+  if (parts.length === 2) return parts;
+  /* Las dos ultimas partes son "Ciudad, ST 12345"; lo anterior es la calle. */
+  return [parts.slice(0, -2).join(', '), parts.slice(-2).join(', ')];
+}
+
 const fmtSlash = (iso: string): string => {
   if (!iso) return '';
   const [y, m, d] = iso.split('-');
@@ -89,7 +103,7 @@ export function printCheck(
       <div class="stub-line stub-month">${fmtMonthYear(check.DATE)}</div>
       <div class="stub-ref"><b>Ref #</b> ${esc(check.REF || '')}</div>
       <div class="stub-line stub-co">${esc(company.name || '')}</div>
-      <div class="stub-line"><b>Memo:</b> ${esc(check.MEMO || '')}</div>
+      <div class="stub-line stub-co-memo"><b>Memo: ${esc(check.MEMO || '')}</b></div>
     </div>`;
 
   const html = `<!DOCTYPE html>
@@ -131,7 +145,8 @@ export function printCheck(
   .memo .val { flex: 0 1 260px; border-bottom: 1px solid #111; padding: 0 4px 1px; min-height: 12px; }
   .sig { width: 240px; border-top: 1px solid #111; text-align: center; font-size: 8.5px; font-weight: 700; padding-top: 3px; }
   /* Banda MICR: 5/8in libre al pie del cheque (estandar bancario). */
-  .micr { height: 0.42in; display: flex; align-items: center; padding-left: 0.45in; font-family: 'Courier New', monospace; font-size: 14px; letter-spacing: 0.22em; }
+  /* Datos bancarios centrados en la banda MICR. */
+  .micr { height: 0.42in; display: flex; align-items: center; justify-content: center; font-family: 'Courier New', monospace; font-size: 14px; letter-spacing: 0.22em; }
   .cut { border: 0; border-top: 1px dashed #9aa8a0; margin: 0.08in 0; }
   /* ---- Talones ---- */
   .stub { height: 3.1in; padding: 0.24in 0.5in 0; font-size: 11px; }
@@ -157,7 +172,14 @@ export function printCheck(
           ${showAddress ? `<div class="co-sub">${esc(company.address)}<br />${esc(company.cityStateZip)}</div>` : ''}
         </div>
       </div>
-      ${showBank ? `<div class="bank">${esc(bank?.bankName ?? '')}<br />${esc(bank?.address ?? '')}</div>` : '<div></div>'}
+      ${
+        showBank
+          ? `<div class="bank">${[bank?.bankName ?? '', ...bankAddressLines(bank?.address ?? '', bank?.bankName ?? '')]
+              .filter(Boolean)
+              .map(esc)
+              .join('<br />')}</div>`
+          : '<div></div>'
+      }
       <div class="num">
         <div class="num-value">No. ${check.CHECK_NUMBER}</div>
         ${fractional ? `<div class="num-frac">${esc(fractional)}</div>` : ''}
@@ -177,8 +199,7 @@ export function printCheck(
     </div>
 
     <div class="payee-address">
-      ${esc(payeeName)}<br />
-      ${payeeAddress ? esc(payeeAddress).replace(/\n/g, '<br />') : ''}
+      ${[payeeName, ...payeeAddress.split('\n')].map((l) => l.trim()).filter(Boolean).map(esc).join('<br />')}
     </div>
 
     <div class="bottom">
