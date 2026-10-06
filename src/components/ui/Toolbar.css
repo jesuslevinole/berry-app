@@ -25,7 +25,8 @@
 
 @media (max-width: 1024px) {
   .toolbar { flex-wrap: wrap; }
-  .toolbar__actions { flex-wrap: wrap; justify-content: flex-end; }
+  /* Botones en una sola fila: si no caben, la fila se desliza de lado (nunca uno sobre otro). */
+  .toolbar__actions { flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; max-width: 100%; padding-bottom: 2px; }
 }
 
 @media (max-width: 640px) {

@@ -62,7 +62,8 @@
 .checks__td--strong { font-weight: 600; }
 .checks__td--muted { color: var(--muted); }
 .checks__td--num { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
-.checks__td--right { text-align: right; }
+/* Imprimir / Edit / Delete en una sola linea. */
+.checks__td--right { text-align: right; white-space: nowrap; }
 
 .checks__empty {
   text-align: center;

@@ -140,3 +140,48 @@ thead th[class] {
 
 /* Casillas de "seleccionar todo" legibles sobre el fondo oscuro. */
 thead th input[type='checkbox'] { accent-color: var(--green-100); }
+
+/* ============================================================
+   Barras de desplazamiento SIEMPRE visibles en toda la app.
+   - La pagina siempre muestra su barra vertical (no aparece/desaparece).
+   - Con barras personalizadas, Chrome/Edge/Safari dejan de ocultarlas
+     (overlay) y Firefox las muestra en tamano normal.
+   Las barras con estilo propio (menu lateral, tablas) mantienen el suyo.
+   ============================================================ */
+html {
+  overflow-y: scroll;
+  scrollbar-gutter: stable;
+}
+
+* {
+  scrollbar-width: auto;
+  scrollbar-color: var(--line-strong) var(--green-50);
+}
+
+*::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+}
+*::-webkit-scrollbar-track { background: var(--green-50); }
+*::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 6px;
+  border: 2px solid var(--green-50);
+}
+*::-webkit-scrollbar-thumb:hover { background: var(--green-500); }
+*::-webkit-scrollbar-corner { background: var(--green-50); }
+
+/* ============================================================
+   Botones nunca uno sobre otro: en una celda de tabla quedan en una
+   sola linea (la tabla se desliza de lado si no caben) y el texto de
+   un boton no se parte en dos renglones.
+   ============================================================ */
+.btn { white-space: nowrap; }
+
+td:has(> button),
+td:has(> .btn),
+td:has(> a.btn) {
+  white-space: nowrap;
+}
+td > button,
+td > .btn { vertical-align: middle; }
