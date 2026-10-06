@@ -61,23 +61,26 @@ export function receivableTotal(salesOrders: SalesOrder[], salesPayments: Paymen
   );
 }
 
-/** Proveedor marcado como "no es cuenta por pagar" en Catalogs > Suppliers. */
-export interface SupplierFlag {
-  id: string;
-  IN_ACCOUNTS_PAYABLE?: boolean;
-}
+/**
+ * Regla de Accounts Payable (la misma de AppSheet):
+ *   and([Balance] > 0, [Supplier].[name] <> "General Cost")
+ * Los gastos de "General Cost" (wire / factoring fees, etc.) no son cuentas por pagar.
+ */
+export const NON_PAYABLE_SUPPLIER = 'General Cost';
 
-/** Ids de proveedores cuyos gastos no van a Accounts Payable. */
-export const nonPayableSupplierIds = (suppliers: SupplierFlag[]): Set<string> =>
-  new Set(suppliers.filter((s) => s.IN_ACCOUNTS_PAYABLE === false).map((s) => s.id));
+export const isPayableSupplier = (supplierName: string): boolean =>
+  supplierName.trim().toLowerCase() !== NON_PAYABLE_SUPPLIER.toLowerCase();
 
 /** Total por pagar de gastos con saldo pendiente (= Accounts Payable). */
-export function payableTotal(expenses: Expense[], billPayments: PaymentBill[], suppliers: SupplierFlag[] = []): number {
+export function payableTotal(
+  expenses: Expense[],
+  billPayments: PaymentBill[],
+  supplierName: (id?: string) => string,
+): number {
   const balanceOf = expenseBalanceResolver(billPayments);
-  const excluded = nonPayableSupplierIds(suppliers);
   return round2(
     expenses
-      .filter((e) => !excluded.has(e.ID_SUPPLIERS))
+      .filter((e) => isPayableSupplier(supplierName(e.ID_SUPPLIERS)))
       .map((e) => balanceOf(e).balance)
       .filter((b) => b > SETTLED)
       .reduce((acc, b) => acc + b, 0),

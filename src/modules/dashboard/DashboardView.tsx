@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useCollection } from '../../hooks/useCollection';
 import { useCatalog } from '../../hooks/useCatalog';
 import { COLLECTIONS, type Expense, type PaymentBill, type PaymentSales, type PurchaseOrder, type SalesOrder } from '../../types/models';
-import { growersPayableTotal, payableTotal, receivableTotal, type SupplierFlag } from '../../services/balances';
+import { growersPayableTotal, payableTotal, receivableTotal } from '../../services/balances';
 import { fmtDate, fmtMoney } from '../../utils/format';
 import { DataTable, type Column } from '../../components/ui/DataTable';
 import { StatusBadge } from '../../components/ui/StatusBadge';
@@ -20,7 +20,7 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
   /* Pagos reales: los saldos se calculan en vivo, igual que en los reportes. */
   const { data: salesPayments } = useCollection<PaymentSales>(COLLECTIONS.PAYMENT_SALES);
   const { data: billPayments } = useCollection<PaymentBill>(COLLECTIONS.PAYMENT_BILL);
-  const { data: supplierFlags } = useCollection<SupplierFlag>(COLLECTIONS.SUPPLIERS);
+  const suppliers = useCatalog(COLLECTIONS.SUPPLIERS, 'NAME_SUPPLIERS');
   const customers = useCatalog(COLLECTIONS.CUSTOMER, 'NAME_CUSTOMER');
 
   const kpis = useMemo(
@@ -47,10 +47,10 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
         count: expenses.length,
         amountLabel: 'Payable',
         /* = Accounts Payable */
-        amount: payableTotal(expenses, billPayments, supplierFlags),
+        amount: payableTotal(expenses, billPayments, suppliers.nameOf),
       },
     ],
-    [purchaseOrders, salesOrders, expenses, salesPayments, billPayments, supplierFlags],
+    [purchaseOrders, salesOrders, expenses, salesPayments, billPayments, suppliers],
   );
 
   const recentSales = useMemo(

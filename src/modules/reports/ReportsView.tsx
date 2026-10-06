@@ -14,12 +14,11 @@ import { CustomerStatementModal } from './CustomerStatementModal';
 import { useCompany } from '../../hooks/useCompany';
 import { Modal } from '../../components/ui/Modal';
 import { updateDocument } from '../../services/firestore';
-import { expenseBalanceResolver, nonPayableSupplierIds, purchaseBalance, saleBalanceResolver, SETTLED, type SupplierFlag } from '../../services/balances';
+import { expenseBalanceResolver, isPayableSupplier, purchaseBalance, saleBalanceResolver, SETTLED } from '../../services/balances';
 import { fmtMoney, round2, todayISO } from '../../utils/format';
 import { PAGE_SIZE } from '../../config/limits';
 import {
   COLLECTIONS,
-  type BaseDoc,
   type Expense,
   type PaymentBill,
   type PaymentSales,
@@ -312,10 +311,6 @@ export function ReportsView({ report }: ReportsViewProps) {
   }, [billPayments]);
 
   /* ---- 3. Accounts Payable: gastos con saldo pendiente (en cero salen de la lista) ---- */
-  /* Proveedores que no son cuentas por pagar (Catalogs > Suppliers > Accounts Payable apagado). */
-  const { data: supplierFlags } = useCollection<SupplierFlag>(COLLECTIONS.SUPPLIERS);
-  const nonPayable = useMemo(() => nonPayableSupplierIds(supplierFlags), [supplierFlags]);
-
   const apAllRows = useMemo(() => {
     const lotOf = new Map(purchaseOrders.map((po) => [po.id, po.LOT_NUMBER ?? '']));
     return expenses
@@ -328,9 +323,11 @@ export function ReportsView({ report }: ReportsViewProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expenses, purchaseOrders, expenseBalance, suppliers, categories, term]);
 
-  /** Lo que de verdad se debe a proveedores. */
-  const apPayableRows = useMemo(() => apAllRows.filter((r) => !nonPayable.has(r.e.ID_SUPPLIERS)), [apAllRows, nonPayable]);
-  const apHidden = apAllRows.length - apPayableRows.length;
+  /** Regla de AppSheet: and([Balance] > 0, [Supplier].[name] <> "General Cost"). */
+  const apPayableRows = useMemo(
+    () => apAllRows.filter((r) => isPayableSupplier(suppliers.nameOf(r.e.ID_SUPPLIERS))),
+    [apAllRows, suppliers],
+  );
 
   /* Proveedor seleccionado en el panel izquierdo ('' = All). */
   const [apSupplier, setApSupplier] = useState('');
@@ -355,24 +352,6 @@ export function ReportsView({ report }: ReportsViewProps) {
   const selectApSupplier = (supplierId: string) => {
     setApSupplier(supplierId);
     setPage(1);
-  };
-
-  /** Saca un proveedor de Accounts Payable (mismo interruptor que Catalogs > Suppliers). */
-  const hideSupplierFromAp = async (supplierId: string) => {
-    const name = suppliers.nameOf(supplierId);
-    if (
-      !window.confirm(
-        `Hide "${name}" from Accounts Payable?\n\nIts bills will no longer count as pending to pay. You can turn it back on in Catalogs > Suppliers.`,
-      )
-    )
-      return;
-    try {
-      await updateDocument<BaseDoc & Record<string, unknown>>(COLLECTIONS.SUPPLIERS, supplierId, { IN_ACCOUNTS_PAYABLE: false });
-      setApSupplier('');
-      setPage(1);
-    } catch {
-      alert('Could not update the supplier. Try again.');
-    }
   };
 
   /* ---- 4. Accounts Receivable: ventas con saldo pendiente (en cero salen de la lista) ---- */
@@ -750,14 +729,6 @@ export function ReportsView({ report }: ReportsViewProps) {
           <div className="reports__chips">
             <span className="reports__chip">Pending <b className="num">{fmtMoney(apTotal)}</b></span>
             <span className="reports__chip">{apRows.length} invoices</span>
-            {apHidden > 0 && (
-              <span
-                className="reports__chip"
-                title="Bills from suppliers that are not accounts payable (Catalogs > Suppliers > Accounts Payable off)"
-              >
-                {apHidden} hidden (non-payable suppliers)
-              </span>
-            )}
           </div>
 
           <div className="reports__ap">
@@ -782,16 +753,6 @@ export function ReportsView({ report }: ReportsViewProps) {
                   <span className="reports__ap-pill">{fmtMoney(group.total)}</span>
                 </button>
               ))}
-              {apSupplier && can('catalogs', 'edit') && (
-                <button
-                  type="button"
-                  className="reports__ap-hide"
-                  onClick={() => void hideSupplierFromAp(apSupplier)}
-                  title="This supplier's bills are not paid to a vendor (e.g. wire or factoring fees)"
-                >
-                  Not payable — hide from AP
-                </button>
-              )}
             </nav>
 
             <div className="reports__ap-main">
