@@ -139,7 +139,8 @@ export function printCheck(
   .words { flex: 1; border-bottom: 1px solid #111; font-size: 11px; padding: 0 4px 2px; }
   .words-dollars { font-size: 10.5px; font-weight: 700; }
   .payee-address { margin: 14px 0 0 0.9in; font-size: 10.5px; line-height: 1.5; }
-  .bottom { display: flex; justify-content: space-between; align-items: flex-end; margin-top: auto; gap: 20px; padding-bottom: 0.08in; }
+  /* Memo y firma por encima de la franja azul del papel de cheque (antes de la banda MICR). */
+  .bottom { display: flex; justify-content: space-between; align-items: flex-end; margin-top: auto; gap: 20px; padding-bottom: 0.42in; }
   .memo { flex: 1; font-size: 10px; display: flex; align-items: flex-end; gap: 6px; }
   .memo .lbl { font-weight: 700; }
   .memo .val { flex: 0 1 260px; border-bottom: 1px solid #111; padding: 0 4px 1px; min-height: 12px; }

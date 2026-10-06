@@ -108,3 +108,13 @@
   top: 0;
   z-index: 2;
 }
+
+/* Cada cheque en una sola linea: el nombre del cliente se ve completo y la tabla se
+   desliza de lado si no cabe. Memo y Ref # largos se recortan (texto completo al pasar el mouse). */
+.checks__th,
+.checks__td { white-space: nowrap; }
+.checks__td--clip {
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

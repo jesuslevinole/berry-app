@@ -223,7 +223,6 @@ export function ChecksView() {
             <tr>
               <th className="checks__th"># Check</th>
               <th className="checks__th">Date</th>
-              <th className="checks__th">Account</th>
               <th className="checks__th">Bank account</th>
               <th className="checks__th">Customer</th>
               <th className="checks__th">Memo</th>
@@ -234,7 +233,7 @@ export function ChecksView() {
           </thead>
           <tbody>
             {rows.length === 0 && (
-              <tr><td className="checks__empty" colSpan={9}>No checks yet.</td></tr>
+              <tr><td className="checks__empty" colSpan={8}>No checks yet.</td></tr>
             )}
             {rows.map((check) => (
               <tr
@@ -244,11 +243,10 @@ export function ChecksView() {
               >
                 <td className="checks__td checks__td--mono">{check.CHECK_NUMBER}</td>
                 <td className="checks__td checks__td--muted">{fmtDate(check.DATE)}</td>
-                <td className="checks__td">{accountName(check)}</td>
                 <td className="checks__td checks__td--muted">{bankName(check)}</td>
                 <td className="checks__td checks__td--strong">{customers.nameOf(check.ID_CUSTOMER)}</td>
-                <td className="checks__td checks__td--muted">{check.MEMO || '—'}</td>
-                <td className="checks__td checks__td--muted">{check.REF || '—'}</td>
+                <td className="checks__td checks__td--muted checks__td--clip" title={check.MEMO || ''}>{check.MEMO || '—'}</td>
+                <td className="checks__td checks__td--muted checks__td--clip" title={check.REF || ''}>{check.REF || '—'}</td>
                 <td className="checks__td checks__td--num">{fmtMoney(check.AMOUNT ?? 0)}</td>
                 <td className="checks__td checks__td--right">
                   {can('checks', 'documents') && (
