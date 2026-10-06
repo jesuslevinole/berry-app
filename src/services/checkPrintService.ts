@@ -138,16 +138,19 @@ export function printCheck(
   .words-row { display: flex; align-items: flex-end; gap: 8px; margin-top: 12px; }
   .words { flex: 1; border-bottom: 1px solid #111; font-size: 11px; padding: 0 4px 2px; }
   .words-dollars { font-size: 10.5px; font-weight: 700; }
-  .payee-address { margin: 14px 0 0 0.9in; font-size: 10.5px; line-height: 1.5; }
+  /* Direccion del beneficiario: un poco mas abajo (alineada a la ventana del sobre). */
+  /* Direccion del beneficiario un poco mas abajo (ventana del sobre). */
+  .payee-address { margin: 0.52in 0 0 0.9in; font-size: 10.5px; line-height: 1.5; }
   /* Memo y firma por encima de la franja azul del papel de cheque (antes de la banda MICR). */
-  .bottom { display: flex; justify-content: space-between; align-items: flex-end; margin-top: auto; gap: 20px; padding-bottom: 0.42in; }
+  .bottom { display: flex; justify-content: space-between; align-items: flex-end; margin-top: auto; gap: 20px; padding-bottom: 0.2in; }
   .memo { flex: 1; font-size: 10px; display: flex; align-items: flex-end; gap: 6px; }
   .memo .lbl { font-weight: 700; }
   .memo .val { flex: 0 1 260px; border-bottom: 1px solid #111; padding: 0 4px 1px; min-height: 12px; }
   .sig { width: 240px; border-top: 1px solid #111; text-align: center; font-size: 8.5px; font-weight: 700; padding-top: 3px; }
   /* Banda MICR: 5/8in libre al pie del cheque (estandar bancario). */
   /* Datos bancarios centrados en la banda MICR. */
-  .micr { height: 0.42in; display: flex; align-items: center; justify-content: center; font-family: 'Courier New', monospace; font-size: 14px; letter-spacing: 0.22em; }
+  /* Linea bancaria mas arriba; Memo y firma se quedan en su lugar. */
+  .micr { height: 0.42in; margin-bottom: 0.22in; display: flex; align-items: center; justify-content: center; font-family: 'Courier New', monospace; font-size: 14px; letter-spacing: 0.22em; }
   .cut { border: 0; border-top: 1px dashed #9aa8a0; margin: 0.08in 0; }
   /* ---- Talones ---- */
   .stub { height: 3.1in; padding: 0.24in 0.5in 0; font-size: 11px; }
