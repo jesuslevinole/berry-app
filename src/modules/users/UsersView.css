@@ -265,3 +265,16 @@
 /* Columna de acciones al inicio de la tabla. */
 .users__th--actions { width: 1%; white-space: nowrap; text-align: left; }
 .users__td--actions { white-space: nowrap; text-align: left; }
+
+/* La tabla se desplaza dentro de su tarjeta: la barra horizontal queda siempre
+   a la vista (sin bajar hasta el final) y los encabezados quedan fijos. */
+.users__card {
+  overflow: auto;
+  max-height: max(320px, calc(100dvh - var(--topbar-h) - 200px));
+  overscroll-behavior: contain;
+}
+.users__card thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}

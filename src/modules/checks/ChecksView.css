@@ -95,3 +95,16 @@
 .checks__action--delete { color: var(--bad); border-color: var(--bad-bg); }
 
 .checks__action--delete:hover { background-color: var(--bad); border-color: var(--bad); color: #ffffff; }
+
+/* La tabla se desplaza dentro de su tarjeta: la barra horizontal queda siempre
+   a la vista (sin bajar hasta el final) y los encabezados quedan fijos. */
+.checks__card {
+  overflow: auto;
+  max-height: max(320px, calc(100dvh - var(--topbar-h) - 200px));
+  overscroll-behavior: contain;
+}
+.checks__card thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}

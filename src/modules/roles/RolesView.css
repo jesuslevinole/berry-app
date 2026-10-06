@@ -304,3 +304,27 @@
 /* Columna de acciones al inicio de la tabla. */
 .roles__th--actions { width: 1%; white-space: nowrap; text-align: left; }
 .roles__td--actions { white-space: nowrap; text-align: left; }
+
+/* La tabla se desplaza dentro de su tarjeta: la barra horizontal queda siempre
+   a la vista (sin bajar hasta el final) y los encabezados quedan fijos. */
+.roles__card {
+  overflow: auto;
+  max-height: max(320px, calc(100dvh - var(--topbar-h) - 200px));
+  overscroll-behavior: contain;
+}
+.roles__card thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+/* Matriz de permisos: misma regla, barra horizontal siempre visible. */
+.roles__matrix-card {
+  overflow: auto;
+  max-height: max(320px, calc(100dvh - var(--topbar-h) - 200px));
+}
+.roles__matrix-card thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}

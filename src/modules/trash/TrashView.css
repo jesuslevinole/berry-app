@@ -47,3 +47,16 @@
 .trash__pager-info,
 .trash__pager-page { font-size: 0.82rem; color: var(--muted); }
 .trash__pager-actions { display: flex; align-items: center; gap: 10px; }
+
+/* La tabla se desplaza dentro de su tarjeta: la barra horizontal queda siempre
+   a la vista (sin bajar hasta el final) y los encabezados quedan fijos. */
+.trash__card {
+  overflow: auto;
+  max-height: max(320px, calc(100dvh - var(--topbar-h) - 200px));
+  overscroll-behavior: contain;
+}
+.trash__card thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}

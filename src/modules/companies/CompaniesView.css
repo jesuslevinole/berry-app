@@ -65,3 +65,16 @@
 }
 .companies__onboarding-title { margin: 0 0 8px; font-size: 0.95rem; color: var(--green-700); }
 .companies__steps { margin: 0; padding-left: 20px; font-size: 0.86rem; color: var(--ink); line-height: 1.7; }
+
+/* La tabla se desplaza dentro de su tarjeta: la barra horizontal queda siempre
+   a la vista (sin bajar hasta el final) y los encabezados quedan fijos. */
+.companies__card {
+  overflow: auto;
+  max-height: max(320px, calc(100dvh - var(--topbar-h) - 200px));
+  overscroll-behavior: contain;
+}
+.companies__card thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
