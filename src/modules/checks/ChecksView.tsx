@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useAppConfig } from '../../context/AppConfigContext';
 import { limit } from 'firebase/firestore';
 import { READ_LIMIT } from '../../config/limits';
 import { useCollection } from '../../hooks/useCollection';
 import { useCatalog } from '../../hooks/useCatalog';
-import { useCompany } from '../../hooks/useCompany';
+import { accountAsCompany, bankLabel as labelOfBank, useCheckAccounts } from '../../hooks/useCheckAccounts';
+import { CheckAccountsManager } from './CheckAccountsManager';
 import { createDocument, deleteDocument, updateDocument } from '../../services/firestore';
 import { printCheck } from '../../services/checkPrintService';
 import { COLLECTIONS, type Check } from '../../types/models';
@@ -30,7 +31,9 @@ export function ChecksView() {
   const { checkSettings } = useAppConfig();
   const { data: checks } = useCollection<Check>(COLLECTIONS.CHECKS, [limit(READ_LIMIT)]);
   const customers = useCatalog(COLLECTIONS.CUSTOMER, 'NAME_CUSTOMER');
-  const { company } = useCompany();
+  /* Checking Set-Up: cuentas emisoras (empresa) con sus bancos. */
+  const { accounts, accountOf, bankOf } = useCheckAccounts();
+  const [setupOpen, setSetupOpen] = useState(false);
 
   const [search, setSearch] = useState('');
   const [formOpen, setFormOpen] = useState(false);
@@ -38,21 +41,33 @@ export function ChecksView() {
 
   const [checkNumber, setCheckNumber] = useState('');
   const [date, setDate] = useState(todayISO());
+  const [accountId, setAccountId] = useState('');
   const [bankId, setBankId] = useState('');
   const [customerId, setCustomerId] = useState('');
   const [memo, setMemo] = useState('');
   const [ref, setRef] = useState('');
   const [amount, setAmount] = useState('');
 
+  const accountOptions = useMemo(() => accounts.map((a) => ({ id: a.id, name: a.NAME })), [accounts]);
+  const selectedAccount = accounts.find((a) => a.id === accountId);
+  /* Bank Account trae solo los bancos de la cuenta elegida. */
   const bankOptions = useMemo(
-    () =>
-      (company.banks ?? []).map((b) => ({
-        id: b.id,
-        name: `${b.bankName}${b.account ? `-${b.account.slice(-4)}` : ''}`,
-      })),
-    [company.banks],
+    () => (selectedAccount?.BANKS ?? []).map((b) => ({ id: b.id, name: labelOfBank(b) })),
+    [selectedAccount],
   );
-  const bankLabel = useMemo(() => new Map(bankOptions.map((b) => [b.id, b.name])), [bankOptions]);
+
+  /** Al cambiar de cuenta se propone su primer banco. */
+  const changeAccount = (id: string) => {
+    setAccountId(id);
+    setBankId(accounts.find((a) => a.id === id)?.BANKS?.[0]?.id ?? '');
+  };
+
+  /** Etiquetas de la tabla (tolerantes con cheques importados de AppSheet). */
+  const accountName = (c: Check): string => accountOf(c)?.NAME || c.ACCOUNT || '—';
+  const bankName = (c: Check): string => {
+    const bank = bankOf(accountOf(c), c.ID_BANK);
+    return bank ? labelOfBank(bank) : c.ID_BANK || '—';
+  };
 
   /** Siguiente consecutivo: max(cheques existentes, numero inicial configurado - 1) + 1. */
   const nextNumber = useMemo(() => {
@@ -60,11 +75,6 @@ export function ChecksView() {
     const start = checkSettings.startNumber ?? 1;
     return Math.max(maxExisting, start - 1) + 1;
   }, [checks, checkSettings.startNumber]);
-
-  useEffect(() => {
-    if (formOpen && !editing) setCheckNumber(String(nextNumber));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formOpen, editing, nextNumber]);
 
   const rows = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -74,17 +84,23 @@ export function ChecksView() {
     );
     if (!term) return sorted;
     return sorted.filter((c) =>
-      [String(c.CHECK_NUMBER ?? ''), customers.nameOf(c.ID_CUSTOMER), c.MEMO ?? '', c.REF ?? '', bankLabel.get(c.ID_BANK) ?? '']
+      [String(c.CHECK_NUMBER ?? ''), customers.nameOf(c.ID_CUSTOMER), c.MEMO ?? '', c.REF ?? '', bankName(c), accountName(c)]
         .some((v) => v.toLowerCase().includes(term)),
     );
-  }, [checks, search, customers, bankLabel]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checks, search, customers, accountOf, bankOf]);
 
   const total = round2(rows.reduce((acc, c) => acc + (c.AMOUNT ?? 0), 0));
 
   const openCreate = () => {
     setEditing(null);
+    /* Siguiente consecutivo al abrir (se vuelve a confirmar al guardar). */
+    setCheckNumber(String(nextNumber));
     setDate(todayISO());
-    setBankId(company.banks?.[0]?.id ?? '');
+    /* Con una sola cuenta se elige sola, igual su primer banco. */
+    const first = accounts.length === 1 ? accounts[0] : undefined;
+    setAccountId(first?.id ?? '');
+    setBankId(first?.BANKS?.[0]?.id ?? '');
     setCustomerId('');
     setMemo('');
     setRef('');
@@ -96,7 +112,9 @@ export function ChecksView() {
     setEditing(check);
     setCheckNumber(String(check.CHECK_NUMBER ?? ''));
     setDate(check.DATE ?? todayISO());
-    setBankId(check.ID_BANK ?? '');
+    const account = accountOf(check);
+    setAccountId(account?.id ?? '');
+    setBankId(bankOf(account, check.ID_BANK)?.id ?? '');
     setCustomerId(check.ID_CUSTOMER ?? '');
     setMemo(check.MEMO ?? '');
     setRef(check.REF ?? '');
@@ -107,6 +125,10 @@ export function ChecksView() {
   /** Guardado local-first con confirmacion del consecutivo (no repetir ni saltar). */
   const handleSave = () => {
     const amountValue = round2(toNumber(amount));
+    if (!accountId || !bankId) {
+      alert('Select the account and its bank account.');
+      return;
+    }
     if (!customerId || amountValue <= 0) {
       alert('Customer and a positive amount are required.');
       return;
@@ -126,7 +148,8 @@ export function ChecksView() {
     const payload: Omit<Check, 'id'> = {
       CHECK_NUMBER: finalNumber,
       DATE: date,
-      ACCOUNT: company.name || '',
+      ID_ACCOUNT: accountId,
+      ACCOUNT: selectedAccount?.NAME ?? '',
       ID_BANK: bankId,
       ID_CUSTOMER: customerId,
       MEMO: memo.trim(),
@@ -151,9 +174,15 @@ export function ChecksView() {
     );
   };
 
+  /** Imprime con los datos de la cuenta emisora y el banco del cheque. */
   const handlePrint = (check: Check) => {
-    const bank = (company.banks ?? []).find((b) => b.id === check.ID_BANK) ?? null;
-    printCheck(check, customers.nameOf(check.ID_CUSTOMER), company, bank, checkSettings);
+    const account = accountOf(check);
+    if (!account) {
+      alert('This check has no account. Edit it and select the account first.');
+      return;
+    }
+    const bank = bankOf(account, check.ID_BANK) ?? null;
+    printCheck(check, customers.nameOf(check.ID_CUSTOMER), accountAsCompany(account), bank, checkSettings);
   };
 
   /** Borrado directo desde la tabla (en segundo plano). */
@@ -167,15 +196,18 @@ export function ChecksView() {
   return (
     <div className="checks">
       <Toolbar title="Checkbook" subtitle={`${rows.length} checks · ${fmtMoney(total)}`} searchValue={search} onSearchChange={setSearch}>
+        <button type="button" className="btn btn--secondary" onClick={() => setSetupOpen(true)}>
+          Checking Set-Up
+        </button>
         {can('checks', 'documents') && <DataPortButtons schemas={CHECKS_SCHEMAS} fileName="checks" />}
         {can('checks', 'add') && (
           <button type="button" className="btn btn--primary" onClick={openCreate}>+ Add check</button>
         )}
       </Toolbar>
 
-      {(company.banks ?? []).length === 0 && (
+      {!accounts.some((a) => (a.BANKS ?? []).length > 0) && (
         <div className="checks__notice">
-          No bank accounts configured yet. Add them in <strong>Company Info</strong> to print checks properly.
+          No bank accounts configured yet. Add the account and its banks in <strong>Checking Set-Up</strong> to write checks.
         </div>
       )}
 
@@ -206,8 +238,8 @@ export function ChecksView() {
               >
                 <td className="checks__td checks__td--mono">{check.CHECK_NUMBER}</td>
                 <td className="checks__td checks__td--muted">{fmtDate(check.DATE)}</td>
-                <td className="checks__td">{check.ACCOUNT || company.name || '—'}</td>
-                <td className="checks__td checks__td--muted">{bankLabel.get(check.ID_BANK) ?? '—'}</td>
+                <td className="checks__td">{accountName(check)}</td>
+                <td className="checks__td checks__td--muted">{bankName(check)}</td>
                 <td className="checks__td checks__td--strong">{customers.nameOf(check.ID_CUSTOMER)}</td>
                 <td className="checks__td checks__td--muted">{check.MEMO || '—'}</td>
                 <td className="checks__td checks__td--muted">{check.REF || '—'}</td>
@@ -249,6 +281,10 @@ export function ChecksView() {
         </table>
       </div>
 
+      {setupOpen && (
+        <CheckAccountsManager accounts={accounts} canEdit={can('checks', 'edit')} onClose={() => setSetupOpen(false)} />
+      )}
+
       <Modal
         title={editing ? `Edit check #${editing.CHECK_NUMBER}` : 'New check'}
         open={formOpen}
@@ -272,13 +308,17 @@ export function ChecksView() {
           <FormField label="Date">
             <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           </FormField>
-          <FormField label="Account">
-            <input className="input" value={company.name || ''} disabled />
+          <FormField label="Account" required span2>
+            <SearchableSelect value={accountId} onChange={changeAccount} options={accountOptions} placeholder="Select company…" />
           </FormField>
-          <FormField label="Bank account">
-            <SearchableSelect value={bankId} onChange={setBankId} options={bankOptions} placeholder="Select bank…" />
+          <FormField label="Bank Account" required span2>
+            {accountId ? (
+              <SearchableSelect value={bankId} onChange={setBankId} options={bankOptions} placeholder="Select bank account…" />
+            ) : (
+              <input className="input" value="" placeholder="Select the account first" disabled />
+            )}
           </FormField>
-          <FormField label="Customer">
+          <FormField label="Customer" required span2>
             <CatalogSelect
               value={customerId}
               onChange={setCustomerId}
@@ -288,14 +328,14 @@ export function ChecksView() {
               catalogLabel="customer"
             />
           </FormField>
-          <FormField label="Amount">
-            <input className="input" type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
-          </FormField>
           <FormField label="Memo" span2>
             <input className="input" value={memo} onChange={(e) => setMemo(e.target.value)} />
           </FormField>
           <FormField label="Ref #" span2>
             <input className="input" value={ref} onChange={(e) => setRef(e.target.value)} />
+          </FormField>
+          <FormField label="Amount" required span2>
+            <input className="input" type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
           </FormField>
         </FormGrid>
       </Modal>

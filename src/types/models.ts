@@ -40,6 +40,8 @@ export const COLLECTIONS = {
   ROLES: 'settings_roles',
   APP_SETTINGS: 'settings_app',
   CHECKS: 'BD_CHECKS',
+  /** Checking Set-Up: cuentas emisoras de cheques (empresa + sus bancos). */
+  CHECK_ACCOUNTS: 'CAT_CHECKACCOUNTS',
   COMPANY: 'settings_company',
   /** Global: catalogo de empresas del SaaS. */
   COMPANIES: 'companies',
@@ -272,10 +274,24 @@ export interface CompanyInfo extends BaseDoc {
 }
 
 /* ---------- Cheques ---------- */
+/** Cuenta emisora de cheques (Checking Set-Up): datos de la empresa y sus bancos. */
+export interface CheckAccount extends BaseDoc {
+  NAME: string;
+  ADDRESS: string;
+  CITY_STATE_ZIP: string;
+  PHONE: string;
+  EMAIL: string;
+  /** Logo en data URL base64. */
+  LOGO: string;
+  BANKS: CompanyBank[];
+}
+
 export interface Check extends BaseDoc {
   CHECK_NUMBER: number;
   DATE: string;
-  /** Cuenta emisora (nombre de la empresa). */
+  /** Cuenta emisora (Checking Set-Up). */
+  ID_ACCOUNT?: string;
+  /** Nombre de la cuenta emisora (respaldo para cheques importados). */
   ACCOUNT: string;
   ID_BANK: string;
   ID_CUSTOMER: ID;
