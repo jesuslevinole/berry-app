@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { tenantPath } from '../services/tenant';
+import { useActiveCompanyId } from './useActiveCompanyId';
 import { COLLECTIONS, type CompanyInfo } from '../types/models';
 
 const COMPANY_DOC_ID = 'company';
@@ -21,7 +22,9 @@ export function useCompany() {
   const [company, setCompany] = useState<CompanyInfo>({ id: COMPANY_DOC_ID, ...EMPTY });
   const [loading, setLoading] = useState(true);
 
+  const companyId = useActiveCompanyId();
   useEffect(() => {
+    if (!companyId) return;
     return onSnapshot(
       doc(db, tenantPath(COLLECTIONS.COMPANY), COMPANY_DOC_ID),
       (snap) => {
@@ -34,7 +37,7 @@ export function useCompany() {
       },
       () => setLoading(false),
     );
-  }, []);
+  }, [companyId]);
 
   const save = (data: Partial<Omit<CompanyInfo, 'id'>>) => {
     setDoc(doc(db, tenantPath(COLLECTIONS.COMPANY), COMPANY_DOC_ID), data, { merge: true }).catch(

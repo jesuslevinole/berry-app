@@ -24,6 +24,7 @@ import {
 import { auth, db } from '../firebase/config';
 import type { BaseDoc } from '../types/models';
 import { onCompanyChange, tenantPath } from './tenant';
+import { recordLabel } from './recordLabels';
 
 
 /* ---------- Registro de actividad + papelera (intercepcion central) ---------- */
@@ -44,6 +45,8 @@ export async function logActivity(
   action: 'create' | 'update' | 'delete' | 'restore',
   docId: string,
   detail = '',
+  /** Nombre legible del registro (numero de orden, lote, nombre...). */
+  label = '',
 ): Promise<void> {
   if (INTERNAL_COLLECTIONS.has(colName)) return;
   try {
@@ -52,6 +55,7 @@ export async function logActivity(
       COLLECTION: colName,
       ACTION: action,
       DOC_ID: docId,
+      LABEL: label,
       DETAIL: detail,
       DATE: new Date().toISOString(),
       createdAt: serverTimestamp(),
@@ -68,12 +72,32 @@ export async function restoreFromTrash(trashId: string): Promise<void> {
   const item = snap.data() as { ORIGIN_COLLECTION: string; ORIGIN_ID: string; DATA: Record<string, unknown> };
   await setDoc(doc(db, tenantPath(item.ORIGIN_COLLECTION), item.ORIGIN_ID), { ...item.DATA, updatedAt: serverTimestamp() });
   await deleteDoc(doc(db, tenantPath(TRASH_COLLECTION), trashId));
-  void logActivity(item.ORIGIN_COLLECTION, 'restore', item.ORIGIN_ID, 'Restored from recycle bin');
+  void logActivity(
+    item.ORIGIN_COLLECTION,
+    'restore',
+    item.ORIGIN_ID,
+    'Restored from recycle bin',
+    recordLabel(item.ORIGIN_COLLECTION, item.DATA),
+  );
 }
 
 /** Elimina definitivamente un registro de la papelera. */
 export async function deleteFromTrashForever(trashId: string): Promise<void> {
   await deleteDoc(doc(db, tenantPath(TRASH_COLLECTION), trashId));
+}
+
+/** Vacia la papelera completa (borrado definitivo, en lotes de 400). Devuelve cuantos borro. */
+export async function emptyTrash(onProgress?: (deleted: number) => void): Promise<number> {
+  const snap = await getDocs(collection(db, tenantPath(TRASH_COLLECTION)));
+  let deleted = 0;
+  for (let i = 0; i < snap.docs.length; i += 400) {
+    const batch = writeBatch(db);
+    for (const d of snap.docs.slice(i, i + 400)) batch.delete(d.ref);
+    await batch.commit();
+    deleted += Math.min(400, snap.docs.length - i);
+    onProgress?.(deleted);
+  }
+  return deleted;
 }
 
 /* ---------- Suscripciones compartidas (control de lecturas) ----------
@@ -213,7 +237,7 @@ export async function createDocument<T extends BaseDoc>(
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
-  void logActivity(colName, 'create', ref.id);
+  void logActivity(colName, 'create', ref.id, '', recordLabel(colName, data as Record<string, unknown>));
   return ref.id;
 }
 
@@ -225,7 +249,7 @@ export async function updateDocument<T extends BaseDoc>(
 ): Promise<void> {
   await updateDoc(doc(db, tenantPath(colName), id), { ...data, updatedAt: serverTimestamp() });
   /* silent: recalculos automaticos de totales no se registran como accion del usuario. */
-  if (!options.silent) void logActivity(colName, 'update', id);
+  if (!options.silent) void logActivity(colName, 'update', id, '', recordLabel(colName, data as Record<string, unknown>));
 }
 
 /**
@@ -233,10 +257,12 @@ export async function updateDocument<T extends BaseDoc>(
  * eliminarse, para poder restaurarlo. Las colecciones internas se borran directo.
  */
 export async function deleteDocument(colName: string, id: string): Promise<void> {
+  let label = '';
   if (!INTERNAL_COLLECTIONS.has(colName)) {
     try {
       const snap = await getDoc(doc(db, tenantPath(colName), id));
       if (snap.exists()) {
+        label = recordLabel(colName, snap.data());
         await addDoc(collection(db, tenantPath(TRASH_COLLECTION)), {
           ORIGIN_COLLECTION: colName,
           ORIGIN_ID: id,
@@ -251,7 +277,7 @@ export async function deleteDocument(colName: string, id: string): Promise<void>
     }
   }
   await deleteDoc(doc(db, tenantPath(colName), id));
-  void logActivity(colName, 'delete', id);
+  void logActivity(colName, 'delete', id, '', label);
 }
 
 /**

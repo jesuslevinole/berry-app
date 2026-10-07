@@ -5,6 +5,7 @@ export const EMAIL_DOC_TYPES: { id: EmailDocType; label: string }[] = [
   { id: 'invoice', label: 'Invoice' },
   { id: 'pick', label: 'Pick Ticket' },
   { id: 'so', label: 'Sales Order' },
+  { id: 'passing', label: 'Passing' },
   { id: 'bol', label: 'Bill of Lading' },
   { id: 'po', label: 'Purchase Order' },
   { id: 'statement', label: 'Statement' },
@@ -15,6 +16,7 @@ export const SALES_DOC_TYPES: { id: SalesDocType; label: string; short: string }
   { id: 'invoice', label: 'Invoice', short: 'Invoice' },
   { id: 'pick', label: 'Pick Ticket', short: 'Pick Tix' },
   { id: 'so', label: 'Sales Order', short: 'Sales Order' },
+  { id: 'passing', label: 'Passing', short: 'Passing' },
   { id: 'bol', label: 'Bill of Lading', short: 'BOL' },
 ];
 

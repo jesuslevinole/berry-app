@@ -1,6 +1,6 @@
 /**
  * Documentos imprimibles de Sales Desk (formato Berry Source, LC):
- * Invoice, Pick Ticket, Sales Order y Straight Bill of Lading.
+ * Invoice, Pick Ticket, Sales Order, Straight Bill of Lading y Passing (confirmacion de carga).
  * Todos replican los layouts de AppSheet: logo + direccion, tablas verdes,
  * SOLD TO / SHIP TO, marca de agua y sus bloques especificos.
  */
@@ -438,4 +438,114 @@ export async function buildBillOfLadingHtml(order: SalesOrder, ctx: SalesDocCont
 
 export async function printBillOfLading(order: SalesOrder, ctx: SalesDocContext): Promise<void> {
   openWindow(await buildBillOfLadingHtml(order, ctx));
+}
+
+/* ---------- 5. PASSING (confirmacion de carga) ---------- */
+
+const PASS_GREEN = '#548235';
+const PASS_LIGHT = '#a9d18e';
+const PASS_SOFT = '#e2efda';
+
+/** HTML del Passing: confirmacion de que la orden se cargo en el almacen (Load Confirmation). */
+export async function buildPassingHtml(order: SalesOrder, ctx: SalesDocContext): Promise<string> {
+  const lines = await fetchLines(order.id);
+  const totalQty = lines.reduce((acc, l) => acc + (l.QUANTITY ?? 0), 0);
+  const rows = lines
+    .map(
+      (l) => `
+      <tr>
+        <td class="center">${esc(ctx.commodityName(l.ID_COMMODITIES))}</td>
+        <td class="center">${esc(ctx.commodityDescription?.(l.ID_COMMODITIES) || l.DESCRIPTION || '')}</td>
+        <td class="center">${fmtQty(l.QUANTITY ?? 0)}</td>
+      </tr>`,
+    )
+    .join('');
+  const sold = `<b>${esc(ctx.customerName)}</b><br />${esc(ctx.customerAddress)}<br />${esc(ctx.customerCity)}`;
+  const company = ctx.company;
+
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8" />
+<title>Passing ${esc(order.SALES_ORDER_NUMBER || '')}</title>
+<style>${baseStyles}
+  .pass-head { border-top: 3px solid ${PASS_GREEN}; border-bottom: 3px solid ${PASS_GREEN}; text-align: center; padding: 6px 0; color: ${PASS_GREEN}; font-size: 19px; font-weight: 800; letter-spacing: 0.32em; }
+  .pass-top { display: grid; grid-template-columns: 1fr auto 1fr; gap: 18px; align-items: start; margin-top: 18px; }
+  .pass-kv { border-collapse: collapse; }
+  .pass-kv td { padding: 5px 10px; font-size: 11.5px; border: 1px solid ${PASS_GREEN}; }
+  .pass-kv .k { background: ${PASS_GREEN}; color: #ffffff; font-weight: 700; white-space: nowrap; }
+  .pass-kv .v { text-align: center; min-width: 110px; }
+  .pass-kv.right { margin-left: auto; }
+  .pass-kv.right .v { min-width: 125px; font-weight: 700; }
+  .pass-pickup { display: flex; margin-top: 10px; background: ${PASS_SOFT}; width: max-content; }
+  .pass-pickup span { padding: 5px 12px; font-size: 11.5px; }
+  .pass-pickup .lbl { background: ${PASS_LIGHT}; font-weight: 700; }
+  .pass-addr { font-size: 11px; line-height: 1.4; margin-top: 6px; }
+  .pass-logo img { max-height: 95px; max-width: 200px; object-fit: contain; margin-top: 10px; }
+  .pass-ss { display: grid; grid-template-columns: 1fr 1fr; gap: 50px; margin-top: 22px; }
+  .pass-ss h4 { font-size: 12px; font-weight: 800; border-bottom: 2px solid #1c1c1c; padding-bottom: 2px; }
+  .pass-ss div.body { text-align: center; line-height: 1.5; margin-top: 4px; font-size: 11.5px; }
+  .pass-bar { width: 100%; border-collapse: collapse; margin-top: 18px; }
+  .pass-bar th { background: ${PASS_GREEN}; color: #ffffff; font-weight: 500; padding: 6px 8px; font-size: 12px; }
+  .pass-bar td { padding: 6px 8px; text-align: center; font-size: 12px; background: #f6f8f5; }
+  .pass-items { width: 100%; border-collapse: collapse; margin-top: 14px; }
+  .pass-items th { background: ${PASS_GREEN}; color: #ffffff; font-weight: 500; padding: 6px 8px; font-size: 12px; }
+  .pass-items td { padding: 6px 8px; font-size: 12px; text-align: center; background: #f6f8f5; }
+  .pass-stamp { display: flex; justify-content: center; margin-top: 28px; }
+  .pass-stamp span { border: 2px solid ${PASS_GREEN}; border-radius: 10px; background: ${PASS_SOFT}; color: ${PASS_GREEN}; font-size: 24px; font-weight: 800; font-style: italic; padding: 6px 32px; letter-spacing: 0.02em; }
+  .pass-total { width: 360px; margin: 26px auto 0; }
+  .pass-total .t { display: flex; justify-content: space-around; background: ${PASS_LIGHT}; font-weight: 800; font-size: 13.5px; padding: 6px 10px; }
+  .pass-total .w { display: flex; justify-content: center; gap: 10px; background: ${PASS_SOFT}; font-size: 11px; padding: 3px 10px; }
+  .pass-whaddr { background: ${PASS_LIGHT}; text-align: center; font-weight: 700; font-size: 11.5px; padding: 6px 10px; margin-top: 16px; }
+  .pass-load { text-align: center; font-size: 15px; letter-spacing: 0.03em; margin-top: 8px; color: #333; }
+  .page .watermark { top: 62%; left: 50%; }
+</style></head><body>
+<div class="print-bar"><button onclick="window.print()">Print / Save as PDF</button></div>
+<div class="page">${watermark(company)}<div class="content">
+  <div class="pass-head">*** PASSING ***</div>
+  <div class="pass-top">
+    <div>
+      <table class="pass-kv">
+        <tr><td class="k">DATE</td><td class="v">${fmtSlashDate(order.DATE || '')}</td></tr>
+        <tr><td class="k">SALES PERSON</td><td class="v">${esc(ctx.salesPerson)}</td></tr>
+        <tr><td class="k">CARRIER</td><td class="v">${esc(ctx.carrierName)}</td></tr>
+      </table>
+      <div class="pass-pickup"><span class="lbl">Pick Up Date</span><span>${fmtSlashDate(order.DATE || '')}</span></div>
+      <div class="pass-addr">${esc(company.address)}<br />${esc(company.cityStateZip)}${company.phone ? `<br />${esc(company.phone)} Main` : ''}</div>
+    </div>
+    <div class="pass-logo">${company.logo ? `<img src="${company.logo}" alt="logo" />` : `<strong>${esc(company.name)}</strong>`}</div>
+    <div>
+      <table class="pass-kv right">
+        <tr><td class="k">SALES ORDER #</td><td class="v">${esc(order.SALES_ORDER_NUMBER || '')}</td></tr>
+        <tr><td class="k">CUSTOMER</td><td class="v">${esc(ctx.customerName)}</td></tr>
+        <tr><td class="k">BUYER</td><td class="v">${esc(order.BUYER || '')}</td></tr>
+      </table>
+    </div>
+  </div>
+  <div class="pass-ss">
+    <div><h4>SOLD TO</h4><div class="body">${sold}</div></div>
+    <div><h4>SHIP TO</h4><div class="body">${sold}</div></div>
+  </div>
+  <table class="pass-bar">
+    <tr><th>Reference #</th><th>Shipping Terms</th><th>Ship Via</th><th>Payment Terms</th></tr>
+    <tr>
+      <td><b>${esc(order.REF || '')}</b></td>
+      <td>${esc(ctx.shippingTermsName)}</td>
+      <td>${esc(ctx.shipViaName)}</td>
+      <td><b>${esc(ctx.paymentTermName) || paymentTermDays(order) || fmtSlashDate(order.DUE_DATE || '')}</b></td>
+    </tr>
+  </table>
+  <table class="pass-items">
+    <tr><th>Item</th><th>Description</th><th>QTY</th></tr>
+    ${rows || '<tr><td colspan="3" style="color:#777">No line items</td></tr>'}
+  </table>
+  <div class="pass-stamp"><span>COMPLETED</span></div>
+  <div class="pass-total">
+    <div class="t"><span>TOTAL</span><span>${fmtQty(totalQty)}</span></div>
+    <div class="w"><b>WAREHOUSE</b><b>${esc(ctx.warehouseName)}</b></div>
+  </div>
+  ${ctx.warehouseAddress ? `<div class="pass-whaddr">${esc(ctx.warehouseAddress)}</div>` : ''}
+  <div class="pass-load">LOAD CONFIRMATION</div>
+</div></div></body></html>`;
+}
+
+export async function printPassing(order: SalesOrder, ctx: SalesDocContext): Promise<void> {
+  openWindow(await buildPassingHtml(order, ctx));
 }

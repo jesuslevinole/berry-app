@@ -3,6 +3,7 @@ import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { tenantPath } from '../services/tenant';
 import { COLLECTIONS, type AppConfigDoc, type CheckSettings, type FormFieldConfig } from '../types/models';
+import { useActiveCompanyId } from '../hooks/useActiveCompanyId';
 
 const CONFIG_DOC_ID = 'config';
 
@@ -37,19 +38,22 @@ interface AppConfigValue {
 const AppConfigContext = createContext<AppConfigValue | null>(null);
 
 export function AppConfigProvider({ children }: { children: ReactNode }) {
-  const [config, setConfig] = useState<AppConfigDoc | null>(null);
-  const [loading, setLoading] = useState(true);
-
+  /* Se escucha la configuracion de la empresa ACTIVA. Antes se suscribia una sola vez al
+     montar la app (cuando aun no habia empresa) y nunca veia lo guardado: parecia no guardar. */
+  const companyId = useActiveCompanyId();
+  /* Lo recibido se guarda junto con su empresa: si la empresa cambia, deja de valer. */
+  const [received, setReceived] = useState<{ companyId: string; config: AppConfigDoc | null } | null>(null);
+  const current = received && received.companyId === companyId ? received : null;
+  const config = current?.config ?? null;
+  const loading = !!companyId && !current;
   useEffect(() => {
+    if (!companyId) return;
     return onSnapshot(
       doc(db, tenantPath(COLLECTIONS.APP_SETTINGS), CONFIG_DOC_ID),
-      (snap) => {
-        setConfig(snap.exists() ? ({ id: snap.id, ...snap.data() } as AppConfigDoc) : null);
-        setLoading(false);
-      },
-      () => setLoading(false),
+      (snap) => setReceived({ companyId, config: snap.exists() ? ({ id: snap.id, ...snap.data() } as AppConfigDoc) : null }),
+      () => setReceived({ companyId, config: null }),
     );
-  }, []);
+  }, [companyId]);
 
   const value = useMemo<AppConfigValue>(() => {
     /** Escribe la configuracion y devuelve la promesa para confirmar el guardado. */

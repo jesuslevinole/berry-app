@@ -157,7 +157,7 @@ export function ConfigView() {
   const editFields = (updater: (prev: FormFieldConfig[]) => FormFieldConfig[]) => {
     setFieldsDirty(true);
     setFieldsSaved(null);
-    setFieldsDraft(updater);
+    setFieldsDraft(updater(shownFields));
   };
   useEffect(() => {
     if (formDef) {
@@ -167,11 +167,13 @@ export function ConfigView() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [section]);
+  /* Sin cambios pendientes se muestra lo guardado (llega de Firestore despues de abrir). */
+  const shownFields = fieldsDirty ? fieldsDraft : formDef ? fieldsFor(formDef.id, formDef.fields) : fieldsDraft;
 
   const moveField = (index: number, delta: number) => {
     const target = index + delta;
-    if (target < 0 || target >= fieldsDraft.length) return;
-    const next = [...fieldsDraft];
+    if (target < 0 || target >= shownFields.length) return;
+    const next = [...shownFields];
     [next[index], next[target]] = [next[target], next[index]];
     editFields(() => next);
   };
@@ -367,7 +369,7 @@ export function ConfigView() {
                 opening a row to edit. Renamed labels appear everywhere the field is shown.
               </p>
               <ul className="config__list">
-                {fieldsDraft.map((field, index) => (
+                {shownFields.map((field, index) => (
                   <li
                     className={`config__row${canOrder ? ' config__row--draggable' : ''}${canOrder ? dragClass(index) : ''}`}
                     key={field.key}
@@ -418,7 +420,7 @@ export function ConfigView() {
                     )}
                     <span className="config__row-actions">
                       <button type="button" className="config__arrow" disabled={!canOrder || index === 0} onClick={() => moveField(index, -1)} aria-label="Move up">▲</button>
-                      <button type="button" className="config__arrow" disabled={!canOrder || index === fieldsDraft.length - 1} onClick={() => moveField(index, 1)} aria-label="Move down">▼</button>
+                      <button type="button" className="config__arrow" disabled={!canOrder || index === shownFields.length - 1} onClick={() => moveField(index, 1)} aria-label="Move down">▼</button>
                     </span>
                   </li>
                 ))}
@@ -437,7 +439,7 @@ export function ConfigView() {
                   type="button"
                   className="btn btn--primary"
                   onClick={() => {
-                    void saveFormFields(formDef.id, fieldsDraft.map((f) => ({ ...f, label: f.label.trim() || f.key })))
+                    void saveFormFields(formDef.id, shownFields.map((f) => ({ ...f, label: f.label.trim() || f.key })))
                       .then(() => {
                         setFieldsDirty(false);
                         setFieldsSaved('Saved');

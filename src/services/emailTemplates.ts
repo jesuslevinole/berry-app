@@ -60,6 +60,10 @@ const DEFAULTS: Record<EmailDocType, { subject: string; body: string }> = {
     subject: 'Sales Order {{number}} — {{customer}}',
     body: '<p>Hello,</p><p>Please find attached <b>Sales Order {{number}}</b> (Ref {{ref}}).</p><p>Thank you,<br>{{company}}</p>',
   },
+  passing: {
+    subject: 'Passing {{number}} — {{customer}}',
+    body: '<p>Hello,</p><p>Please find attached the <b>Passing</b> (load confirmation) for sales order <b>{{number}}</b> (Ref {{ref}}).</p><p>Thank you,<br>{{company}}</p>',
+  },
   bol: {
     subject: 'Bill of Lading {{number}} — {{customer}}',
     body: '<p>Hello,</p><p>Please find attached the <b>Bill of Lading</b> for sales order <b>{{number}}</b> (Ref {{ref}}).</p><p>Thank you,<br>{{company}}</p>',

@@ -324,6 +324,8 @@ export interface ActivityLog extends BaseDoc {
   COLLECTION: string;
   ACTION: 'create' | 'update' | 'delete' | 'restore';
   DOC_ID: string;
+  /** Nombre legible del registro al momento de la accion (registros nuevos). */
+  LABEL?: string;
   DETAIL: string;
   DATE: string;
 }
@@ -360,7 +362,7 @@ export interface Company extends BaseDoc {
 }
 
 /** Documentos de una orden de venta (Sales Desk). */
-export type SalesDocType = 'invoice' | 'pick' | 'so' | 'bol';
+export type SalesDocType = 'invoice' | 'pick' | 'so' | 'passing' | 'bol';
 
 /** Documentos que se pueden enviar por correo. */
 export type EmailDocType = SalesDocType | 'po' | 'statement';

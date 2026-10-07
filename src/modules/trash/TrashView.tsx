@@ -1,20 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { limit, orderBy } from 'firebase/firestore';
-import { deleteFromTrashForever, restoreFromTrash, subscribeToCollection } from '../../services/firestore';
+import { deleteFromTrashForever, emptyTrash, restoreFromTrash, subscribeToCollection } from '../../services/firestore';
+import { moduleLabel, recordLabel } from '../../services/recordLabels';
 import { useAuth } from '../../context/AuthContext';
 import { Toolbar } from '../../components/ui/Toolbar';
 import { PAGE_SIZE } from '../../config/limits';
 import { COLLECTIONS, type TrashItem } from '../../types/models';
 import './TrashView.css';
-
-const COLLECTION_LABELS: Record<string, string> = {
-  [COLLECTIONS.PURCHASE_ORDER]: 'Purchase Orders',
-  [COLLECTIONS.PURCHASE_DETAILS]: 'Purchase Order lines',
-  [COLLECTIONS.SALES_ORDER]: 'Sales Desk',
-  [COLLECTIONS.SALES_ORDER_DETAIL]: 'Sales Desk lines',
-  [COLLECTIONS.EXPENSES]: 'Expenses',
-  [COLLECTIONS.CHECKS]: 'Checkbook',
-};
 
 const fmtDateTime = (iso: string): string => {
   if (!iso) return '\u2014';
@@ -23,25 +15,15 @@ const fmtDateTime = (iso: string): string => {
 };
 
 /** Resumen legible del registro borrado (numero de orden, lote, nombre o id). */
-const summarize = (item: TrashItem): string => {
-  const data = item.DATA ?? {};
-  const candidates = ['SALES_ORDER_NUMBER', 'LOT_NUMBER', 'CHECK_NUMBER', 'INVOICE_NUMBER', 'REF_NUMBER', 'REF'];
-  for (const key of candidates) {
-    const value = data[key];
-    if (typeof value === 'string' && value.trim()) return value;
-    if (typeof value === 'number') return String(value);
-  }
-  for (const [key, value] of Object.entries(data)) {
-    if (key.startsWith('NAME') && typeof value === 'string' && value.trim()) return value;
-  }
-  return item.ORIGIN_ID;
-};
+const summarize = (item: TrashItem): string => recordLabel(item.ORIGIN_COLLECTION, item.DATA) || item.ORIGIN_ID;
 
 export function TrashView() {
   const { can } = useAuth();
   const [items, setItems] = useState<TrashItem[]>([]);
   const [search, setSearch] = useState('');
   const [busyId, setBusyId] = useState('');
+  /* Vaciado completo en curso (cuantos lleva borrados). */
+  const [emptying, setEmptying] = useState<number | null>(null);
 
   useEffect(() => {
     const unsub = subscribeToCollection<TrashItem>(
@@ -58,7 +40,7 @@ export function TrashView() {
     return items.filter(
       (item) =>
         !term ||
-        [COLLECTION_LABELS[item.ORIGIN_COLLECTION] ?? item.ORIGIN_COLLECTION, summarize(item), item.DELETED_BY]
+        [moduleLabel(item.ORIGIN_COLLECTION), summarize(item), item.DELETED_BY]
           .join(' ')
           .toLowerCase()
           .includes(term),
@@ -88,6 +70,20 @@ export function TrashView() {
     }
   };
 
+  /** Borra definitivamente TODO lo que esta en la papelera. */
+  const handleEmpty = async () => {
+    if (!window.confirm('Delete EVERYTHING in the recycle bin forever? These records can no longer be restored.')) return;
+    setEmptying(0);
+    try {
+      const total = await emptyTrash((done) => setEmptying(done));
+      alert(`Recycle bin emptied: ${total} records deleted forever.`);
+    } catch {
+      alert('Could not empty the recycle bin. Try again.');
+    } finally {
+      setEmptying(null);
+    }
+  };
+
   /* Paginacion: hasta PAGE_SIZE filas visibles a la vez. */
   const [page, setPage] = useState(1);
   const pageCount = Math.max(Math.ceil(rows.length / PAGE_SIZE), 1);
@@ -103,7 +99,19 @@ export function TrashView() {
         subtitle="Deleted records land here and can be restored"
         searchValue={search}
         onSearchChange={setSearch}
-      />
+      >
+        {can('trash', 'delete') && (
+          <button
+            type="button"
+            className="btn btn--danger"
+            disabled={emptying !== null || items.length === 0}
+            onClick={() => void handleEmpty()}
+            title="Delete every record in the recycle bin forever"
+          >
+            {emptying !== null ? `Deleting… ${emptying}` : 'Empty recycle bin'}
+          </button>
+        )}
+      </Toolbar>
 
       <div className="trash__chips">
         <span className="trash__chip">{rows.length} deleted records</span>
@@ -149,8 +157,8 @@ export function TrashView() {
                   )}
                 </td>
                 <td className="trash__td trash__td--muted">{fmtDateTime(item.DELETED_AT)}</td>
-                <td className="trash__td trash__td--strong">{COLLECTION_LABELS[item.ORIGIN_COLLECTION] ?? item.ORIGIN_COLLECTION}</td>
-                <td className="trash__td trash__td--mono">{summarize(item)}</td>
+                <td className="trash__td trash__td--strong">{moduleLabel(item.ORIGIN_COLLECTION)}</td>
+                <td className="trash__td" title={`Record id: ${item.ORIGIN_ID}`}>{summarize(item)}</td>
                 <td className="trash__td">{item.DELETED_BY || '\u2014'}</td>
               </tr>
             ))}
@@ -161,7 +169,7 @@ export function TrashView() {
       {rows.length > PAGE_SIZE && (
         <div className="trash__pager">
           <span className="trash__pager-info">
-            Showing <b>{(page - 1) * PAGE_SIZE + 1}\u2013{Math.min(page * PAGE_SIZE, rows.length)}</b> of <b>{rows.length}</b>
+            Showing <b>{(page - 1) * PAGE_SIZE + 1}{'\u2013'}{Math.min(page * PAGE_SIZE, rows.length)}</b> of <b>{rows.length}</b>
           </span>
           <span className="trash__pager-actions">
             <button type="button" className="btn btn--secondary" disabled={page === 1} onClick={() => setPage((p) => Math.max(p - 1, 1))}>

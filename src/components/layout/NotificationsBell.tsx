@@ -3,18 +3,10 @@ import { limit, orderBy } from 'firebase/firestore';
 import { subscribeToCollection } from '../../services/firestore';
 import { auth } from '../../firebase/config';
 import { COLLECTIONS, type ActivityLog } from '../../types/models';
+import { moduleLabel } from '../../services/recordLabels';
 import './NotificationsBell.css';
 import './NotificationsUpdate.css';
 
-const COLLECTION_LABELS: Record<string, string> = {
-  [COLLECTIONS.PURCHASE_ORDER]: 'Purchase Orders',
-  [COLLECTIONS.PURCHASE_DETAILS]: 'Purchase Order lines',
-  [COLLECTIONS.SALES_ORDER]: 'Sales Desk',
-  [COLLECTIONS.SALES_ORDER_DETAIL]: 'Sales Desk lines',
-  [COLLECTIONS.EXPENSES]: 'Expenses',
-  [COLLECTIONS.CHECKS]: 'Checkbook',
-  [COLLECTIONS.SYSTEM_USERS]: 'System Users',
-};
 
 const ACTION_TEXT: Record<ActivityLog['ACTION'], string> = {
   create: 'created a record in',
@@ -221,7 +213,8 @@ export function NotificationsBell() {
       <span className={`noti__dot noti__dot--${n.ACTION}`} aria-hidden="true" />
       <span className="noti__text">
         <b>{n.USER_EMAIL}</b> {ACTION_TEXT[n.ACTION] ?? n.ACTION}{' '}
-        <b>{COLLECTION_LABELS[n.COLLECTION] ?? n.COLLECTION}</b>
+        <b>{moduleLabel(n.COLLECTION)}</b>
+        {n.LABEL ? ` (${n.LABEL})` : ''}
         {n.DETAIL ? ` — ${n.DETAIL}` : ''}
         <span className="noti__time">{timeAgo(n.DATE)}</span>
       </span>
