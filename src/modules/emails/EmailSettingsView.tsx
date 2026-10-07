@@ -9,6 +9,8 @@ import { Toolbar } from '../../components/ui/Toolbar';
 import { Modal } from '../../components/ui/Modal';
 import { FormField, FormGrid } from '../../components/ui/FormField';
 import { ToggleSwitch } from '../../components/ui/ToggleSwitch';
+import { EmailTemplatesPanel } from './EmailTemplatesPanel';
+import '../../components/ui/SendEmailModal.css';
 import './EmailSettingsView.css';
 
 type Draft = Omit<EmailRecipient, 'id'>;
@@ -28,6 +30,7 @@ export function EmailSettingsView() {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [busy, setBusy] = useState('');
+  const [tab, setTab] = useState<'recipients' | 'messages'>('recipients');
 
   const term = search.trim().toLowerCase();
   const rows = recipients.filter((r) => !term || `${r.NAME} ${r.EMAIL}`.toLowerCase().includes(term));
@@ -95,80 +98,109 @@ export function EmailSettingsView() {
       <Toolbar
         title="Email Settings"
         subtitle={`${recipients.filter((r) => r.ACTIVE !== false).length} active recipients`}
-        searchValue={search}
-        onSearchChange={setSearch}
+        searchValue={tab === 'recipients' ? search : undefined}
+        onSearchChange={tab === 'recipients' ? setSearch : undefined}
       >
-        {canEdit && (
+        {canEdit && tab === 'recipients' && (
           <button type="button" className="btn btn--primary" onClick={openNew}>
             + Add recipient
           </button>
         )}
       </Toolbar>
 
-      <p className="email-settings__hint">
-        Documents can only be emailed to the addresses on this list. The checked documents come pre-selected when sending.
-      </p>
-
-      <div className="email-settings__card">
-        <table className="email-settings__table">
-          <thead>
-            <tr>
-              <th className="email-settings__th">Name</th>
-              <th className="email-settings__th">Email</th>
-              {EMAIL_DOC_TYPES.map((d) => (
-                <th key={d.id} className="email-settings__th email-settings__th--center">{d.label}</th>
-              ))}
-              <th className="email-settings__th email-settings__th--center">Active</th>
-              {canEdit && <th className="email-settings__th email-settings__th--right">Actions</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {!loading && rows.length === 0 && (
-              <tr>
-                <td className="email-settings__empty" colSpan={EMAIL_DOC_TYPES.length + 4}>
-                  No recipients yet. Add the emails that can receive documents.
-                </td>
-              </tr>
-            )}
-            {rows.map((r) => (
-              <tr key={r.id} className={r.ACTIVE === false ? 'email-settings__row--off' : undefined}>
-                <td className="email-settings__td email-settings__td--strong">{r.NAME || '—'}</td>
-                <td className="email-settings__td">{r.EMAIL}</td>
-                {EMAIL_DOC_TYPES.map((d) => (
-                  <td key={d.id} className="email-settings__td email-settings__td--center">
-                    <input
-                      type="checkbox"
-                      className="email-settings__check"
-                      aria-label={`${d.label} for ${r.EMAIL}`}
-                      checked={(r.DOCS ?? []).includes(d.id)}
-                      disabled={!canEdit || busy === `${r.id}:${d.id}`}
-                      onChange={() => toggleDoc(r, d.id)}
-                    />
-                  </td>
-                ))}
-                <td className="email-settings__td email-settings__td--center">
-                  <ToggleSwitch
-                    on={r.ACTIVE !== false}
-                    label={`Active: ${r.EMAIL}`}
-                    disabled={!canEdit || busy === `${r.id}:active`}
-                    onToggle={() => void patch(r, { ACTIVE: r.ACTIVE === false }, `${r.id}:active`)}
-                  />
-                </td>
-                {canEdit && (
-                  <td className="email-settings__td email-settings__td--right">
-                    <button type="button" className="checks__action checks__action--edit" onClick={() => openEdit(r)}>
-                      Edit
-                    </button>
-                    <button type="button" className="checks__action checks__action--delete" onClick={() => void remove(r)}>
-                      Delete
-                    </button>
-                  </td>
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="email-settings__tabs" role="tablist">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'recipients'}
+          className={`email-settings__tab${tab === 'recipients' ? ' email-settings__tab--active' : ''}`}
+          onClick={() => setTab('recipients')}
+        >
+          Recipients
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'messages'}
+          className={`email-settings__tab${tab === 'messages' ? ' email-settings__tab--active' : ''}`}
+          onClick={() => setTab('messages')}
+        >
+          Messages
+        </button>
       </div>
+
+      {tab === 'messages' && <EmailTemplatesPanel canEdit={canEdit} />}
+
+      {tab === 'recipients' && (
+        <>
+          <p className="email-settings__hint">
+            Documents can only be emailed to the addresses on this list. The checked documents come pre-selected when sending.
+          </p>
+
+          <div className="email-settings__card">
+            <table className="email-settings__table">
+              <thead>
+                <tr>
+                  <th className="email-settings__th">Name</th>
+                  <th className="email-settings__th">Email</th>
+                  {EMAIL_DOC_TYPES.map((d) => (
+                    <th key={d.id} className="email-settings__th email-settings__th--center">
+                      {d.label}
+                    </th>
+                  ))}
+                  <th className="email-settings__th email-settings__th--center">Active</th>
+                  {canEdit && <th className="email-settings__th email-settings__th--right">Actions</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {!loading && rows.length === 0 && (
+                  <tr>
+                    <td className="email-settings__empty" colSpan={EMAIL_DOC_TYPES.length + 4}>
+                      No recipients yet. Add the emails that can receive documents.
+                    </td>
+                  </tr>
+                )}
+                {rows.map((r) => (
+                  <tr key={r.id} className={r.ACTIVE === false ? 'email-settings__row--off' : undefined}>
+                    <td className="email-settings__td email-settings__td--strong">{r.NAME || '—'}</td>
+                    <td className="email-settings__td">{r.EMAIL}</td>
+                    {EMAIL_DOC_TYPES.map((d) => (
+                      <td key={d.id} className="email-settings__td email-settings__td--center">
+                        <input
+                          type="checkbox"
+                          className="email-settings__check"
+                          aria-label={`${d.label} for ${r.EMAIL}`}
+                          checked={(r.DOCS ?? []).includes(d.id)}
+                          disabled={!canEdit || busy === `${r.id}:${d.id}`}
+                          onChange={() => toggleDoc(r, d.id)}
+                        />
+                      </td>
+                    ))}
+                    <td className="email-settings__td email-settings__td--center">
+                      <ToggleSwitch
+                        on={r.ACTIVE !== false}
+                        label={`Active: ${r.EMAIL}`}
+                        disabled={!canEdit || busy === `${r.id}:active`}
+                        onToggle={() => void patch(r, { ACTIVE: r.ACTIVE === false }, `${r.id}:active`)}
+                      />
+                    </td>
+                    {canEdit && (
+                      <td className="email-settings__td email-settings__td--right">
+                        <button type="button" className="checks__action checks__action--edit" onClick={() => openEdit(r)}>
+                          Edit
+                        </button>
+                        <button type="button" className="checks__action checks__action--delete" onClick={() => void remove(r)}>
+                          Delete
+                        </button>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
 
       {draft && (
         <Modal
@@ -188,10 +220,20 @@ export function EmailSettingsView() {
         >
           <FormGrid>
             <FormField label="Name">
-              <input className="input" value={draft.NAME} onChange={(e) => setDraft({ ...draft, NAME: e.target.value })} placeholder="Accounting — Gator Produce" />
+              <input
+                className="input"
+                value={draft.NAME}
+                onChange={(e) => setDraft({ ...draft, NAME: e.target.value })}
+                placeholder="Accounting — Gator Produce"
+              />
             </FormField>
             <FormField label="Email" required>
-              <input className="input" type="email" value={draft.EMAIL} onChange={(e) => setDraft({ ...draft, EMAIL: e.target.value })} />
+              <input
+                className="input"
+                type="email"
+                value={draft.EMAIL}
+                onChange={(e) => setDraft({ ...draft, EMAIL: e.target.value })}
+              />
             </FormField>
             <FormField label="Pre-selected for" span2>
               <div className="email-settings__docs">

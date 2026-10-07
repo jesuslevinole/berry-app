@@ -50,3 +50,13 @@
 .send-email__option input { width: 16px; height: 16px; accent-color: var(--green-600); flex-shrink: 0; }
 .send-email__who { display: flex; flex-direction: column; min-width: 0; font-size: 0.86rem; color: var(--ink); }
 .send-email__who span { font-size: 0.78rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Guardar la plantilla del documento. */
+.send-email__template-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 10px; }
+.send-email__remember { display: inline-flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--ink); cursor: pointer; }
+.send-email__remember input { width: 16px; height: 16px; accent-color: var(--green-600); }
+.send-email__template-actions { display: flex; gap: 14px; }
+.send-email__link { border: 0; background: transparent; padding: 0; color: var(--green-600); font-size: 0.82rem; font-weight: 600; cursor: pointer; text-decoration: underline; }
+.send-email__link:hover:not(:disabled) { color: var(--green-800); }
+.send-email__link:disabled { color: var(--muted); cursor: default; }
+.send-email__notice { margin: 8px 0 0; font-size: 0.82rem; color: var(--ok); }

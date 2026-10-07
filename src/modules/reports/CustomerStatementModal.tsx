@@ -11,6 +11,7 @@ import {
 } from '../../services/customerStatementService';
 import { SendEmailModal } from '../../components/ui/SendEmailModal';
 import { htmlToPdfBase64 } from '../../services/htmlToPdf';
+import { usDate } from '../../services/emailTemplates';
 import type { CompanyInfo, SalesOrder } from '../../types/models';
 import { fmtMoney, round2, todayISO } from '../../utils/format';
 import './CustomerStatementModal.css';
@@ -150,8 +151,14 @@ export function CustomerStatementModal({ company, pending, defaultCustomerId, cu
         <SendEmailModal
           title={`Email statement — ${customerName(customerId)}`}
           docType="statement"
-          defaultSubject={`Account statement — ${company.name || ''}`}
-          defaultMessage={`Hello ${customerName(customerId)},\n\nPlease find attached your account statement with ${rows.length} pending ${rows.length === 1 ? 'invoice' : 'invoices'} for a total of ${fmtMoney(agingTotal)}.\n\nIf you have already sent payment, please disregard this message.\n\nThank you,\n${company.name || ''}`}
+          values={{
+            customer: customerName(customerId),
+            total: fmtMoney(agingTotal),
+            count: String(rows.length),
+            start_date: usDate(startDate),
+            end_date: usDate(endDate),
+            company: company.name || '',
+          }}
           attachmentName={fileName}
           buildAttachment={async () => ({
             filename: fileName,

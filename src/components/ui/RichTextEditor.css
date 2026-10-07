@@ -1,0 +1,64 @@
+/* Editor de texto con formato (mensajes de correo). */
+.rte { border: 1px solid var(--line-strong); border-radius: var(--radius-sm); background: var(--surface); overflow: hidden; }
+.rte:focus-within { border-color: var(--green-500); box-shadow: 0 0 0 3px var(--green-50); }
+.rte--disabled { opacity: 0.6; }
+
+.rte__toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+  background: var(--canvas);
+}
+.rte__btn {
+  min-width: 30px;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 0.82rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.rte__btn:hover:not(:disabled) { background: var(--surface); border-color: var(--line-strong); }
+.rte__btn--bold { font-weight: 800; }
+.rte__btn--italic { font-style: italic; font-family: Georgia, serif; }
+.rte__btn--underline { text-decoration: underline; }
+.rte__btn--strike { text-decoration: line-through; }
+.rte__sep { width: 1px; height: 20px; background: var(--line-strong); margin: 0 4px; }
+
+.rte__select {
+  height: 30px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 0.8rem;
+  padding: 0 6px;
+  cursor: pointer;
+}
+.rte__color { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 6px; cursor: pointer; }
+.rte__color:hover { background: var(--surface); }
+.rte__color-a { font-weight: 800; color: var(--bad); text-decoration: underline; text-decoration-thickness: 3px; }
+.rte__color-input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+
+.rte__area {
+  min-height: 170px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 12px 14px;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink);
+  outline: none;
+}
+.rte__area:empty::before { content: attr(data-placeholder); color: var(--muted); }
+.rte__area p { margin: 0 0 10px; }
+.rte__area ul,
+.rte__area ol { margin: 0 0 10px; padding-left: 22px; }
+.rte__area a { color: var(--green-600); }

@@ -31,6 +31,7 @@ import {
 } from '../../services/salesDocumentsService';
 import { SendEmailModal } from '../../components/ui/SendEmailModal';
 import { htmlToPdfBase64 } from '../../services/htmlToPdf';
+import { usDate } from '../../services/emailTemplates';
 import type { EmailDocType } from '../../types/models';
 import { useCompany } from '../../hooks/useCompany';
 import { DocumentPicker } from '../../components/ui/DocumentPicker';
@@ -363,8 +364,15 @@ export function SalesDeskView() {
             <SendEmailModal
               docType={docDef.id}
               title={`Email ${docDef.label} — ${number}`}
-              defaultSubject={`${docDef.label} ${number} — ${customers.nameOf(so.ID_CUSTOMER)}`}
-              defaultMessage={`Hello,\n\nPlease find attached the ${docDef.label} for sales order ${number}${so.REF ? ` (Ref ${so.REF})` : ''} — ${customers.nameOf(so.ID_CUSTOMER)}${docDef.id === 'invoice' ? `, total ${fmtMoney(so.TOTAL ?? 0)}` : ''}.\n\nThank you,\n${company.name || ''}`}
+              values={{
+                number,
+                customer: customers.nameOf(so.ID_CUSTOMER),
+                ref: so.REF ?? '',
+                total: fmtMoney(so.TOTAL ?? 0),
+                date: usDate(so.DATE),
+                due_date: usDate(so.DUE_DATE),
+                company: company.name || '',
+              }}
               attachmentName={fileName}
               buildAttachment={async () => ({ filename: fileName, content: await htmlToPdfBase64(await docDef.build(so, docContext(so))) })}
               onClose={() => setEmailing(null)}

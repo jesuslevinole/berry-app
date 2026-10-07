@@ -1,0 +1,39 @@
+/* Asunto + variables + mensaje con formato. */
+.email-tpl { display: flex; flex-direction: column; gap: 8px; }
+.email-tpl__label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+.email-tpl__req { color: var(--bad); }
+
+.email-tpl__vars { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 2px 0 4px; }
+.email-tpl__vars-label { font-size: 0.78rem; color: var(--muted); margin-right: 2px; }
+.email-tpl__chip {
+  border: 1px dashed var(--green-400);
+  background: var(--green-50);
+  color: var(--green-700);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.email-tpl__chip:hover:not(:disabled) { background: var(--green-600); border-color: var(--green-600); border-style: solid; color: #ffffff; }
+
+.email-tpl__body-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 4px; }
+.email-tpl__tabs { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; }
+.email-tpl__tab { border: 0; background: var(--surface); color: var(--muted); font-size: 0.78rem; font-weight: 600; padding: 4px 12px; cursor: pointer; }
+.email-tpl__tab:hover { color: var(--ink); }
+.email-tpl__tab--active { background: var(--green-600); color: #ffffff; }
+.email-tpl__tab--active:hover { color: #ffffff; }
+
+.email-tpl__hidden { display: none; }
+.email-tpl__preview {
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  background: var(--surface);
+  max-height: 340px;
+  overflow-y: auto;
+}
+.email-tpl__preview-subject { margin: 0 0 10px; padding-bottom: 8px; border-bottom: 1px solid var(--line); font-size: 0.88rem; color: var(--ink); }
+.email-tpl__preview-body { font-family: Arial, Helvetica, sans-serif; font-size: 14px; line-height: 1.5; color: #1c1c1c; }
+.email-tpl__preview-body p { margin: 0 0 10px; }

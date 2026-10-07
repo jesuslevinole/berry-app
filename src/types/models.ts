@@ -44,6 +44,8 @@ export const COLLECTIONS = {
   CHECK_ACCOUNTS: 'CAT_CHECKACCOUNTS',
   /** Destinatarios autorizados para enviar documentos por correo. */
   EMAIL_RECIPIENTS: 'CAT_EMAILRECIPIENTS',
+  /** Asunto y mensaje guardados por documento (id del documento = tipo). */
+  EMAIL_TEMPLATES: 'CAT_EMAILTEMPLATES',
   COMPANY: 'settings_company',
   /** Global: catalogo de empresas del SaaS. */
   COMPANIES: 'companies',
@@ -365,4 +367,12 @@ export interface EmailRecipient extends BaseDoc {
   ACTIVE: boolean;
   /** Documentos para los que viene marcado por defecto. */
   DOCS: EmailDocType[];
+}
+
+/** Plantilla de correo de un documento (id = EmailDocType). */
+export interface EmailTemplate extends BaseDoc {
+  SUBJECT: string;
+  /** Mensaje en HTML (negritas, cursivas, tamanos...), con variables {{customer}}, {{number}}... */
+  BODY_HTML: string;
+  UPDATED_BY?: string;
 }
