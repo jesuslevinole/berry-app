@@ -172,6 +172,8 @@ export async function printLiquidationReport(
       </div>
       <div class="t-gap"></div>
       ${[...byCategory.entries()]
+        /* Gastos en orden alfabetico por categoria. */
+        .sort(([a], [b]) => a.localeCompare(b, 'en', { sensitivity: 'base' }))
         .map(
           ([label, amount]) => `
       <div class="t-row t-row--tight">
