@@ -5,11 +5,12 @@ import { useEmailRecipients } from '../../hooks/useEmailRecipients';
 import { useEmailTemplates, type TemplateContent } from '../../hooks/useEmailTemplates';
 import { parseEmails, sendEmail, type EmailAttachment, type RecipientResult } from '../../services/emailService';
 import { useCollection } from '../../hooks/useCollection';
-import { createDocumentLocalFirst } from '../../services/firestore';
+import { createDocumentLocalFirst, updateDocument } from '../../services/firestore';
+import { useAuth } from '../../context/AuthContext';
 import { auth } from '../../firebase/config';
 import { defaultTemplate, fillTemplate, sanitizeEmailHtml, wrapEmailHtml } from '../../services/emailTemplates';
 import { targetFrom } from '../../config/emailDocs';
-import { COLLECTIONS, type EmailKey } from '../../types/models';
+import { COLLECTIONS, type EmailKey, type EmailRecipient } from '../../types/models';
 import './SendEmailModal.css';
 
 export interface PendingAttachment {
@@ -107,6 +108,39 @@ export function SendEmailModal({
   const busy = status !== 'idle';
   const allEmails = active.map((r) => r.EMAIL);
   const allSelected = allEmails.length > 0 && allEmails.every((e) => selected.includes(e));
+
+  /* ---- Settings: guardar los destinatarios como predeterminados de este documento ---- */
+  const { can } = useAuth();
+  const canSaveSettings = can('emails', 'edit') || can('emails', 'add');
+  const savedDefaults = defaultsFor(docType);
+  const recipientsChanged =
+    picked !== null &&
+    (picked.length !== savedDefaults.length || picked.some((e) => !savedDefaults.includes(e)));
+  const settingsDirty = recipientsChanged || (!!customer && customerTargetChanged);
+  const [settingsStatus, setSettingsStatus] = useState<'' | 'saving' | 'saved' | 'error'>('');
+
+  const saveSettings = async () => {
+    setSettingsStatus('saving');
+    try {
+      /* Cada destinatario de Email Settings queda marcado (o no) para este documento. */
+      for (const r of active) {
+        const docs = r.DOCS ?? [];
+        const want = selected.includes(r.EMAIL);
+        if (docs.includes(docType) !== want) {
+          await updateDocument<EmailRecipient>(COLLECTIONS.EMAIL_RECIPIENTS, r.id, {
+            DOCS: want ? [...docs, docType] : docs.filter((d) => d !== docType),
+          });
+        }
+      }
+      if (customer && customerTargetChanged) await saveCustomerTo(docType, customerTarget);
+      /* Lo guardado pasa a ser lo predeterminado. */
+      setPicked(null);
+      setCustomerPick(null);
+      setSettingsStatus('saved');
+    } catch {
+      setSettingsStatus('error');
+    }
+  };
 
   const toggle = (email: string) =>
     setPicked(selected.includes(email) ? selected.filter((e) => e !== email) : [...selected, email]);
@@ -282,7 +316,7 @@ export function SendEmailModal({
             className={`send-email__tab${tab === 'recipients' ? ' send-email__tab--active' : ''}`}
             onClick={() => setTab('recipients')}
           >
-            Recipients <span className="send-email__tab-count">{allRecipients.length}</span>
+            Settings <span className="send-email__tab-count">{allRecipients.length}</span>
           </button>
         </div>
 
@@ -386,8 +420,7 @@ export function SendEmailModal({
               )}
               {picked === null && active.some((r) => !defaultsFor(docType).includes(r.EMAIL)) && (
                 <p className="send-email__muted">
-                  Unchecked addresses are not set to receive the {label} (Email Settings → Recipients). Check them here to include
-                  them.
+                  Unchecked addresses are not set to receive the {label}. Check them and press <b>Save settings</b> to keep them checked.
                 </p>
               )}
             </div>
@@ -433,6 +466,29 @@ export function SendEmailModal({
                     );
                   })}
                 </div>
+              </div>
+            )}
+
+            {canSaveSettings && (
+              <div className="send-email__settings-bar">
+                <span className="send-email__settings-hint">
+                  Save these recipients as the default for every <b>{label}</b>.
+                </span>
+                {settingsStatus === 'saved' && !settingsDirty && <span className="send-email__settings-state">Saved</span>}
+                {settingsStatus === 'error' && (
+                  <span className="send-email__settings-state send-email__settings-state--error">Could not save. Try again.</span>
+                )}
+                {settingsDirty && settingsStatus !== 'saving' && (
+                  <span className="send-email__settings-state send-email__settings-state--pending">Unsaved changes</span>
+                )}
+                <button
+                  type="button"
+                  className="btn btn--primary"
+                  disabled={busy || !settingsDirty || settingsStatus === 'saving'}
+                  onClick={() => void saveSettings()}
+                >
+                  {settingsStatus === 'saving' ? 'Saving…' : 'Save settings'}
+                </button>
               </div>
             )}
           </>

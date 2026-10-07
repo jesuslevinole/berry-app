@@ -145,3 +145,19 @@
 }
 .send-email__summary { margin: 0 0 12px; font-size: 0.84rem; color: var(--ink); line-height: 1.5; overflow-wrap: anywhere; }
 .send-email__summary-warn { color: #c0392b; font-weight: 600; }
+
+/* Settings: guardar destinatarios predeterminados (como el Configurator). */
+.send-email__settings-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.send-email__settings-hint { margin-right: auto; font-size: 0.82rem; color: var(--muted); }
+.send-email__settings-state { font-size: 0.82rem; font-weight: 700; color: var(--green-600); }
+.send-email__settings-state--pending { color: #8a6d1a; }
+.send-email__settings-state--error { color: #c0392b; }
