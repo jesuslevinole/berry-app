@@ -32,6 +32,8 @@ interface Props {
   customerId?: string;
   /** Como se llama al cliente en este documento ("Customer", "Vendor"). */
   customerLabel?: string;
+  /** Warehouse (Catalogs > Locations) de la orden: se le puede enviar en lugar del cliente. */
+  warehouseId?: string;
   /** Valores de las variables de la plantilla ({{customer}}, {{number}}...). */
   values: Record<string, string>;
   /** Archivos que se adjuntan (uno o varios en un mismo correo). */
@@ -52,6 +54,7 @@ export function SendEmailModal({
   docRef,
   customerId,
   customerLabel = 'Customer',
+  warehouseId,
   values,
   attachments,
   onClose,
@@ -59,7 +62,7 @@ export function SendEmailModal({
 }: Props) {
   const docType = emailKey;
   const { active, defaultsFor, loading: loadingRecipients } = useEmailRecipients();
-  const { templateFor, saveTemplate, saveCustomerTo, loading: loadingTemplates } = useEmailTemplates();
+  const { templateFor, saveTemplate, saveCustomerTo, saveWarehouseTo, loading: loadingTemplates } = useEmailTemplates();
   /* Correos del cliente (Catalogs > Customers). La consulta ya la comparte Sales Desk: no cuesta lecturas extra. */
   const { data: customerDocs } = useCollection<{
     id: string;
@@ -70,6 +73,12 @@ export function SendEmailModal({
   const customer = customerId ? customerDocs.find((c) => c.id === customerId) : undefined;
   const salesEmails = parseEmails(customer?.ACCOUNTING_EMAIL_CUSTOMER ?? '');
   const accountingEmails = parseEmails(customer?.ACCOUNTING_EMAIL_TWO_CUSTOMER ?? '');
+  /* Warehouse = Catalogs > Locations (la consulta tambien la comparte Sales Desk). */
+  const { data: locationDocs } = useCollection<{ id: string; NAME_LOCATIONS?: string; EMAIL_LOCATIONS?: string }>(
+    COLLECTIONS.LOCATIONS,
+  );
+  const warehouse = warehouseId ? locationDocs.find((l) => l.id === warehouseId) : undefined;
+  const warehouseEmails = parseEmails(warehouse?.EMAIL_LOCATIONS ?? '');
 
   /* null = todavia no se ha tocado: se usan los valores guardados. */
   const [picked, setPicked] = useState<string[] | null>(null);
@@ -84,13 +93,21 @@ export function SendEmailModal({
   };
   const customerTarget = targetFrom(customerChoice.sales, customerChoice.accounting);
   const customerTargetChanged = !!customerPick && customerTarget !== saved.customerTo;
+  /* Envio al Warehouse: por defecto lo guardado para este documento. */
+  const [warehousePick, setWarehousePick] = useState<boolean | null>(null);
+  const warehouseOn = warehousePick ?? saved.warehouseTo;
+  const warehouseChanged = warehousePick !== null && warehousePick !== saved.warehouseTo;
+  const warehouseRecipients = warehouse && warehouseOn ? warehouseEmails : [];
   /* Correos del cliente que se van a incluir. */
   const customerRecipients = customer
     ? [...(customerChoice.sales ? salesEmails : []), ...(customerChoice.accounting ? accountingEmails : [])]
     : [];
   /* Todos los destinatarios (sin repetir). */
-  const allRecipients = [...new Map([...selected, ...customerRecipients].map((e) => [e.toLowerCase(), e])).values()];
+  const allRecipients = [
+    ...new Map([...selected, ...customerRecipients, ...warehouseRecipients].map((e) => [e.toLowerCase(), e])).values(),
+  ];
   const isCustomerEmail = (email: string): boolean => customerRecipients.some((c) => c.toLowerCase() === email.toLowerCase());
+  const isWarehouseEmail = (email: string): boolean => warehouseRecipients.some((c) => c.toLowerCase() === email.toLowerCase());
   const content = draft ?? { subject: saved.subject, body: saved.body };
   const changed = !!draft && (draft.subject !== saved.subject || draft.body !== saved.body);
   const [editorVersion, setEditorVersion] = useState(0);
@@ -116,7 +133,7 @@ export function SendEmailModal({
   const recipientsChanged =
     picked !== null &&
     (picked.length !== savedDefaults.length || picked.some((e) => !savedDefaults.includes(e)));
-  const settingsDirty = recipientsChanged || (!!customer && customerTargetChanged);
+  const settingsDirty = recipientsChanged || (!!customer && customerTargetChanged) || (!!warehouse && warehouseChanged);
   const [settingsStatus, setSettingsStatus] = useState<'' | 'saving' | 'saved' | 'error'>('');
 
   const saveSettings = async () => {
@@ -133,9 +150,11 @@ export function SendEmailModal({
         }
       }
       if (customer && customerTargetChanged) await saveCustomerTo(docType, customerTarget);
+      if (warehouse && warehouseChanged) await saveWarehouseTo(docType, warehouseOn);
       /* Lo guardado pasa a ser lo predeterminado. */
       setPicked(null);
       setCustomerPick(null);
+      setWarehousePick(null);
       setSettingsStatus('saved');
     } catch {
       setSettingsStatus('error');
@@ -200,6 +219,7 @@ export function SendEmailModal({
       if (customer && customerTargetChanged && remember) {
         await saveCustomerTo(docType, customerTarget);
       }
+      if (warehouse && warehouseChanged && remember) await saveWarehouseTo(docType, warehouseOn);
       setStatus('building');
       /* Uno por uno: cada PDF se pinta en un iframe oculto. */
       const files: EmailAttachment[] = [];
@@ -212,6 +232,7 @@ export function SendEmailModal({
       const sendResults = await sendEmail({
         to: allRecipients,
         customerId: customerRecipients.length ? customerId : undefined,
+        warehouseId: warehouseRecipients.length ? warehouseId : undefined,
         subject,
         html: wrapEmailHtml(fillTemplate(sanitizeEmailHtml(content.body), values, true)),
         attachments: files,
@@ -288,6 +309,7 @@ export function SendEmailModal({
               <li key={r.email} className={`send-email__result${r.id ? ' send-email__result--ok' : ' send-email__result--bad'}`}>
                 <b>{r.id ? '✓' : '✕'}</b> {r.email}
                 {isCustomerEmail(r.email) && <span className="send-email__tag">customer</span>}
+                {isWarehouseEmail(r.email) && <span className="send-email__tag">warehouse</span>}
                 {r.error && <span className="send-email__result-error"> — {r.error}</span>}
               </li>
             ))}
@@ -465,6 +487,40 @@ export function SendEmailModal({
                       </label>
                     );
                   })}
+                </div>
+              </div>
+            )}
+
+            {warehouseId && (
+              <div className="send-email__recipients">
+                <span className="send-email__label">
+                  Warehouse{warehouse?.NAME_LOCATIONS ? ` — ${warehouse.NAME_LOCATIONS}` : ''}
+                </span>
+                <div className="send-email__list">
+                  <label
+                    className={`send-email__option${warehouseOn && warehouseEmails.length ? ' send-email__option--on' : ''}${warehouseEmails.length === 0 ? ' send-email__option--off' : ''}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={warehouseOn && warehouseEmails.length > 0}
+                      disabled={busy || warehouseEmails.length === 0}
+                      onChange={() => setWarehousePick(!warehouseOn)}
+                    />
+                    <span className="send-email__who">
+                      <b>Warehouse Email</b>
+                      {warehouseEmails.length ? (
+                        <span className="send-email__emails">
+                          {warehouseEmails.map((e) => (
+                            <span key={e} className="send-email__email-chip">
+                              {e}
+                            </span>
+                          ))}
+                        </span>
+                      ) : (
+                        <span>Not set — add it in Catalogs → Locations</span>
+                      )}
+                    </span>
+                  </label>
                 </div>
               </div>
             )}

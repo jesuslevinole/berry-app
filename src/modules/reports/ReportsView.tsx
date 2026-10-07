@@ -939,9 +939,14 @@ export function ReportsView({ report }: ReportsViewProps) {
                     <td className="reports__td reports__td--num">{fmtMoney(r.balance)}</td>
                     <td className="reports__td reports__td--muted">{fmtDate(r.paymentDate)}</td>
                     <td className="reports__td">
-                      <span className={`reports__status reports__status--${r.paid ? 'paid' : 'pending'}`}>
-                        {r.paid ? 'Paid' : 'Pending'}
-                      </span>
+                      {r.paid || isPayableSupplier(suppliers.nameOf(r.e.ID_SUPPLIERS)) ? (
+                        <span className={`reports__status reports__status--${r.paid ? 'paid' : 'pending'}`}>
+                          {r.paid ? 'Paid' : 'Pending'}
+                        </span>
+                      ) : (
+                        /* General Cost no recibe pagos. */
+                        <span className="reports__status reports__status--none">No payment</span>
+                      )}
                     </td>
                   </tr>
                 ))}

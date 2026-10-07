@@ -32,7 +32,7 @@ const SAMPLE: Record<string, string> = {
 
 /** Email Settings > Messages: asunto y mensaje guardados de cada documento. */
 export function EmailTemplatesPanel({ canEdit, initialKey = 'invoice' }: Props) {
-  const { templateFor, saveTemplate, saveCustomerTo, loading } = useEmailTemplates();
+  const { templateFor, saveTemplate, saveCustomerTo, saveWarehouseTo, loading } = useEmailTemplates();
   const { targets } = useEmailBundles();
   const [doc, setDoc] = useState<EmailKey>(initialKey);
   const target = targets.find((t) => t.key === doc);
@@ -142,6 +142,22 @@ export function EmailTemplatesPanel({ canEdit, initialKey = 'invoice' }: Props) 
                 Uses the Sales Email / Accounting Email of the {partyLabel} in Catalogs → Customers. It can be changed when sending.
               </span>
             </label>
+            {doc !== 'statement' && (
+              <label className="email-tpls__warehouse">
+                <input
+                  type="checkbox"
+                  checked={saved.warehouseTo}
+                  disabled={!canEdit}
+                  onChange={(e) => {
+                    const on = e.target.checked;
+                    void saveWarehouseTo(doc, on)
+                      .then(() => setNotice(`${docLabel}: warehouse recipient saved.`))
+                      .catch(() => alert('Could not save the change. Try again.'));
+                  }}
+                />
+                Also send to the <b>warehouse</b> of the order (email in Catalogs → Locations)
+              </label>
+            )}
 
             <EmailTemplateFields
               docType={doc}

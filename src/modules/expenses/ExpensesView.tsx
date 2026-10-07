@@ -15,6 +15,8 @@ import { Modal } from '../../components/ui/Modal';
 import { PaymentsPanel } from '../payments/PaymentsPanel';
 import { ExpenseForm } from './ExpenseForm';
 import { ExpenseDetailPanel } from './ExpenseDetailPanel';
+import { isPayableSupplier } from '../../services/balances';
+import { syncPurchaseOrderTotals } from '../../services/orderTotalsService';
 import './ExpensesView.css';
 
 export function ExpensesView() {
@@ -73,7 +75,10 @@ export function ExpensesView() {
       header: 'Balance',
       align: 'right',
       render: (exp) => (
-        <span className={`num${(exp.BALANCE ?? 0) > 0 ? ' text-bad' : ''}`}>{fmtMoney(exp.BALANCE)}</span>
+        /* General Cost no recibe pagos: su saldo no es una deuda y no va en rojo. */
+        <span className={`num${(exp.BALANCE ?? 0) > 0 && isPayableSupplier(suppliers.nameOf(exp.ID_SUPPLIERS)) ? ' text-bad' : ''}`}>
+          {fmtMoney(exp.BALANCE)}
+        </span>
       ),
     },
     {
@@ -112,6 +117,8 @@ export function ExpensesView() {
   const eliminarGasto = async (expense: Expense) => {
     await replaceChildren(COLLECTIONS.PAYMENT_BILL, 'ID_EXPENSES', expense.id, []);
     await deleteDocument(COLLECTIONS.EXPENSES, expense.id);
+    /* Si se descontaba al grower, la liquidacion del lote cambia. */
+    if (expense.ID_PURCHASEORDER) await syncPurchaseOrderTotals([expense.ID_PURCHASEORDER]);
   };
 
   const handleDeleteRow = (expense: Expense) => {

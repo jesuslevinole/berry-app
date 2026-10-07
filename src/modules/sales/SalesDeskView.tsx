@@ -383,6 +383,7 @@ export function SalesDeskView() {
               label={label}
               docRef={number}
               customerId={so.ID_CUSTOMER}
+              warehouseId={so.ID_WAREHOUSE || undefined}
               title={`Email ${label} — ${number}`}
               values={{
                 number,

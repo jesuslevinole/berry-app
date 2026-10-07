@@ -18,14 +18,15 @@ export function useEmailTemplates() {
 
   const templateFor = useMemo(
     () =>
-      (doc: EmailKey): TemplateContent & { saved: boolean; customerTo: CustomerEmailTarget } => {
+      (doc: EmailKey): TemplateContent & { saved: boolean; customerTo: CustomerEmailTarget; warehouseTo: boolean } => {
         const saved = byDoc.get(doc);
         const customerTo = saved?.CUSTOMER_TO ?? 'none';
+        const warehouseTo = saved?.WAREHOUSE_TO === true;
         if (saved && (saved.SUBJECT || saved.BODY_HTML)) {
-          return { subject: saved.SUBJECT ?? '', body: saved.BODY_HTML ?? '', saved: true, customerTo };
+          return { subject: saved.SUBJECT ?? '', body: saved.BODY_HTML ?? '', saved: true, customerTo, warehouseTo };
         }
         const d = defaultTemplate(doc);
-        return { subject: d.subject, body: d.body, saved: false, customerTo };
+        return { subject: d.subject, body: d.body, saved: false, customerTo, warehouseTo };
       },
     [byDoc],
   );
@@ -44,5 +45,10 @@ export function useEmailTemplates() {
     await setDocumentWithId(COLLECTIONS.EMAIL_TEMPLATES, doc, { CUSTOMER_TO: customerTo });
   };
 
-  return { templateFor, saveTemplate, saveCustomerTo, loading };
+  /** Guarda si este documento tambien se envia al Warehouse (Locations) por defecto. */
+  const saveWarehouseTo = async (doc: EmailKey, warehouseTo: boolean): Promise<void> => {
+    await setDocumentWithId(COLLECTIONS.EMAIL_TEMPLATES, doc, { WAREHOUSE_TO: warehouseTo });
+  };
+
+  return { templateFor, saveTemplate, saveCustomerTo, saveWarehouseTo, loading };
 }

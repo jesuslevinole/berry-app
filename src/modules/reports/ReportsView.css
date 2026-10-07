@@ -178,6 +178,11 @@
   color: var(--warn);
 }
 
+.reports__status--none {
+  background-color: var(--canvas);
+  color: var(--muted);
+}
+
 /* Paginador de reportes. */
 .reports__pager {
   display: flex;

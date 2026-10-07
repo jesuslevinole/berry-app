@@ -301,6 +301,7 @@ export function PurchaseOrdersView() {
               docRef={number}
               customerId={po.ID_CUSTOMER || undefined}
               customerLabel="Vendor"
+              warehouseId={po.SHIPTO || undefined}
               values={{
                 number,
                 ref: po.REF_NUMBER ?? '',

@@ -393,6 +393,8 @@ export interface EmailTemplate extends BaseDoc {
   BODY_HTML: string;
   /** A que correo del cliente se envia tambien por defecto. */
   CUSTOMER_TO?: CustomerEmailTarget;
+  /** Enviar tambien al Warehouse (Locations) de la orden por defecto. */
+  WAREHOUSE_TO?: boolean;
   UPDATED_BY?: string;
 }
 

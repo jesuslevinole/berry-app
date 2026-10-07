@@ -68,3 +68,5 @@
 @media (max-width: 640px) {
   .email-tpls__customer { grid-template-columns: minmax(0, 1fr); }
 }
+.email-tpls__warehouse { display: flex; align-items: center; gap: 8px; margin: 4px 0 12px; font-size: 0.85rem; color: var(--ink); cursor: pointer; }
+.email-tpls__warehouse input { width: 16px; height: 16px; accent-color: var(--green-600); }

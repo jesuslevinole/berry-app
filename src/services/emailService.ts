@@ -17,6 +17,8 @@ export interface SendEmailInput {
   cc?: string[];
   /** Cliente del documento: el servidor permite tambien sus correos (Sales / Accounting Email). */
   customerId?: string;
+  /** Warehouse (Locations) de la orden: el servidor permite tambien su correo. */
+  warehouseId?: string;
   subject: string;
   html: string;
   attachments?: EmailAttachment[];

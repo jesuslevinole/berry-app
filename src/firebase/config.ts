@@ -1,5 +1,12 @@
 import { initializeApp } from 'firebase/app';
-import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, type Firestore } from 'firebase/firestore';
+import {
+  CACHE_SIZE_UNLIMITED,
+  getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+  type Firestore,
+} from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 
 /** Config exportada tambien para instancias secundarias (creacion de usuarios sin cerrar sesion). */
@@ -22,7 +29,8 @@ export const app = initializeApp(firebaseConfig);
 function createDb(): Firestore {
   try {
     return initializeFirestore(app, {
-      localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+      /* Sin limite: los datos ya sincronizados no se borran de la cache (si no, habria que releerlos). */
+      localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager(), cacheSizeBytes: CACHE_SIZE_UNLIMITED }),
     });
   } catch {
     return getFirestore(app);

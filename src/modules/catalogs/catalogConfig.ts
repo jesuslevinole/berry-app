@@ -66,7 +66,7 @@ export const CATALOG_DEFS: CatalogDef[] = [
     nameLabel: 'Name',
     extraFields: [
       { key: 'ADDRESS_LOCATIONS', label: 'Address' },
-      { key: 'EMAIL_LOCATIONS', label: 'Email' },
+      { key: 'EMAIL_LOCATIONS', label: 'Email', format: 'emails' },
       { key: 'PHONE_LOCATIONS', label: 'Phone', format: 'phone' },
     ],
   },

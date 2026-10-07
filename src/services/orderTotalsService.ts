@@ -44,16 +44,17 @@ export interface SyncOptions {
 }
 
 /**
- * Gastos que se descuentan al grower, con la misma regla que el Liquidation Report:
- * los marcados Deduct; si ninguno esta marcado, todos los del lote; si el lote no
- * tiene gastos registrados, el valor guardado (importado de AppSheet).
+ * Gastos que se descuentan al grower (misma regla que el Liquidation Report):
+ * SOLO los marcados Deduct. Los no marcados no se descuentan. Si el lote no tiene
+ * gastos registrados, se conserva el valor guardado (importado de AppSheet).
  */
 export function liquidationDeduction(order: PurchaseOrder, expenses: Expense[]): number {
   if (expenses.length === 0) return round2(order.TOTAL_EXPENSES ?? order.EXPENSES ?? 0);
-  const flagged = expenses.filter((e) => e.DEDUCT);
-  const source = flagged.length > 0 ? flagged : expenses;
-  return round2(source.reduce((acc, e) => acc + (e.AMOUNT ?? 0), 0));
+  return round2(deductibleExpenses(expenses).reduce((acc, e) => acc + (e.AMOUNT ?? 0), 0));
 }
+
+/** Gastos que se descuentan en la liquidacion: los marcados Deduct. */
+export const deductibleExpenses = (expenses: Expense[]): Expense[] => expenses.filter((e) => e.DEDUCT === true);
 
 export function computePurchaseTotals(
   order: PurchaseOrder,

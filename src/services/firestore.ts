@@ -9,6 +9,9 @@ import {
   doc,
   getDoc,
   getDocs,
+  getDocFromCache,
+  getDocsFromCache,
+  Timestamp,
   onSnapshot,
   queryEqual,
   query,
@@ -17,13 +20,14 @@ import {
   updateDoc,
   where,
   writeBatch,
+  type DocumentSnapshot,
   type Query,
   type QueryConstraint,
   type Unsubscribe,
 } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
 import type { BaseDoc } from '../types/models';
-import { onCompanyChange, tenantPath } from './tenant';
+import { GLOBAL_COLLECTIONS, getActiveCompanyId, onCompanyChange, tenantPath } from './tenant';
 import { recordLabel } from './recordLabels';
 
 
@@ -32,7 +36,9 @@ import { recordLabel } from './recordLabels';
 const ACTIVITY_COLLECTION = 'BD_ACTIVITYLOG';
 const TRASH_COLLECTION = 'BD_TRASH';
 /** Colecciones internas que no se registran ni pasan por la papelera (evita bucles). */
-const INTERNAL_COLLECTIONS = new Set([ACTIVITY_COLLECTION, TRASH_COLLECTION]);
+/** Registro de borrados (lapidas) para que los demas equipos quiten lo borrado sin releer todo. */
+const DELETED_COLLECTION = 'BD_DELETED';
+const INTERNAL_COLLECTIONS = new Set([ACTIVITY_COLLECTION, TRASH_COLLECTION, DELETED_COLLECTION]);
 
 const currentUserEmail = (): string => auth.currentUser?.email ?? 'System';
 
@@ -71,6 +77,7 @@ export async function restoreFromTrash(trashId: string): Promise<void> {
   if (!snap.exists()) throw new Error('Trash record not found');
   const item = snap.data() as { ORIGIN_COLLECTION: string; ORIGIN_ID: string; DATA: Record<string, unknown> };
   await setDoc(doc(db, tenantPath(item.ORIGIN_COLLECTION), item.ORIGIN_ID), { ...item.DATA, updatedAt: serverTimestamp() });
+  touchLocal(item.ORIGIN_COLLECTION, [item.ORIGIN_ID]);
   await deleteDoc(doc(db, tenantPath(TRASH_COLLECTION), trashId));
   void logActivity(
     item.ORIGIN_COLLECTION,
@@ -145,12 +152,253 @@ function closeEntry(entry: SharedEntry): void {
 /** Cierra todas las consultas (al cerrar sesion o cambiar de empresa). */
 export function closeAllSubscriptions(): void {
   for (const entry of [...sharedEntries]) closeEntry(entry);
+  closeTombstones();
 }
 
 onCompanyChange(closeAllSubscriptions);
 auth.onAuthStateChanged((user) => {
   if (!user) closeAllSubscriptions();
 });
+
+
+/* ---------- Sincronizacion por cambios (control de lecturas) ----------
+ * Antes, cada vez que alguien abria la app despues de un rato, Firestore volvia a
+ * cobrar TODOS los documentos de cada coleccion (ordenes, lineas, gastos, pagos...).
+ * Ahora, para las colecciones completas:
+ *  1. La primera vez en cada equipo se leen completas (una sola vez) y quedan en la
+ *     cache local (IndexedDB).
+ *  2. Las siguientes veces se cargan de la cache (sin costo) y solo se piden al
+ *     servidor los documentos con updatedAt posterior a lo que ya se tiene.
+ *  3. Los borrados llegan por BD_DELETED (una lapida por documento borrado).
+ *  4. Por seguridad, cada 7 dias se vuelve a leer completa una vez.
+ */
+
+const FULL_RESYNC_MS = 7 * 24 * 60 * 60 * 1000;
+/** Margen para no perder escrituras que llegan casi al mismo tiempo. */
+const SAFETY_MS = 2 * 60 * 1000;
+const SYNC_KEY_PREFIX = 'berry-sync-v1:';
+
+const tombstoneId = (colName: string, id: string): string => `${colName}__${id}`.replace(/\//g, '_');
+const tombstoneRef = (colName: string, id: string) => doc(db, tenantPath(DELETED_COLLECTION), tombstoneId(colName, id));
+const tombstoneData = (colName: string, id: string) => ({ COLLECTION: colName, DOC_ID: id, AT: serverTimestamp() });
+
+/** Deja la lapida de un documento borrado (mejor esfuerzo). */
+async function recordDeletion(colName: string, id: string): Promise<void> {
+  if (INTERNAL_COLLECTIONS.has(colName) || GLOBAL_COLLECTIONS.has(colName)) return;
+  try {
+    await setDoc(tombstoneRef(colName, id), tombstoneData(colName, id));
+  } catch {
+    /* Si falla, el resync semanal lo corrige. */
+  }
+}
+
+const millisOf = (value: unknown): number =>
+  value instanceof Timestamp ? value.toMillis() : typeof value === 'number' ? value : 0;
+
+const docData = (d: DocumentSnapshot): BaseDoc =>
+  ({ id: d.id, ...d.data({ serverTimestamps: 'estimate' }) }) as BaseDoc;
+
+function readSyncMark(key: string): number {
+  try {
+    return Number(localStorage.getItem(key) ?? 0) || 0;
+  } catch {
+    return 0;
+  }
+}
+function writeSyncMark(key: string): void {
+  try {
+    localStorage.setItem(key, String(Date.now()));
+  } catch {
+    /* Sin localStorage: se lee completo cada vez (comportamiento anterior). */
+  }
+}
+
+/**
+ * Carga inicial de una coleccion: de la cache si ya se sincronizo en este equipo
+ * (gratis), si no del servidor (una vez). Devuelve los documentos.
+ */
+async function initialLoad(colName: string, q: Query): Promise<DocumentSnapshot[]> {
+  const key = `${SYNC_KEY_PREFIX}${tenantPath(colName)}`;
+  const mark = readSyncMark(key);
+  if (mark && Date.now() - mark < FULL_RESYNC_MS) {
+    try {
+      const cached = await getDocsFromCache(q);
+      if (!cached.empty) return cached.docs;
+    } catch {
+      /* Cache no disponible: se lee del servidor. */
+    }
+  }
+  const snap = await getDocs(q);
+  serverReads += snap.size;
+  writeSyncMark(key);
+  return snap.docs;
+}
+
+/* ---- Lapidas compartidas (un solo listener por empresa) ---- */
+interface TombstoneState {
+  company: string;
+  byKey: Map<string, number>;
+  ready: Promise<void>;
+  unsubscribe: Unsubscribe;
+  onChange: Set<() => void>;
+}
+let tombstones: TombstoneState | null = null;
+
+function closeTombstones(): void {
+  tombstones?.unsubscribe();
+  tombstones = null;
+}
+
+function ensureTombstones(): TombstoneState {
+  const company = getActiveCompanyId();
+  if (tombstones && tombstones.company === company) return tombstones;
+  closeTombstones();
+  let stopped = false;
+  let unsubLive: Unsubscribe = () => undefined;
+  const state: TombstoneState = {
+    company,
+    byKey: new Map(),
+    ready: Promise.resolve(),
+    onChange: new Set(),
+    unsubscribe: () => {
+      stopped = true;
+      unsubLive();
+    },
+  };
+  const apply = (docs: DocumentSnapshot[]) => {
+    for (const d of docs) {
+      const data = d.data({ serverTimestamps: 'estimate' }) as { COLLECTION?: string; DOC_ID?: string; AT?: unknown } | undefined;
+      if (data?.COLLECTION && data.DOC_ID) state.byKey.set(`${data.COLLECTION}/${data.DOC_ID}`, millisOf(data.AT) || Date.now());
+    }
+  };
+  const base = collection(db, tenantPath(DELETED_COLLECTION));
+  state.ready = (async () => {
+    try {
+      apply(await initialLoad(DELETED_COLLECTION, query(base)));
+    } catch {
+      /* Sin lapidas: solo se pierde la limpieza de borrados de otros equipos. */
+    }
+    if (stopped) return;
+    const since = Math.max(0, Math.max(0, ...state.byKey.values()) - SAFETY_MS);
+    unsubLive = onSnapshot(
+      query(base, where('AT', '>=', Timestamp.fromMillis(since))),
+      (snap) => {
+        if (!snap.metadata.fromCache) serverReads += snap.docChanges().length;
+        apply(snap.docChanges().map((c) => c.doc));
+        for (const fn of state.onChange) fn();
+      },
+      () => undefined,
+    );
+  })();
+  tombstones = state;
+  return state;
+}
+
+/** Colecciones completas que se sincronizan por cambios. */
+const deltaEligible = (colName: string, constraints: QueryConstraint[]): boolean =>
+  constraints.length === 0 && !INTERNAL_COLLECTIONS.has(colName) && !GLOBAL_COLLECTIONS.has(colName) && !!getActiveCompanyId();
+
+/**
+ * Escrituras de este equipo: el filtro por updatedAt no ve un cambio propio hasta que
+ * el servidor le pone la hora, asi que se toma de la cache local al instante.
+ */
+const localRefreshers = new Map<string, Set<(ids: string[]) => void>>();
+function touchLocal(colName: string, ids: string[]): void {
+  const set = localRefreshers.get(colName);
+  if (!set || ids.length === 0) return;
+  setTimeout(() => {
+    for (const fn of set) fn(ids);
+  }, 0);
+}
+
+/** Arranca la sincronizacion por cambios de una coleccion completa. */
+function startDeltaEntry(entry: SharedEntry, colName: string): void {
+  const base = collection(db, tenantPath(colName));
+  const docs = new Map<string, BaseDoc>();
+  const stones = ensureTombstones();
+  let stopped = false;
+  let unsubDelta: Unsubscribe = () => undefined;
+
+  const emit = () => {
+    if (stopped) return;
+    const rows: BaseDoc[] = [];
+    for (const d of docs.values()) {
+      const deletedAt = stones.byKey.get(`${colName}/${d.id}`);
+      /* Borrado despues de su ultima modificacion (si se restauro, la modificacion es posterior). */
+      if (deletedAt && deletedAt >= millisOf((d as { updatedAt?: unknown }).updatedAt)) continue;
+      rows.push(d);
+    }
+    entry.rows = rows;
+    entry.error = null;
+    for (const l of entry.listeners) l.onData(rows.slice());
+  };
+  stones.onChange.add(emit);
+
+  /* Vuelve a tomar de la cache local los documentos indicados (cambios propios). */
+  const refresh = (ids: string[]) => {
+    void Promise.all(
+      ids.map(async (id) => {
+        try {
+          const snap = await getDocFromCache(doc(db, tenantPath(colName), id));
+          if (snap.exists()) docs.set(id, docData(snap));
+          else docs.delete(id);
+        } catch {
+          /* No esta en la cache: llegara por el listener. */
+        }
+      }),
+    ).then(emit);
+  };
+  const refreshers = localRefreshers.get(colName) ?? new Set();
+  refreshers.add(refresh);
+  localRefreshers.set(colName, refreshers);
+
+  entry.unsubscribe = () => {
+    stopped = true;
+    stones.onChange.delete(emit);
+    refreshers.delete(refresh);
+    unsubDelta();
+  };
+
+  void (async () => {
+    try {
+      const [initial] = await Promise.all([initialLoad(colName, query(base)), stones.ready]);
+      if (stopped) return;
+      for (const d of initial) docs.set(d.id, docData(d));
+      emit();
+      let maxMs = 0;
+      for (const d of docs.values()) maxMs = Math.max(maxMs, millisOf((d as { updatedAt?: unknown }).updatedAt));
+      const since = Math.max(0, maxMs - SAFETY_MS);
+      unsubDelta = onSnapshot(
+        query(base, where('updatedAt', '>=', Timestamp.fromMillis(since))),
+        (snap) => {
+          if (!snap.metadata.fromCache) serverReads += snap.docChanges().length;
+          const recheck: string[] = [];
+          for (const change of snap.docChanges()) {
+            if (change.type === 'removed') {
+              /* Sale del filtro al editarse aqui (hora del servidor pendiente) o al borrarse:
+                 se consulta la cache local para saber cual de los dos fue. */
+              recheck.push(change.doc.id);
+              continue;
+            }
+            docs.set(change.doc.id, docData(change.doc));
+          }
+          emit();
+          if (recheck.length) refresh(recheck);
+        },
+        (err) => {
+          entry.error = err;
+          for (const l of entry.listeners) l.onError?.(err);
+          closeEntry(entry);
+        },
+      );
+      if (stopped) unsubDelta();
+    } catch (err) {
+      entry.error = err as Error;
+      for (const l of entry.listeners) l.onError?.(err as Error);
+      closeEntry(entry);
+    }
+  })();
+}
 
 export function subscribeToCollection<T extends BaseDoc>(
   colName: string,
@@ -160,6 +408,13 @@ export function subscribeToCollection<T extends BaseDoc>(
 ): Unsubscribe {
   const q = query(collection(db, tenantPath(colName)), ...constraints);
   let entry = sharedEntries.find((e) => queryEqual(e.q, q));
+
+  if (!entry && deltaEligible(colName, constraints)) {
+    const created: SharedEntry = { q, rows: null, error: null, listeners: new Set(), unsubscribe: () => undefined, timer: null };
+    sharedEntries.push(created);
+    startDeltaEntry(created, colName);
+    entry = created;
+  }
 
   if (!entry) {
     const created: SharedEntry = { q, rows: null, error: null, listeners: new Set(), unsubscribe: () => undefined, timer: null };
@@ -237,6 +492,7 @@ export async function createDocument<T extends BaseDoc>(
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
+  touchLocal(colName, [ref.id]);
   void logActivity(colName, 'create', ref.id, '', recordLabel(colName, data as Record<string, unknown>));
   return ref.id;
 }
@@ -247,7 +503,9 @@ export async function updateDocument<T extends BaseDoc>(
   data: Partial<Omit<T, 'id'>>,
   options: { silent?: boolean } = {},
 ): Promise<void> {
-  await updateDoc(doc(db, tenantPath(colName), id), { ...data, updatedAt: serverTimestamp() });
+  const pending = updateDoc(doc(db, tenantPath(colName), id), { ...data, updatedAt: serverTimestamp() });
+  touchLocal(colName, [id]);
+  await pending;
   /* silent: recalculos automaticos de totales no se registran como accion del usuario. */
   if (!options.silent) void logActivity(colName, 'update', id, '', recordLabel(colName, data as Record<string, unknown>));
 }
@@ -276,7 +534,10 @@ export async function deleteDocument(colName: string, id: string): Promise<void>
       /* Si la papelera falla, el borrado continua igual. */
     }
   }
-  await deleteDoc(doc(db, tenantPath(colName), id));
+  const removing = deleteDoc(doc(db, tenantPath(colName), id));
+  touchLocal(colName, [id]);
+  await removing;
+  void recordDeletion(colName, id);
   void logActivity(colName, 'delete', id, '', label);
 }
 
@@ -293,16 +554,24 @@ export async function replaceChildren(
   const existing = await listDocuments<BaseDoc>(colName, [where(parentField, '==', parentId)]);
   const keep = new Set(rows.filter((r) => r.id).map((r) => r.id as string));
   const batch = writeBatch(db);
+  const touched: string[] = [];
 
   for (const ex of existing) {
-    if (!keep.has(ex.id)) batch.delete(doc(db, tenantPath(colName), ex.id));
+    if (!keep.has(ex.id)) {
+      batch.delete(doc(db, tenantPath(colName), ex.id));
+      batch.set(tombstoneRef(colName, ex.id), tombstoneData(colName, ex.id));
+      touched.push(ex.id);
+    }
   }
   for (const row of rows) {
     const { id, ...data } = row;
     const ref = id ? doc(db, tenantPath(colName), id) : doc(collection(db, tenantPath(colName)));
     batch.set(ref, { ...data, [parentField]: parentId, updatedAt: serverTimestamp() }, { merge: true });
+    touched.push(ref.id);
   }
-  await batch.commit();
+  const committing = batch.commit();
+  touchLocal(colName, touched);
+  await committing;
 }
 
 /**
@@ -329,6 +598,7 @@ export async function bulkUpsert(
     }
 
     await batch.commit();
+    touchLocal(colName, chunk.map((r) => r.id).filter((x): x is string => !!x));
     written += chunk.length;
   }
 
@@ -341,7 +611,9 @@ export async function setDocumentWithId(
   id: string,
   data: Record<string, unknown>,
 ): Promise<void> {
-  await setDoc(doc(db, tenantPath(colName), id), { ...data, updatedAt: serverTimestamp() }, { merge: true });
+  const pending = setDoc(doc(db, tenantPath(colName), id), { ...data, updatedAt: serverTimestamp() }, { merge: true });
+  touchLocal(colName, [id]);
+  await pending;
 }
 
 /**
@@ -357,6 +629,7 @@ export function createDocumentLocalFirst(
   setDoc(ref, { ...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp() }).catch(
     (error: Error) => onError?.(error),
   );
+  touchLocal(colName, [ref.id]);
   return ref.id;
 }
 

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { collection, doc, getDocs, setDoc, writeBatch } from 'firebase/firestore';
+import { collection, doc, getDocs, serverTimestamp, setDoc, writeBatch } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import { useCollection } from '../../hooks/useCollection';
@@ -117,7 +117,7 @@ export function CompaniesView() {
         for (let start = 0; start < docs.length; start += 400) {
           const batch = writeBatch(db);
           for (const d of docs.slice(start, start + 400)) {
-            batch.set(doc(db, pathForCompany(company.id, colName), d.id), d.data(), { merge: true });
+            batch.set(doc(db, pathForCompany(company.id, colName), d.id), { ...d.data(), updatedAt: serverTimestamp() }, { merge: true });
             written += 1;
           }
           await batch.commit();

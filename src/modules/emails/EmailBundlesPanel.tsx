@@ -29,6 +29,8 @@ interface Draft {
   /** Correos de Email Settings marcados por defecto. */
   recipients: string[];
   customerTo: CustomerEmailTarget;
+  /** Enviar tambien al Warehouse (Locations) de la orden. */
+  warehouseTo: boolean;
 }
 
 /**
@@ -39,12 +41,12 @@ interface Draft {
 export function EmailBundlesPanel({ canEdit, onEditMessage }: Props) {
   const { bundles, loading } = useEmailBundles();
   const { active, defaultsFor } = useEmailRecipients();
-  const { templateFor, saveCustomerTo } = useEmailTemplates();
+  const { templateFor, saveCustomerTo, saveWarehouseTo } = useEmailTemplates();
   const [draft, setDraft] = useState<Draft | null>(null);
   const [saving, setSaving] = useState(false);
 
   const openNew = () =>
-    setDraft({ id: null, NAME: '', DOCS: ['pick', 'bol'], recipients: [], customerTo: 'none' });
+    setDraft({ id: null, NAME: '', DOCS: ['pick', 'bol'], recipients: [], customerTo: 'none', warehouseTo: true });
 
   const openEdit = (b: EmailBundle) => {
     const key = bundleKey(b.id);
@@ -54,6 +56,7 @@ export function EmailBundlesPanel({ canEdit, onEditMessage }: Props) {
       DOCS: b.DOCS ?? [],
       recipients: defaultsFor(key),
       customerTo: templateFor(key).customerTo,
+      warehouseTo: templateFor(key).warehouseTo,
     });
   };
 
@@ -99,6 +102,7 @@ export function EmailBundlesPanel({ canEdit, onEditMessage }: Props) {
         });
       }
       if (draft.customerTo !== templateFor(key).customerTo) await saveCustomerTo(key, draft.customerTo);
+      if (draft.warehouseTo !== templateFor(key).warehouseTo) await saveWarehouseTo(key, draft.warehouseTo);
       setDraft(null);
     } catch {
       alert('Could not save the combined email. Try again.');
@@ -143,13 +147,14 @@ export function EmailBundlesPanel({ canEdit, onEditMessage }: Props) {
               <th className="email-settings__th">Documents</th>
               <th className="email-settings__th">Sent to</th>
               <th className="email-settings__th">Customer</th>
+              <th className="email-settings__th">Warehouse</th>
               {canEdit && <th className="email-settings__th email-settings__th--right">Actions</th>}
             </tr>
           </thead>
           <tbody>
             {!loading && bundles.length === 0 && (
               <tr>
-                <td className="email-settings__empty" colSpan={5}>
+                <td className="email-settings__empty" colSpan={6}>
                   No combined emails yet. Example: “Pick Tix and BOL” with the Pick Ticket and the Bill of Lading for the
                   warehouse.
                 </td>
@@ -166,6 +171,7 @@ export function EmailBundlesPanel({ canEdit, onEditMessage }: Props) {
                     {to.length ? to.map((r) => r.NAME || r.EMAIL).join(', ') : <span className="email-bundles__muted">Nobody pre-selected</span>}
                   </td>
                   <td className="email-settings__td">{customerLabel(templateFor(key).customerTo)}</td>
+                  <td className="email-settings__td">{templateFor(key).warehouseTo ? 'Yes' : 'No'}</td>
                   {canEdit && (
                     <td className="email-settings__td email-settings__td--right">
                       <button type="button" className="checks__action checks__action--edit" onClick={() => openEdit(b)}>
@@ -247,6 +253,16 @@ export function EmailBundlesPanel({ canEdit, onEditMessage }: Props) {
                   </option>
                 ))}
               </select>
+            </FormField>
+            <FormField label="Warehouse" span2>
+              <label className="email-settings__doc">
+                <input
+                  type="checkbox"
+                  checked={draft.warehouseTo}
+                  onChange={(e) => setDraft({ ...draft, warehouseTo: e.target.checked })}
+                />
+                Also send to the warehouse of the order (Catalogs → Locations)
+              </label>
             </FormField>
           </FormGrid>
           {draft.id && (

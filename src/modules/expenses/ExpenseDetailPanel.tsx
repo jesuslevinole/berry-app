@@ -8,6 +8,7 @@ import { syncExpenseTotals } from '../../services/orderTotalsService';
 import { FORM_DEFS } from '../../config/formDefs';
 import { COLLECTIONS, type Expense, type PaymentBill, type PurchaseOrder } from '../../types/models';
 import { fmtMoney, round2 } from '../../utils/format';
+import { isPayableSupplier } from '../../services/balances';
 
 const fmtDate = (iso: string): string => {
   if (!iso) return '';
@@ -54,6 +55,8 @@ export function ExpenseDetailPanel({ expense, purchaseOrders, onClose, onEdit }:
 
   const paid = round2(payments.reduce((acc, p) => acc + (p.AMOUNT ?? 0), 0));
   const balance = round2(expense.BALANCE ?? 0);
+  /* General Cost no recibe pagos: su saldo no se marca como deuda. */
+  const payable = isPayableSupplier(suppliers.nameOf(expense.ID_SUPPLIERS));
 
   return (
     <RecordDetail
@@ -66,7 +69,7 @@ export function ExpenseDetailPanel({ expense, purchaseOrders, onClose, onEdit }:
         <div className="record-detail__stats">
           <div className="record-detail__stat record-detail__stat--highlight"><span className="record-detail__stat-label">Amount</span><span className="record-detail__stat-value">{fmtMoney(expense.AMOUNT ?? 0)}</span></div>
           <div className="record-detail__stat"><span className="record-detail__stat-label">Paid</span><span className="record-detail__stat-value">{fmtMoney(paid)}</span></div>
-          <div className={`record-detail__stat${balance > 0 ? ' record-detail__stat--bad' : ''}`}><span className="record-detail__stat-label">Balance</span><span className="record-detail__stat-value">{fmtMoney(balance)}</span></div>
+          <div className={`record-detail__stat${balance > 0 && payable ? ' record-detail__stat--bad' : ''}`}><span className="record-detail__stat-label">Balance</span><span className="record-detail__stat-value">{fmtMoney(balance)}</span></div>
         </div>
       </DetailSection>
 

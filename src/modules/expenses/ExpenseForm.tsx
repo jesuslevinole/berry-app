@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useAppConfig } from '../../context/AppConfigContext';
 import { useCatalog, type CatalogOption } from '../../hooks/useCatalog';
 import { createDocument, deleteDocument, updateDocument } from '../../services/firestore';
+import { syncPurchaseOrderTotals } from '../../services/orderTotalsService';
 import { COLLECTIONS, type Expense } from '../../types/models';
 import { round2, todayISO, toNumber } from '../../utils/format';
 import { confirmClose, Modal } from '../../components/ui/Modal';
@@ -77,9 +78,11 @@ export function ExpenseForm({ open, initial, purchaseOrderOptions, onClose }: Ex
       const persist = editingId
         ? updateDocument<Expense>(COLLECTIONS.EXPENSES, editingId, payload)
         : createDocument<Expense>(COLLECTIONS.EXPENSES, payload);
-      persist.catch((error: unknown) =>
-        alert(`Failed to save expense: ${(error as Error).message ?? 'Unknown error'}`),
-      );
+      /* El Deduct y el monto cambian la liquidacion del lote: se recalcula su Total. */
+      const lots = [...new Set([purchaseOrderId, initial?.ID_PURCHASEORDER ?? ''].filter(Boolean))];
+      persist
+        .then(() => (lots.length ? syncPurchaseOrderTotals(lots) : undefined))
+        .catch((error: unknown) => alert(`Failed to save expense: ${(error as Error).message ?? 'Unknown error'}`));
   };
 
   const handleDelete = () => {
@@ -87,7 +90,10 @@ export function ExpenseForm({ open, initial, purchaseOrderOptions, onClose }: Ex
     if (!window.confirm(`Delete expense ${initial.INVOICE_NUMBER || ''}?`)) return;
     const expenseId = initial.id;
     onClose();
-    deleteDocument(COLLECTIONS.EXPENSES, expenseId).catch((error: unknown) =>
+    const lot = initial.ID_PURCHASEORDER;
+    deleteDocument(COLLECTIONS.EXPENSES, expenseId)
+      .then(() => (lot ? syncPurchaseOrderTotals([lot]) : undefined))
+      .catch((error: unknown) =>
       alert(`Failed to delete expense: ${(error as Error).message ?? 'Unknown error'}`),
     );
   };

@@ -8,7 +8,7 @@
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { tenantPath } from './tenant';
-import { liquidationDeduction } from './orderTotalsService';
+import { deductibleExpenses, liquidationDeduction } from './orderTotalsService';
 import { COLLECTIONS, type CompanyInfo, type Expense, type PurchaseOrder, type SalesOrderDetail } from '../types/models';
 
 const GREEN = '#6aa84f';
@@ -52,8 +52,8 @@ export async function printLiquidationReport(
   );
   const expenseDocs: Expense[] = expSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Expense);
   /* Misma regla que el Total del lote (orderTotalsService.liquidationDeduction). */
-  const flagged = expenseDocs.filter((e) => e.DEDUCT);
-  const deductible = flagged.length > 0 ? flagged : expenseDocs;
+  /* Solo los gastos marcados Deduct se descuentan al grower. */
+  const deductible = deductibleExpenses(expenseDocs);
   const expenses = liquidationDeduction(order, expenseDocs);
 
   /* Gastos agrupados por categoria, como en la liquidacion de AppSheet. */
