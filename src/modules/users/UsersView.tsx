@@ -100,6 +100,10 @@ export function UsersView() {
 
     const editing = draft.id ? users.find((u) => u.id === draft.id) : undefined;
     const emailChanged = !!editing && (editing.email ?? '').toLowerCase().trim() !== email;
+    if (!companyId) {
+      alert('Select the company first.');
+      return;
+    }
     setModalOpen(false);
 
     const persist = async () => {
@@ -133,9 +137,13 @@ export function UsersView() {
         return;
       }
 
-      /* Crear: solo Firestore. La cuenta de Auth se crea al enviar la invitacion. */
+      /* Crear: solo Firestore. La cuenta de Auth se crea al enviar la invitacion.
+         Lleva la empresa activa: sin companyId el usuario no aparecia en la lista
+         (se filtra por empresa) y las reglas lo rechazaban para quien no es admin
+         de la plataforma. */
       const id = emailToPendingId(email);
       await setDoc(doc(db, COLLECTIONS.SYSTEM_USERS, id), {
+        companyId,
         firstName,
         lastName: draft.lastName.trim(),
         email,
