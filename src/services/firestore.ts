@@ -10,18 +10,20 @@ import {
   getDoc,
   getDocs,
   onSnapshot,
+  queryEqual,
   query,
   serverTimestamp,
   setDoc,
   updateDoc,
   where,
   writeBatch,
+  type Query,
   type QueryConstraint,
   type Unsubscribe,
 } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
 import type { BaseDoc } from '../types/models';
-import { tenantPath } from './tenant';
+import { onCompanyChange, tenantPath } from './tenant';
 
 
 /* ---------- Registro de actividad + papelera (intercepcion central) ---------- */
@@ -74,6 +76,58 @@ export async function deleteFromTrashForever(trashId: string): Promise<void> {
   await deleteDoc(doc(db, tenantPath(TRASH_COLLECTION), trashId));
 }
 
+/* ---------- Suscripciones compartidas (control de lecturas) ----------
+ * Varias pantallas escuchan las mismas colecciones. Antes, cada vez que una
+ * pantalla se abria se creaba una consulta nueva y Firestore cobraba otra vez
+ * TODOS los documentos. Ahora:
+ *  - Una sola consulta por coleccion/filtro, compartida por todas las pantallas.
+ *  - Al cerrar la ultima pantalla que la usa, la consulta sigue viva unos minutos:
+ *    si se vuelve a abrir, los datos salen al instante y sin cobrar lecturas.
+ *  - Mientras esta viva solo se cobran los documentos que cambian.
+ */
+
+/** Tiempo que una consulta sigue viva sin pantallas que la usen. */
+const LINGER_MS = 15 * 60 * 1000;
+
+interface SharedListener {
+  onData: (rows: BaseDoc[]) => void;
+  onError?: (error: Error) => void;
+}
+
+interface SharedEntry {
+  q: Query;
+  rows: BaseDoc[] | null;
+  error: Error | null;
+  listeners: Set<SharedListener>;
+  unsubscribe: Unsubscribe;
+  timer: ReturnType<typeof setTimeout> | null;
+}
+
+const sharedEntries: SharedEntry[] = [];
+
+/** Lecturas facturables aproximadas de esta sesion (documentos que llegaron del servidor). */
+let serverReads = 0;
+export const sessionReadCount = (): number => serverReads;
+/* Diagnostico: en la consola del navegador, berryReads() muestra las lecturas de esta sesion. */
+(globalThis as unknown as { berryReads?: () => number }).berryReads = sessionReadCount;
+
+function closeEntry(entry: SharedEntry): void {
+  if (entry.timer) clearTimeout(entry.timer);
+  entry.unsubscribe();
+  const index = sharedEntries.indexOf(entry);
+  if (index >= 0) sharedEntries.splice(index, 1);
+}
+
+/** Cierra todas las consultas (al cerrar sesion o cambiar de empresa). */
+export function closeAllSubscriptions(): void {
+  for (const entry of [...sharedEntries]) closeEntry(entry);
+}
+
+onCompanyChange(closeAllSubscriptions);
+auth.onAuthStateChanged((user) => {
+  if (!user) closeAllSubscriptions();
+});
+
 export function subscribeToCollection<T extends BaseDoc>(
   colName: string,
   onData: (rows: T[]) => void,
@@ -81,11 +135,50 @@ export function subscribeToCollection<T extends BaseDoc>(
   constraints: QueryConstraint[] = [],
 ): Unsubscribe {
   const q = query(collection(db, tenantPath(colName)), ...constraints);
-  return onSnapshot(
-    q,
-    (snap) => onData(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as T)),
-    (err) => onError?.(err),
-  );
+  let entry = sharedEntries.find((e) => queryEqual(e.q, q));
+
+  if (!entry) {
+    const created: SharedEntry = { q, rows: null, error: null, listeners: new Set(), unsubscribe: () => undefined, timer: null };
+    created.unsubscribe = onSnapshot(
+      q,
+      (snap) => {
+        if (!snap.metadata.fromCache) serverReads += snap.docChanges().length;
+        created.rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as BaseDoc);
+        created.error = null;
+        for (const l of created.listeners) l.onData(created.rows.slice());
+      },
+      (err) => {
+        created.error = err;
+        for (const l of created.listeners) l.onError?.(err);
+        /* Una consulta con error no se reutiliza: la siguiente pantalla la reintenta. */
+        closeEntry(created);
+      },
+    );
+    sharedEntries.push(created);
+    entry = created;
+  }
+
+  const current = entry;
+  if (current.timer) {
+    clearTimeout(current.timer);
+    current.timer = null;
+  }
+  const listener: SharedListener = { onData: onData as (rows: BaseDoc[]) => void, onError };
+  current.listeners.add(listener);
+  /* Datos ya cargados: se entregan de inmediato, sin volver a leer. */
+  if (current.rows) {
+    const rows = current.rows.slice();
+    queueMicrotask(() => {
+      if (current.listeners.has(listener)) listener.onData(rows);
+    });
+  }
+
+  return () => {
+    current.listeners.delete(listener);
+    if (current.listeners.size === 0 && sharedEntries.includes(current)) {
+      current.timer = setTimeout(() => closeEntry(current), LINGER_MS);
+    }
+  };
 }
 
 export async function listDocuments<T extends BaseDoc>(
@@ -94,6 +187,21 @@ export async function listDocuments<T extends BaseDoc>(
 ): Promise<T[]> {
   const snap = await getDocs(query(collection(db, tenantPath(colName)), ...constraints));
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as T);
+}
+
+/** Lee un solo documento por id (1 lectura). */
+export async function getDocument<T extends BaseDoc>(colName: string, id: string): Promise<T | null> {
+  const snap = await getDoc(doc(db, tenantPath(colName), id));
+  return snap.exists() ? ({ id: snap.id, ...snap.data() } as T) : null;
+}
+
+/** Lee varios documentos por id (1 lectura por documento, no la coleccion completa). */
+export async function getDocumentsById<T extends BaseDoc>(colName: string, ids: string[]): Promise<Map<string, T>> {
+  const unique = [...new Set(ids.filter(Boolean))];
+  const found: (T | null)[] = await Promise.all(unique.map((id) => getDocument<T>(colName, id)));
+  const map = new Map<string, T>();
+  for (const d of found) if (d) map.set(d.id, d);
+  return map;
 }
 
 export async function createDocument<T extends BaseDoc>(

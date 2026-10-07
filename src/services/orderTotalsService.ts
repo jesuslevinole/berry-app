@@ -1,4 +1,4 @@
-import { listDocuments, updateDocument, where } from './firestore';
+import { listDocuments, updateDocument, where, getDocumentsById } from './firestore';
 import { round2 } from '../utils/format';
 import {
   COLLECTIONS,
@@ -109,8 +109,8 @@ export function purchaseTotalsDiffer(order: PurchaseOrder, totals: PurchaseTotal
 export async function syncPurchaseOrderTotals(orderIds: string[], silent = true, options: SyncOptions = {}): Promise<number> {
   const ids = [...new Set(orderIds.filter(Boolean))];
   if (ids.length === 0) return 0;
-  const orders = await listDocuments<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER);
-  const byId = new Map(orders.map((o) => [o.id, o]));
+  /* Solo los lotes afectados (antes se leian TODOS los Purchase Orders en cada cambio). */
+  const byId = await getDocumentsById<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER, ids);
   let updated = 0;
   for (const orderId of ids) {
     const order = byId.get(orderId);
@@ -204,8 +204,8 @@ const salesDiffer = (order: SalesOrder, t: { TOTAL: number; INCOMES: number; BAL
 export async function syncSalesOrderTotals(orderIds: string[], silent = true, options: SyncOptions = {}): Promise<number> {
   const ids = [...new Set(orderIds.filter(Boolean))];
   if (ids.length === 0) return 0;
-  const orders = await listDocuments<SalesOrder>(COLLECTIONS.SALES_ORDER);
-  const byId = new Map(orders.map((o) => [o.id, o]));
+  /* Solo las ordenes afectadas (antes se leian TODAS las ventas en cada cambio). */
+  const byId = await getDocumentsById<SalesOrder>(COLLECTIONS.SALES_ORDER, ids);
   let updated = 0;
   for (const orderId of ids) {
     const order = byId.get(orderId);
@@ -253,8 +253,8 @@ export async function syncAllSalesOrderTotals(): Promise<{ checked: number; upda
 export async function syncExpenseTotals(expenseIds: string[], silent = true, options: SyncOptions = {}): Promise<number> {
   const ids = [...new Set(expenseIds.filter(Boolean))];
   if (ids.length === 0) return 0;
-  const expenses = await listDocuments<Expense>(COLLECTIONS.EXPENSES);
-  const byId = new Map(expenses.map((e) => [e.id, e]));
+  /* Solo los gastos afectados (antes se leian TODOS los gastos en cada cambio). */
+  const byId = await getDocumentsById<Expense>(COLLECTIONS.EXPENSES, ids);
   let updated = 0;
   for (const expenseId of ids) {
     const expense = byId.get(expenseId);

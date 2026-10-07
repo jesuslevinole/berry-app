@@ -32,8 +32,19 @@ export function getActiveCompanyId(): string {
 }
 
 /** Define la empresa activa. La llama AuthContext al resolver el perfil del usuario. */
+const companyChangeHandlers = new Set<() => void>();
+
+/** Avisa cuando cambia la empresa activa (p. ej. para cerrar las consultas de la anterior). */
+export function onCompanyChange(handler: () => void): () => void {
+  companyChangeHandlers.add(handler);
+  return () => companyChangeHandlers.delete(handler);
+}
+
 export function setActiveCompanyId(companyId: string): void {
-  activeCompanyId = companyId ?? '';
+  const next = companyId ?? '';
+  const changed = next !== activeCompanyId;
+  activeCompanyId = next;
+  if (changed) for (const handler of companyChangeHandlers) handler();
 }
 
 /**

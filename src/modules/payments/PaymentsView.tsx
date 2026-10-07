@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react';
-import { limit } from 'firebase/firestore';
 import { useAuth } from '../../context/AuthContext';
 import { useCollection } from '../../hooks/useCollection';
 import { useCatalog } from '../../hooks/useCatalog';
@@ -12,7 +11,6 @@ import { syncExpenseTotals, syncPurchaseOrderTotals, syncSalesOrderTotals } from
 import { PaymentEditModal, type EditablePayment } from '../../components/ui/RecordEditModals';
 import { SalesOrderDetailPanel } from '../sales/SalesOrderDetailPanel';
 import { PaymentsAuditPanel } from './PaymentsAuditPanel';
-import { READ_LIMIT } from '../../config/limits';
 import { fmtMoney, round2 } from '../../utils/format';
 import {
   COLLECTIONS,
@@ -73,12 +71,10 @@ export function PaymentsView({ kind = 'in', embedded = false, moduleId }: Props)
   const [viewingSale, setViewingSale] = useState<SalesOrder | null>(null);
   const [editingPayment, setEditingPayment] = useState<Row | null>(null);
 
-  const { data: salesPayments, loading: loadingIn } = useCollection<PaymentSales>(COLLECTIONS.PAYMENT_SALES, [limit(READ_LIMIT)]);
-  const { data: billPayments, loading: loadingOut } = useCollection<PaymentBill>(COLLECTIONS.PAYMENT_BILL, [limit(READ_LIMIT)]);
+  const { data: salesPayments, loading: loadingIn } = useCollection<PaymentSales>(COLLECTIONS.PAYMENT_SALES);
+  const { data: billPayments, loading: loadingOut } = useCollection<PaymentBill>(COLLECTIONS.PAYMENT_BILL);
   const { data: purchasePayments, loading: loadingPo } = useCollection<PaymentPurchase>(
-    COLLECTIONS.PAYMENT_PURCHASE,
-    [limit(READ_LIMIT)],
-  );
+    COLLECTIONS.PAYMENT_PURCHASE);
   const { data: salesOrders } = useCollection<SalesOrder>(COLLECTIONS.SALES_ORDER);
   const { data: expenses } = useCollection<Expense>(COLLECTIONS.EXPENSES);
   const { data: purchaseOrders } = useCollection<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER);

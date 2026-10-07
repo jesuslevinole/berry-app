@@ -3,8 +3,6 @@ import { useAuth } from '../../context/AuthContext';
 import { useCollection } from '../../hooks/useCollection';
 import { useCatalog } from '../../hooks/useCatalog';
 import { useInventoryItems } from '../../hooks/useInventoryItems';
-import { limit } from 'firebase/firestore';
-import { READ_LIMIT } from '../../config/limits';
 import { COLLECTIONS, type PurchaseOrder, type SystemUser, type SalesOrder, type PurchaseDetail } from '../../types/models';
 import { byNewest, fmtDate, fmtMoney } from '../../utils/format';
 import { deleteDocument, listDocuments, where } from '../../services/firestore';
@@ -26,7 +24,7 @@ import './PurchaseOrdersView.css';
 
 export function PurchaseOrdersView() {
   const { can } = useAuth();
-  const { data, loading } = useCollection<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER, [limit(READ_LIMIT)]);
+  const { data, loading } = useCollection<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER);
   const growers = useCatalog(COLLECTIONS.GROWER, 'NAME_GROWER');
   const customers = useCatalog(COLLECTIONS.CUSTOMER, 'NAME_CUSTOMER');
   const legacyUsers = useCatalog(COLLECTIONS.USERS, 'EMAIL_USERS');

@@ -1,7 +1,5 @@
 import { useMemo, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { limit } from 'firebase/firestore';
-import { READ_LIMIT } from '../../config/limits';
 import { useCollection } from '../../hooks/useCollection';
 import { useCatalog, type CatalogOption } from '../../hooks/useCatalog';
 import { useInventoryItems } from '../../hooks/useInventoryItems';
@@ -42,7 +40,7 @@ import './SalesDeskView.css';
 
 export function SalesDeskView() {
   const { can } = useAuth();
-  const { data, loading } = useCollection<SalesOrder>(COLLECTIONS.SALES_ORDER, [limit(READ_LIMIT)]);
+  const { data, loading } = useCollection<SalesOrder>(COLLECTIONS.SALES_ORDER);
   const { data: purchaseOrders } = useCollection<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER);
   const customers = useCatalog(COLLECTIONS.CUSTOMER, 'NAME_CUSTOMER');
   const legacyUsers = useCatalog(COLLECTIONS.USERS, 'EMAIL_USERS');
