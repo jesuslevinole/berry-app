@@ -10,6 +10,7 @@ import { Modal } from '../../components/ui/Modal';
 import { FormField, FormGrid } from '../../components/ui/FormField';
 import { ToggleSwitch } from '../../components/ui/ToggleSwitch';
 import { EmailTemplatesPanel } from './EmailTemplatesPanel';
+import { EmailLogPanel } from './EmailLogPanel';
 import '../../components/ui/SendEmailModal.css';
 import './EmailSettingsView.css';
 
@@ -30,7 +31,7 @@ export function EmailSettingsView() {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [busy, setBusy] = useState('');
-  const [tab, setTab] = useState<'recipients' | 'messages'>('recipients');
+  const [tab, setTab] = useState<'recipients' | 'messages' | 'sent'>('recipients');
 
   const term = search.trim().toLowerCase();
   const rows = recipients.filter((r) => !term || `${r.NAME} ${r.EMAIL}`.toLowerCase().includes(term));
@@ -127,9 +128,20 @@ export function EmailSettingsView() {
         >
           Messages
         </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'sent'}
+          className={`email-settings__tab${tab === 'sent' ? ' email-settings__tab--active' : ''}`}
+          onClick={() => setTab('sent')}
+        >
+          Sent
+        </button>
       </div>
 
       {tab === 'messages' && <EmailTemplatesPanel canEdit={canEdit} />}
+
+      {tab === 'sent' && <EmailLogPanel />}
 
       {tab === 'recipients' && (
         <>

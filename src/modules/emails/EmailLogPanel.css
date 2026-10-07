@@ -1,0 +1,39 @@
+/* Email Settings > Sent: historial y estado de entrega. */
+.email-log { display: flex; flex-direction: column; gap: 12px; }
+.email-log__bar { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+.email-log__hint { margin: 0; font-size: 0.85rem; color: var(--muted); max-width: 640px; line-height: 1.5; }
+
+.email-log__card {
+  background-color: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: auto;
+  max-height: max(320px, calc(100dvh - var(--topbar-h) - 260px));
+}
+.email-log__table { width: 100%; border-collapse: collapse; }
+.email-log__th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 11px 14px;
+  text-align: left;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.email-log__td { padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: 0.86rem; color: var(--ink); vertical-align: top; }
+.email-log__td--nowrap { white-space: nowrap; }
+.email-log__td--strong { font-weight: 600; }
+.email-log__td--muted { color: var(--muted); }
+.email-log__empty { padding: 28px; text-align: center; color: var(--muted); font-style: italic; }
+
+.email-log__recipients { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+.email-log__recipient { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.email-log__email { white-space: nowrap; }
+.email-log__pill { font-size: 0.7rem; font-weight: 700; border-radius: 999px; padding: 2px 9px; white-space: nowrap; cursor: help; }
+.email-log__pill--ok { background: var(--ok-bg); color: var(--ok); }
+.email-log__pill--bad { background: var(--bad-bg); color: var(--bad); }
+.email-log__pill--warn { background: var(--warn-bg); color: var(--warn); }
+.email-log__pill--muted { background: var(--line); color: var(--muted); }
+.email-log__error { flex-basis: 100%; font-size: 0.78rem; color: var(--bad); }

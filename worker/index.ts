@@ -33,7 +33,7 @@ interface FirebaseClaims {
   email_verified?: boolean;
 }
 
-const MAX_RECIPIENTS = 10;
+const MAX_RECIPIENTS = 15;
 const MAX_ATTACHMENTS = 3;
 /** ~7.5 MB en base64 (Resend admite hasta 40 MB por correo). */
 const MAX_ATTACHMENT_CHARS = 10_000_000;
@@ -241,31 +241,101 @@ async function handleSendEmail(request: Request, env: Env): Promise<Response> {
   }
   if (totalChars > MAX_ATTACHMENT_CHARS) return json({ error: 'The attachment is too large.' }, 413);
 
-  const resend = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      from: env.MAIL_FROM,
-      to,
-      cc: cc.length ? cc : undefined,
-      /* Las respuestas del cliente llegan a quien envio el documento. */
-      reply_to: claims.email && claims.email_verified !== false ? claims.email : undefined,
-      subject,
-      html,
-      attachments: cleanAttachments.length ? cleanAttachments : undefined,
-    }),
-  });
+  /*
+   * Un correo por destinatario: cada uno recibe su copia (no ven a los demas), un
+   * correo rechazado no tumba a los otros y se sabe el resultado de cada direccion.
+   */
+  const recipients = [...new Set([...to, ...cc].map((e) => e.toLowerCase()))];
+  const replyTo = claims.email && claims.email_verified !== false ? claims.email : undefined;
+  const results: { email: string; id?: string; error?: string }[] = [];
 
-  const result = (await resend.json().catch(() => ({}))) as { id?: string; message?: string };
-  if (!resend.ok) {
-    return json({ error: result.message ? `Email provider: ${result.message}` : 'The email provider rejected the message.' }, 502);
+  for (let index = 0; index < recipients.length; index += 1) {
+    const email = recipients[index];
+    /* Resend permite ~2 envios por segundo: se espacian para no chocar con el limite. */
+    if (index > 0) await sleep(600);
+    results.push(
+      await sendOne(env, {
+        from: env.MAIL_FROM,
+        to: [email],
+        reply_to: replyTo,
+        subject,
+        html,
+        attachments: cleanAttachments.length ? cleanAttachments : undefined,
+      }).then((r) => ({ email, ...r })),
+    );
   }
-  return json({ id: result.id ?? '' });
+
+  const sent = results.filter((r) => r.id).length;
+  if (sent === 0) {
+    return json({ error: results[0]?.error ?? 'The email provider rejected the message.', results }, 502);
+  }
+  return json({ results });
+}
+
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** Envia un correo a Resend; si responde "demasiadas solicitudes", reintenta una vez. */
+async function sendOne(env: Env, payload: Record<string, unknown>): Promise<{ id?: string; error?: string }> {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = (await res.json().catch(() => ({}))) as { id?: string; message?: string };
+    if (res.ok && data.id) return { id: data.id };
+    if (res.status === 429 && attempt === 0) {
+      await sleep(1200);
+      continue;
+    }
+    return { error: data.message ? `Email provider: ${data.message}` : `Email provider error (${res.status}).` };
+  }
+  return { error: 'Email provider is busy. Try again.' };
+}
+
+/* ---------------- /api/email-status ---------------- */
+
+/** Estado real de entrega de cada correo enviado (delivered, bounced, etc.), segun Resend. */
+async function handleEmailStatus(request: Request, env: Env): Promise<Response> {
+  if (!env.RESEND_API_KEY || !env.FIREBASE_PROJECT_ID) return json({ error: 'Email is not configured on the server.' }, 500);
+  const auth = request.headers.get('Authorization') ?? '';
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+  try {
+    await verifyFirebaseToken(token, env.FIREBASE_PROJECT_ID);
+  } catch {
+    return json({ error: 'Your session is not valid. Sign in again.' }, 401);
+  }
+  let body: { ids?: unknown };
+  try {
+    body = (await request.json()) as { ids?: unknown };
+  } catch {
+    return json({ error: 'Invalid request.' }, 400);
+  }
+  const valid = Array.isArray(body.ids) ? body.ids.filter((v): v is string => typeof v === 'string' && /^[\w-]{8,64}$/.test(v)) : [];
+  const ids = [...new Set(valid)].slice(0, 40);
+
+  const statuses: Record<string, { status: string; to?: string[] }> = {};
+  for (let index = 0; index < ids.length; index += 1) {
+    if (index > 0) await sleep(550);
+    const id = ids[index];
+    const res = await fetch(`https://api.resend.com/emails/${id}`, { headers: { Authorization: `Bearer ${env.RESEND_API_KEY}` } });
+    const data = (await res.json().catch(() => ({}))) as { last_event?: string; to?: string[] };
+    statuses[id] = res.ok ? { status: data.last_event ?? 'unknown', to: data.to } : { status: 'unknown' };
+  }
+  return json({ statuses });
 }
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+    if (url.pathname === '/api/email-status') {
+      if (request.method !== 'POST') return json({ error: 'Method not allowed.' }, 405);
+      try {
+        return await handleEmailStatus(request, env);
+      } catch {
+        return json({ error: 'Could not check the delivery status.' }, 500);
+      }
+    }
     if (url.pathname === '/api/send-email') {
       if (request.method !== 'POST') return json({ error: 'Method not allowed.' }, 405);
       try {

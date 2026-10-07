@@ -46,6 +46,8 @@ export const COLLECTIONS = {
   EMAIL_RECIPIENTS: 'CAT_EMAILRECIPIENTS',
   /** Asunto y mensaje guardados por documento (id del documento = tipo). */
   EMAIL_TEMPLATES: 'CAT_EMAILTEMPLATES',
+  /** Historial de correos enviados (un registro por envio, con el resultado de cada destinatario). */
+  EMAIL_LOG: 'BD_EMAILLOG',
   COMPANY: 'settings_company',
   /** Global: catalogo de empresas del SaaS. */
   COMPANIES: 'companies',
@@ -375,4 +377,23 @@ export interface EmailTemplate extends BaseDoc {
   /** Mensaje en HTML (negritas, cursivas, tamanos...), con variables {{customer}}, {{number}}... */
   BODY_HTML: string;
   UPDATED_BY?: string;
+}
+
+/** Resultado de un destinatario en un envio. */
+export interface EmailLogRecipient {
+  EMAIL: string;
+  /** Id del correo en Resend (para consultar si se entrego). */
+  RESEND_ID: string;
+  ERROR: string;
+}
+
+/** Registro de un envio de documento por correo. */
+export interface EmailLog extends BaseDoc {
+  DATE: string;
+  DOC_TYPE: EmailDocType;
+  /** Ej. "Invoice 46117". */
+  DOC_LABEL: string;
+  SUBJECT: string;
+  SENT_BY: string;
+  RECIPIENTS: EmailLogRecipient[];
 }
