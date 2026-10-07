@@ -138,7 +138,6 @@ export function printCheck(
   .words-row { display: flex; align-items: flex-end; gap: 8px; margin-top: 12px; }
   .words { flex: 1; border-bottom: 1px solid #111; font-size: 11px; padding: 0 4px 2px; }
   .words-dollars { font-size: 10.5px; font-weight: 700; }
-  /* Direccion del beneficiario: un poco mas abajo (alineada a la ventana del sobre). */
   /* Direccion del beneficiario un poco mas abajo (ventana del sobre). */
   .payee-address { margin: 0.52in 0 0 0.9in; font-size: 11.5px; line-height: 1.5; }
   /* Memo y firma por encima de la franja azul del papel de cheque (antes de la banda MICR). */

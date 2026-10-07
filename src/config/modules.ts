@@ -27,6 +27,7 @@ export const MODULE_DEFS: ModuleDef[] = [
   { id: 'activity', label: 'Activity Log', hasDocuments: false },
   { id: 'trash', label: 'Recycle Bin', hasDocuments: false },
   { id: 'checks', label: 'Checkbook', hasDocuments: true },
+  { id: 'emails', label: 'Email Settings', hasDocuments: false },
   { id: 'company', label: 'Company Info', hasDocuments: false },
   { id: 'users', label: 'System Users', hasDocuments: false },
   { id: 'roles', label: 'Roles & Permissions', hasDocuments: false },

@@ -121,3 +121,21 @@
   flex-shrink: 0;
   display: flex;
 }
+
+/* Fila: abrir el documento + boton para enviarlo por correo. */
+.doc-picker__row { display: flex; align-items: stretch; gap: 8px; }
+.doc-picker__row .doc-picker__option { flex: 1; min-width: 0; }
+.doc-picker__email {
+  flex-shrink: 0;
+  width: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background-color: var(--canvas);
+  color: var(--green-600);
+  cursor: pointer;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+.doc-picker__email:hover { border-color: var(--green-500); background-color: var(--green-600); color: #ffffff; }

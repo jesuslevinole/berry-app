@@ -18,12 +18,13 @@ import { billingInfoOf } from './services/billingService';
 import { ReportsView } from './modules/reports/ReportsView';
 import { ChecksView } from './modules/checks/ChecksView';
 import { CompanyView } from './modules/company/CompanyView';
+import { EmailSettingsView } from './modules/emails/EmailSettingsView';
 import { UsersView } from './modules/users/UsersView';
 import { RolesView } from './modules/roles/RolesView';
 import { ConfigView } from './modules/config/ConfigView';
 import './App.css';
 
-const VIEW_ORDER: ViewKey[] = ['dashboard', 'purchases', 'sales', 'expenses', 'catalogs', 'lots', 'inventory', 'queue', 'apgrowers', 'ap', 'ar', 'expensesreport', 'activity', 'trash', 'companies', 'checks', 'company', 'users', 'roles', 'config'];
+const VIEW_ORDER: ViewKey[] = ['dashboard', 'purchases', 'sales', 'expenses', 'catalogs', 'lots', 'inventory', 'queue', 'apgrowers', 'ap', 'ar', 'expensesreport', 'activity', 'trash', 'companies', 'checks', 'emails', 'company', 'users', 'roles', 'config'];
 
 function Shell() {
   const { firebaseUser, bypass, loading, can, logout, isPlatformAdmin, needsCompanySetup, needsCompanyChoice, company, memberships } = useAuth();
@@ -118,6 +119,7 @@ function Shell() {
         {view === 'trash' && <TrashView />}
         {view === 'companies' && <CompaniesView />}
         {view === 'checks' && <ChecksView />}
+        {view === 'emails' && <EmailSettingsView />}
         {view === 'company' && <CompanyView />}
         {view === 'users' && <UsersView />}
         {view === 'roles' && <RolesView />}

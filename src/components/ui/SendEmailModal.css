@@ -1,0 +1,52 @@
+/* Modal de envio de documentos por correo. */
+.send-email__message { resize: vertical; min-height: 120px; font-family: inherit; line-height: 1.5; }
+
+.send-email__attachment {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--green-50);
+  font-size: 0.85rem;
+  color: var(--ink);
+}
+
+.send-email__error {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--bad-bg);
+  color: var(--bad);
+  font-size: 0.85rem;
+}
+
+/* Destinatarios autorizados (Email Settings). */
+.send-email__recipients { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.send-email__label { font-size: 0.8rem; font-weight: 600; color: var(--ink); }
+.send-email__muted { margin: 0; font-size: 0.85rem; color: var(--muted); }
+.send-email__list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 6px;
+}
+.send-email__option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 9px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+.send-email__option:hover { background: var(--green-50); }
+.send-email__option--on { background: var(--green-50); }
+.send-email__option input { width: 16px; height: 16px; accent-color: var(--green-600); flex-shrink: 0; }
+.send-email__who { display: flex; flex-direction: column; min-width: 0; font-size: 0.86rem; color: var(--ink); }
+.send-email__who span { font-size: 0.78rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

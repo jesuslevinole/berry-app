@@ -42,6 +42,8 @@ export const COLLECTIONS = {
   CHECKS: 'BD_CHECKS',
   /** Checking Set-Up: cuentas emisoras de cheques (empresa + sus bancos). */
   CHECK_ACCOUNTS: 'CAT_CHECKACCOUNTS',
+  /** Destinatarios autorizados para enviar documentos por correo. */
+  EMAIL_RECIPIENTS: 'CAT_EMAILRECIPIENTS',
   COMPANY: 'settings_company',
   /** Global: catalogo de empresas del SaaS. */
   COMPANIES: 'companies',
@@ -350,4 +352,17 @@ export interface Company extends BaseDoc {
   lastPaymentAmount?: number;
   /** Contacto de facturacion. */
   billingEmail?: string;
+}
+
+/** Documentos que se pueden enviar por correo. */
+export type EmailDocType = 'invoice' | 'pick' | 'so' | 'bol' | 'statement';
+
+/** Destinatario autorizado (Email Settings). Solo a estos correos se puede enviar. */
+export interface EmailRecipient extends BaseDoc {
+  NAME: string;
+  EMAIL: string;
+  /** false = no aparece al enviar (se conserva para reactivarlo). */
+  ACTIVE: boolean;
+  /** Documentos para los que viene marcado por defecto. */
+  DOCS: EmailDocType[];
 }

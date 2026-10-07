@@ -55,13 +55,7 @@ export const CATALOG_DEFS: CatalogDef[] = [
       { key: 'PHONE_TWO_CUSTOMER', label: 'Phone 2', format: 'phone' },
     ],
   },
-  { collection: COLLECTIONS.SUPPLIERS, label: 'Suppliers', idField: 'ID_SUPPLIERS', nameField: 'NAME_SUPPLIERS', nameLabel: 'Name', extraFields: [{ key: 'ADDRESS_SUPPLIERS', label: 'Address' }, { key: 'PHONE_SUPPLIERS', label: 'Phone', format: 'phone' }],
-    /* Apagado = sus gastos no son cuentas por pagar (p. ej. "General Cost": wire / factoring fees
-       que se cobran solos o se descuentan al grower). No salen en Accounts Payable ni en el Dashboard. */
-    toggleFields: [
-      { key: 'IN_ACCOUNTS_PAYABLE', label: 'Accounts Payable', title: 'Show this supplier’s bills in Accounts Payable', defaultOn: true },
-    ],
-  },
+  { collection: COLLECTIONS.SUPPLIERS, label: 'Suppliers', idField: 'ID_SUPPLIERS', nameField: 'NAME_SUPPLIERS', nameLabel: 'Name', extraFields: [{ key: 'ADDRESS_SUPPLIERS', label: 'Address' }, { key: 'PHONE_SUPPLIERS', label: 'Phone', format: 'phone' }] },
   { collection: COLLECTIONS.CARRIER, label: 'Carriers', idField: 'ID_CARRIER', nameField: 'NAME_CARRIER', nameLabel: 'Name', extraFields: [] },
   { collection: COLLECTIONS.PAYMENTTERM, label: 'Payment Terms', idField: 'ID_PAYMENTTERM', nameField: 'NAME_PAYMENTTERM', nameLabel: 'Name (e.g. 21 Days)', extraFields: [], maxRecords: 1 },
   {

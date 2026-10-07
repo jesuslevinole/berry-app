@@ -1,0 +1,37 @@
+/* Email Settings: correos autorizados para recibir documentos. */
+.email-settings { display: flex; flex-direction: column; gap: 14px; }
+.email-settings__hint { margin: 0; font-size: 0.85rem; color: var(--muted); }
+
+.email-settings__card {
+  background-color: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: auto;
+  max-height: max(320px, calc(100dvh - var(--topbar-h) - 220px));
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+.email-settings__table { width: 100%; border-collapse: collapse; }
+.email-settings__th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 11px 14px;
+  text-align: left;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.email-settings__th--center,
+.email-settings__td--center { text-align: center; }
+.email-settings__th--right,
+.email-settings__td--right { text-align: right; white-space: nowrap; }
+.email-settings__td { padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: 0.88rem; color: var(--ink); white-space: nowrap; }
+.email-settings__td--strong { font-weight: 600; }
+.email-settings__row--off .email-settings__td { color: var(--muted); }
+.email-settings__check { width: 16px; height: 16px; accent-color: var(--green-600); cursor: pointer; }
+.email-settings__empty { padding: 28px; text-align: center; color: var(--muted); font-style: italic; }
+
+.email-settings__docs { display: flex; flex-wrap: wrap; gap: 8px 18px; padding-top: 4px; }
+.email-settings__doc { display: inline-flex; align-items: center; gap: 6px; font-size: 0.88rem; color: var(--ink); cursor: pointer; }
+.email-settings__doc input { accent-color: var(--green-600); }

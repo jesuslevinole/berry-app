@@ -185,3 +185,13 @@ td:has(> a.btn) {
 }
 td > button,
 td > .btn { vertical-align: middle; }
+
+/* Iframe oculto donde se pintan los documentos para convertirlos en PDF (htmlToPdf). */
+.pdf-render-frame {
+  position: fixed;
+  left: -10000px;
+  top: 0;
+  border: 0;
+  visibility: hidden;
+  pointer-events: none;
+}

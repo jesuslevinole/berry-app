@@ -45,7 +45,8 @@ const todaySlash = (): string => {
   return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
 };
 
-export function printCustomerStatement({ company, customerName, startDate, endDate, rows }: StatementInput): void {
+/** HTML completo del estado de cuenta (para imprimir y para adjuntarlo como PDF al correo). */
+export function buildCustomerStatementHtml({ company, customerName, startDate, endDate, rows }: StatementInput): string {
   const agingTotal = rows.reduce((acc, r) => acc + r.balance, 0);
   const showBalance = rows.some((r) => Math.abs(r.total - r.balance) > 0.005);
 
@@ -70,7 +71,7 @@ export function printCustomerStatement({ company, customerName, startDate, endDa
       ? `<div class="period">${startDate ? slashDate(startDate) : 'Beginning'} &ndash; ${endDate ? slashDate(endDate) : todaySlash()}</div>`
       : '';
 
-  const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8" />
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8" />
 <title>Statement ${esc(customerName)}</title>
 <style>
   @page { size: letter landscape; margin: 10mm 12mm; }
@@ -157,7 +158,10 @@ export function printCustomerStatement({ company, customerName, startDate, endDa
   </div>
 </div>
 </body></html>`;
+}
 
+export function printCustomerStatement(input: StatementInput): void {
+  const html = buildCustomerStatementHtml(input);
   const win = window.open('', '_blank');
   if (!win) {
     alert('Your browser blocked the document window. Allow pop-ups for this site.');

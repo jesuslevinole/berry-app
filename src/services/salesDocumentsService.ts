@@ -160,7 +160,8 @@ const headTables = (
 const PACA_TEXT =
   'The perishable agricultural commodities listed on this invoice are sold subject to the statutory trust authorized by Section 5(c) of the Perishable Agricultural Commodities Act, 1930 (7 USC 499e(c)). The seller of these commodities retains a trust claim over these commodities, all inventories of food or other products derived from these commodities, and any receivables or proceeds from the sale of these commodities until full payment is received. NOTICE: Past due invoices shall accrue annual interest at the rate of 12% or at the maximum legal rate, whichever is lower. Receiver agrees that seller shall be entitled to collect reasonable attorney\u2019s fees and expenses as part of an action to collect on this invoice. Actual attorney\u2019s fees incurred in bringing any action to collect on this invoice and/or enforcing any judgment granted and interest shall be considered as additional sums owed in connection with this transaction.';
 
-export async function printSalesInvoice(order: SalesOrder, ctx: SalesDocContext): Promise<void> {
+/** HTML completo del Invoice (se usa para imprimir y para adjuntarlo como PDF al correo). */
+export async function buildSalesInvoiceHtml(order: SalesOrder, ctx: SalesDocContext): Promise<string> {
   const lines = await fetchLines(order.id);
   const subtotal = lines.reduce((acc, l) => acc + (l.TOTAL ?? 0), 0);
   const rows = lines
@@ -176,7 +177,7 @@ export async function printSalesInvoice(order: SalesOrder, ctx: SalesDocContext)
     )
     .join('');
 
-  openWindow(`<!DOCTYPE html><html lang="en"><head><meta charset="utf-8" />
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8" />
 <title>Invoice ${esc(order.SALES_ORDER_NUMBER || '')}</title>
 <style>${baseStyles}
   .inv-title { color: ${GREEN}; font-size: 24px; font-weight: 800; letter-spacing: 0.01em; margin-bottom: 8px; }
@@ -213,12 +214,16 @@ export async function printSalesInvoice(order: SalesOrder, ctx: SalesDocContext)
   </div>
   <div class="thanks">Thank you..!</div>
   <div class="paca">${PACA_TEXT}</div>
-</div></div></body></html>`);
+</div></div></body></html>`;
+}
+
+export async function printSalesInvoice(order: SalesOrder, ctx: SalesDocContext): Promise<void> {
+  openWindow(await buildSalesInvoiceHtml(order, ctx));
 }
 
 /* ---------- 2. PICK TICKET ---------- */
 
-export async function printPickTicket(order: SalesOrder, ctx: SalesDocContext): Promise<void> {
+export async function buildPickTicketHtml(order: SalesOrder, ctx: SalesDocContext): Promise<string> {
   const lines = await fetchLines(order.id);
   const totalQty = lines.reduce((acc, l) => acc + (l.QUANTITY ?? 0), 0);
   const temp = order.TEMP_LOG || '';
@@ -235,7 +240,7 @@ export async function printPickTicket(order: SalesOrder, ctx: SalesDocContext): 
     )
     .join('');
 
-  openWindow(`<!DOCTYPE html><html lang="en"><head><meta charset="utf-8" />
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8" />
 <title>Pick Ticket ${esc(order.SALES_ORDER_NUMBER || '')}</title>
 <style>${baseStyles}
   .pt-title { color: ${GREEN}; font-size: 22px; font-weight: 700; margin-bottom: 8px; }
@@ -263,12 +268,16 @@ export async function printPickTicket(order: SalesOrder, ctx: SalesDocContext): 
   </table>
   ${order.DESCRIPTION ? `<div class="no-recorder">${esc(order.DESCRIPTION)}</div>` : ''}
   <div class="pt-total"><span class="lbl">TOTAL</span><b>${fmtQty(totalQty)}</b><b>Items</b></div>
-</div></div></body></html>`);
+</div></div></body></html>`;
+}
+
+export async function printPickTicket(order: SalesOrder, ctx: SalesDocContext): Promise<void> {
+  openWindow(await buildPickTicketHtml(order, ctx));
 }
 
 /* ---------- 3. SALES ORDER ---------- */
 
-export async function printSalesOrderDoc(order: SalesOrder, ctx: SalesDocContext): Promise<void> {
+export async function buildSalesOrderDocHtml(order: SalesOrder, ctx: SalesDocContext): Promise<string> {
   const lines = await fetchLines(order.id);
   const rows = lines
     .map(
@@ -283,7 +292,7 @@ export async function printSalesOrderDoc(order: SalesOrder, ctx: SalesDocContext
     )
     .join('');
 
-  openWindow(`<!DOCTYPE html><html lang="en"><head><meta charset="utf-8" />
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8" />
 <title>Sales Order ${esc(order.SALES_ORDER_NUMBER || '')}</title>
 <style>${baseStyles}
   .so-title { color: ${GREEN}; font-size: 23px; font-weight: 800; margin-bottom: 8px; text-align: right; }
@@ -342,7 +351,11 @@ export async function printSalesOrderDoc(order: SalesOrder, ctx: SalesDocContext
       <td class="k" style="width:10%">PHONE</td><td style="width:18%"><a href="tel:${esc(ctx.warehousePhone)}">${esc(ctx.warehousePhone)}</a></td>
     </tr>
   </table>
-</div></div></body></html>`);
+</div></div></body></html>`;
+}
+
+export async function printSalesOrderDoc(order: SalesOrder, ctx: SalesDocContext): Promise<void> {
+  openWindow(await buildSalesOrderDocHtml(order, ctx));
 }
 
 /* ---------- 4. STRAIGHT BILL OF LADING ---------- */
@@ -362,7 +375,7 @@ const TEMP_RANGE = '32 - 34 F';
 const BOL_FOOTER =
   'The Carrier has received the listed perishable goods in good condition (unless noted otherwise) and agrees to transport them to the destination named, as arranged by the Truck Broker (if involved). In return for payment, the Carrier agrees to deliver the goods to the consignee, following the terms of this contract, which are accepted by the Carrier, Shipper, and Broker';
 
-export async function printBillOfLading(order: SalesOrder, ctx: SalesDocContext): Promise<void> {
+export async function buildBillOfLadingHtml(order: SalesOrder, ctx: SalesDocContext): Promise<string> {
   const lines = await fetchLines(order.id);
   const rows = lines
     .map(
@@ -377,7 +390,7 @@ export async function printBillOfLading(order: SalesOrder, ctx: SalesDocContext)
     )
     .join('');
 
-  openWindow(`<!DOCTYPE html><html lang="en"><head><meta charset="utf-8" />
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8" />
 <title>BOL ${esc(order.SALES_ORDER_NUMBER || '')}</title>
 <style>${baseStyles}
   .bol-title { text-align: center; font-weight: 800; font-size: 14.5px; margin-bottom: 22px; }
@@ -420,5 +433,9 @@ export async function printBillOfLading(order: SalesOrder, ctx: SalesDocContext)
   <div class="sig-row"><span>Drive\u2019s name:</span><span style="margin-right:28%">Phone</span></div>
   <div class="sig-row" style="margin-top:44px"><span>Driver\u2019s signature:</span><span style="margin-right:28%">Date</span></div>
   <div class="bol-footer">${BOL_FOOTER}</div>
-</div></div></body></html>`);
+</div></div></body></html>`;
+}
+
+export async function printBillOfLading(order: SalesOrder, ctx: SalesDocContext): Promise<void> {
+  openWindow(await buildBillOfLadingHtml(order, ctx));
 }

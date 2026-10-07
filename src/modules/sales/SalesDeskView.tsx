@@ -20,7 +20,20 @@ import { SalesOrderForm } from './SalesOrderForm';
 import { SalesOrderDetailPanel } from './SalesOrderDetailPanel';
 import { SalesDetailsView } from '../details/LineDetailsView';
 import { PaymentsView } from '../payments/PaymentsView';
-import { printSalesInvoice, printPickTicket, printSalesOrderDoc, printBillOfLading, type SalesDocContext } from '../../services/salesDocumentsService';
+import {
+  buildBillOfLadingHtml,
+  buildPickTicketHtml,
+  buildSalesInvoiceHtml,
+  buildSalesOrderDocHtml,
+  printBillOfLading,
+  printPickTicket,
+  printSalesInvoice,
+  printSalesOrderDoc,
+  type SalesDocContext,
+} from '../../services/salesDocumentsService';
+import { SendEmailModal } from '../../components/ui/SendEmailModal';
+import { htmlToPdfBase64 } from '../../services/htmlToPdf';
+import type { EmailDocType } from '../../types/models';
 import { useCompany } from '../../hooks/useCompany';
 import { DocumentPicker } from '../../components/ui/DocumentPicker';
 import { syncAllSalesOrderTotals } from '../../services/orderTotalsService';
@@ -42,7 +55,13 @@ export function SalesDeskView() {
   const paymentTermsCat = useCatalog(COLLECTIONS.PAYMENTTERM, 'NAME_PAYMENTTERM');
   const commodities = useCatalog(COLLECTIONS.COMMODITIES, 'NAME_COMMODITIES');
   const { descriptionOf } = useInventoryItems();
-  const { data: customerDocs } = useCollection<{ id: string; ADDRESS_CUSTOMER?: string; CITY_CUSTOMER?: string }>(COLLECTIONS.CUSTOMER);
+  const { data: customerDocs } = useCollection<{
+    id: string;
+    ADDRESS_CUSTOMER?: string;
+    CITY_CUSTOMER?: string;
+  }>(COLLECTIONS.CUSTOMER);
+  /* Documento de una orden que se esta enviando por correo. */
+  const [emailing, setEmailing] = useState<{ order: SalesOrder; doc: EmailDocType } | null>(null);
   const { data: supplierDocs } = useCollection<{ id: string; ADDRESS_SUPPLIERS?: string; PHONE_SUPPLIERS?: string }>(COLLECTIONS.SUPPLIERS);
   const { data: locationDocs } = useCollection<{ id: string; ADDRESS_LOCATIONS?: string; PHONE_LOCATIONS?: string }>(COLLECTIONS.LOCATIONS);
   const { company } = useCompany();
@@ -203,11 +222,19 @@ export function SalesDeskView() {
     };
   };
 
-  const SALES_DOCS: { id: string; label: string; description: string; run: (so: SalesOrder, ctx: SalesDocContext) => Promise<void> }[] = [
-    { id: 'invoice', label: 'Invoice', description: 'Customer invoice with PACA terms', run: printSalesInvoice },
-    { id: 'pick', label: 'Pick Ticket', description: 'Warehouse picking list with lots and temp', run: printPickTicket },
-    { id: 'so', label: 'Sales Order', description: 'Order confirmation with pick up info', run: printSalesOrderDoc },
-    { id: 'bol', label: 'Bill of Lading', description: 'Straight BOL with carrier contract terms', run: printBillOfLading },
+  /* Los 4 documentos: imprimir (run), generar el HTML para el PDF del correo (build) y nombre del archivo. */
+  const SALES_DOCS: {
+    id: EmailDocType;
+    label: string;
+    description: string;
+    file: string;
+    run: (so: SalesOrder, ctx: SalesDocContext) => Promise<void>;
+    build: (so: SalesOrder, ctx: SalesDocContext) => Promise<string>;
+  }[] = [
+    { id: 'invoice', label: 'Invoice', description: 'Customer invoice with PACA terms', file: 'Inv', run: printSalesInvoice, build: buildSalesInvoiceHtml },
+    { id: 'pick', label: 'Pick Ticket', description: 'Warehouse picking list with lots and temp', file: 'T', run: printPickTicket, build: buildPickTicketHtml },
+    { id: 'so', label: 'Sales Order', description: 'Order confirmation with pick up info', file: 'SO', run: printSalesOrderDoc, build: buildSalesOrderDocHtml },
+    { id: 'bol', label: 'Bill of Lading', description: 'Straight BOL with carrier contract terms', file: 'Bol', run: printBillOfLading, build: buildBillOfLadingHtml },
   ];
   /** Borrado desde la tabla: detalle + pagos + encabezado, en segundo plano. */
   /** Borra una orden con sus lineas y pagos (sin preguntar: quien llama confirma). */
@@ -313,13 +340,39 @@ export function SalesDeskView() {
           options={SALES_DOCS.map((d) => ({ id: d.id, label: d.label, description: d.description }))}
           onClose={() => setDocsFor(null)}
           onSelect={(id) => {
-            const docDef = SALES_DOCS.find((d) => d.id === id);
             const target = docsFor;
             setDocsFor(null);
+            const docDef = SALES_DOCS.find((d) => d.id === id);
             if (docDef && target) void docDef.run(target, docContext(target));
+          }}
+          onEmail={(id) => {
+            const target = docsFor;
+            const docDef = SALES_DOCS.find((d) => d.id === id);
+            setDocsFor(null);
+            if (docDef && target) setEmailing({ order: target, doc: docDef.id });
           }}
         />
       )}
+
+      {emailing &&
+        (() => {
+          const docDef = SALES_DOCS.find((d) => d.id === emailing.doc);
+          if (!docDef) return null;
+          const so = emailing.order;
+          const number = so.SALES_ORDER_NUMBER || 'order';
+          const fileName = `${docDef.file}-${number}.pdf`;
+          return (
+            <SendEmailModal
+              docType={docDef.id}
+              title={`Email ${docDef.label} — ${number}`}
+              defaultSubject={`${docDef.label} ${number} — ${customers.nameOf(so.ID_CUSTOMER)}`}
+              defaultMessage={`Hello,\n\nPlease find attached the ${docDef.label} for sales order ${number}${so.REF ? ` (Ref ${so.REF})` : ''} — ${customers.nameOf(so.ID_CUSTOMER)}${docDef.id === 'invoice' ? `, total ${fmtMoney(so.TOTAL ?? 0)}` : ''}.\n\nThank you,\n${company.name || ''}`}
+              attachmentName={fileName}
+              buildAttachment={async () => ({ filename: fileName, content: await htmlToPdfBase64(await docDef.build(so, docContext(so))) })}
+              onClose={() => setEmailing(null)}
+            />
+          );
+        })()}
 
       {viewing && (
         <SalesOrderDetailPanel

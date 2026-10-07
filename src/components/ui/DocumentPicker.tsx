@@ -11,11 +11,13 @@ interface DocumentPickerProps {
   subtitle?: string;
   options: DocumentOption[];
   onSelect: (id: string) => void;
+  /** Si se pasa, cada documento muestra un boton para enviarlo por correo. */
+  onEmail?: (id: string) => void;
   onClose: () => void;
 }
 
 /** Modal para elegir que documento generar (Sales Desk y Purchase Orders). */
-export function DocumentPicker({ title, subtitle, options, onSelect, onClose }: DocumentPickerProps) {
+export function DocumentPicker({ title, subtitle, options, onSelect, onEmail, onClose }: DocumentPickerProps) {
   return (
     <div className="doc-picker__overlay" onClick={onClose}>
       <div className="doc-picker" onClick={(e) => e.stopPropagation()}>
@@ -33,8 +35,8 @@ export function DocumentPicker({ title, subtitle, options, onSelect, onClose }: 
 
         <div className="doc-picker__list">
           {options.map((option) => (
+            <div key={option.id} className="doc-picker__row">
             <button
-              key={option.id}
               type="button"
               className="doc-picker__option"
               onClick={() => onSelect(option.id)}
@@ -54,6 +56,20 @@ export function DocumentPicker({ title, subtitle, options, onSelect, onClose }: 
                 </svg>
               </span>
             </button>
+            {onEmail && (
+              <button
+                type="button"
+                className="doc-picker__email"
+                onClick={() => onEmail(option.id)}
+                aria-label={`Email ${option.label}`}
+                title={`Email ${option.label}`}
+              >
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8">
+                  <rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3.5 6.5l8.5 6 8.5-6" />
+                </svg>
+              </button>
+            )}
+            </div>
           ))}
         </div>
       </div>

@@ -1,0 +1,28 @@
+{
+  // Worker que sirve Berry (dist/) y la API de correo (/api/send-email).
+  // El nombre debe coincidir con el Worker existente: berry-app.jesuslevinole.workers.dev
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "berry-app",
+  "main": "worker/index.ts",
+  "compatibility_date": "2025-09-01",
+  // Dominio propio de la app (se conserva en cada deploy).
+  "routes": [{ "pattern": "app.berry-source.com", "custom_domain": true }],
+  // Mantener tambien berry-app.jesuslevinole.workers.dev y las URLs de vista previa.
+  "workers_dev": true,
+  "preview_urls": true,
+  // Logs del Worker en el panel de Cloudflare (Observability).
+  "observability": { "enabled": true },
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    // Solo /api/* pasa por el codigo del Worker; el resto se sirve directo como estatico.
+    "run_worker_first": ["/api/*"]
+  },
+  "vars": {
+    "FIREBASE_PROJECT_ID": "berry-app-7021e",
+    // Remitente (dominio verificado en Resend).
+    "MAIL_FROM": "Berry Source <noreply@berry-source.com>"
+  }
+  // Secret (no va aqui): npx wrangler secret put RESEND_API_KEY
+}
