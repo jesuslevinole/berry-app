@@ -382,7 +382,7 @@ export function ReportsView({ report }: ReportsViewProps) {
     [salesOrders, saleBalance],
   );
   const { company } = useCompany();
-  const [statementOpen, setStatementOpen] = useState(false);
+  const [statementOpen, setStatementOpen] = useState<'download' | 'email' | null>(null);
 
   /* Cliente seleccionado en el panel izquierdo ('' = All), como en AppSheet. */
   const [arCustomer, setArCustomer] = useState('');
@@ -573,10 +573,20 @@ export function ReportsView({ report }: ReportsViewProps) {
           <button
             type="button"
             className="btn btn--primary"
-            onClick={() => setStatementOpen(true)}
+            onClick={() => setStatementOpen('download')}
             title="Download a customer statement (Aging by Customer) with its pending invoices"
           >
             Statement
+          </button>
+        )}
+        {report === 'ar' && (
+          <button
+            type="button"
+            className="btn btn--secondary"
+            onClick={() => setStatementOpen('email')}
+            title="Email the customer statement with its pending invoices"
+          >
+            Email statement
           </button>
         )}
         {(report === 'ap' || report === 'ar' || report === 'apgrowers') && (
@@ -964,7 +974,8 @@ export function ReportsView({ report }: ReportsViewProps) {
           pending={arPendingAll}
           defaultCustomerId={arCustomer}
           customerName={customers.nameOf}
-          onClose={() => setStatementOpen(false)}
+          mode={statementOpen}
+          onClose={() => setStatementOpen(null)}
         />
       )}
       {auditOpen && (

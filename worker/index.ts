@@ -34,9 +34,9 @@ interface FirebaseClaims {
 }
 
 const MAX_RECIPIENTS = 15;
-const MAX_ATTACHMENTS = 3;
+const MAX_ATTACHMENTS = 6;
 /** ~7.5 MB en base64 (Resend admite hasta 40 MB por correo). */
-const MAX_ATTACHMENT_CHARS = 10_000_000;
+const MAX_ATTACHMENT_CHARS = 30_000_000;
 const MAX_HTML_CHARS = 200_000;
 const EMAIL_RE = /^[^\s@<>,;]+@[^\s@<>,;]+\.[^\s@<>,;]+$/;
 
@@ -168,8 +168,12 @@ async function customerEmails(projectId: string, companyId: string, customerId: 
   if (res.status === 404) return new Set();
   if (res.status === 403 || res.status === 401) throw new Error('forbidden');
   if (!res.ok) throw new Error(`Firestore ${res.status}`);
-  const data = (await res.json()) as { fields?: Record<string, { stringValue?: string }> };
-  const raw = `${data.fields?.ACCOUNTING_EMAIL_CUSTOMER?.stringValue ?? ''} ${data.fields?.ACCOUNTING_EMAIL_TWO_CUSTOMER?.stringValue ?? ''}`;
+  type FieldValue = { stringValue?: string; arrayValue?: { values?: { stringValue?: string }[] } };
+  const data = (await res.json()) as { fields?: Record<string, FieldValue> };
+  /* Texto separado por comas (EnumList) o lista. */
+  const text = (f?: FieldValue): string =>
+    f?.stringValue ?? (f?.arrayValue?.values ?? []).map((v) => v.stringValue ?? '').join(',');
+  const raw = `${text(data.fields?.ACCOUNTING_EMAIL_CUSTOMER)},${text(data.fields?.ACCOUNTING_EMAIL_TWO_CUSTOMER)}`;
   return new Set(
     raw
       .split(/[,;\s]+/)

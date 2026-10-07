@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useCollection } from './useCollection';
-import { COLLECTIONS, type EmailDocType, type EmailRecipient } from '../types/models';
+import { COLLECTIONS, type EmailKey, type EmailRecipient } from '../types/models';
 
 /** Destinatarios autorizados (Email Settings), ordenados por nombre. */
 export function useEmailRecipients() {
@@ -12,7 +12,7 @@ export function useEmailRecipients() {
   const active = useMemo(() => recipients.filter((r) => r.ACTIVE !== false && !!r.EMAIL), [recipients]);
   /** Correos marcados por defecto para un documento. */
   const defaultsFor = useMemo(
-    () => (doc: EmailDocType): string[] => active.filter((r) => (r.DOCS ?? []).includes(doc)).map((r) => r.EMAIL),
+    () => (doc: EmailKey): string[] => active.filter((r) => (r.DOCS ?? []).includes(doc)).map((r) => r.EMAIL),
     [active],
   );
   return { recipients, active, defaultsFor, loading };

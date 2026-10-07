@@ -3,7 +3,7 @@
  * que se llenan en cada envio ({{customer}}, {{number}}, {{total}}...).
  * Incluye la limpieza del HTML del editor (solo formato seguro para correo).
  */
-import type { EmailDocType } from '../types/models';
+import type { EmailDocType, EmailKey } from '../types/models';
 
 export interface TemplateVariable {
   key: string;
@@ -30,7 +30,21 @@ const STATEMENT_VARS: TemplateVariable[] = [
   { key: 'company', label: 'Company' },
 ];
 
-export const variablesFor = (doc: EmailDocType): TemplateVariable[] => (doc === 'statement' ? STATEMENT_VARS : SALES_VARS);
+const PO_VARS: TemplateVariable[] = [
+  { key: 'number', label: '# Lot' },
+  { key: 'ref', label: '# Ref' },
+  { key: 'vendor', label: 'Vendor' },
+  { key: 'grower', label: 'Grower' },
+  { key: 'total', label: 'Total' },
+  { key: 'date', label: 'Arrival date' },
+  { key: 'company', label: 'Company' },
+];
+
+/** Combinados: los datos de la orden + la lista de documentos adjuntos. */
+const BUNDLE_VARS: TemplateVariable[] = [...SALES_VARS, { key: 'documents', label: 'Documents' }];
+
+export const variablesFor = (key: EmailKey): TemplateVariable[] =>
+  key === 'statement' ? STATEMENT_VARS : key === 'po' ? PO_VARS : key.startsWith('bundle_') ? BUNDLE_VARS : SALES_VARS;
 
 /** Plantilla inicial de cada documento (hasta que se guarde una propia). */
 const DEFAULTS: Record<EmailDocType, { subject: string; body: string }> = {
@@ -50,13 +64,24 @@ const DEFAULTS: Record<EmailDocType, { subject: string; body: string }> = {
     subject: 'Bill of Lading {{number}} — {{customer}}',
     body: '<p>Hello,</p><p>Please find attached the <b>Bill of Lading</b> for sales order <b>{{number}}</b> (Ref {{ref}}).</p><p>Thank you,<br>{{company}}</p>',
   },
+  po: {
+    subject: 'Purchase Order {{number}} — {{vendor}}',
+    body: '<p>Hello,</p><p>Please find attached <b>Purchase Order {{number}}</b> (Ref {{ref}}) for <b>{{total}}</b>.</p><p>Thank you,<br>{{company}}</p>',
+  },
   statement: {
     subject: 'Account statement — {{customer}}',
     body: '<p>Hello {{customer}},</p><p>Please find attached your account statement with <b>{{count}}</b> pending invoices for a total of <b>{{total}}</b>.</p><p>If you have already sent payment, please disregard this message.</p><p>Thank you,<br>{{company}}</p>',
   },
 };
 
-export const defaultTemplate = (doc: EmailDocType): { subject: string; body: string } => DEFAULTS[doc];
+/** Plantilla inicial; los combinados usan una generica con la lista de documentos. */
+export const defaultTemplate = (key: EmailKey): { subject: string; body: string } =>
+  key.startsWith('bundle_')
+    ? {
+        subject: 'Sales Order {{number}} — {{customer}} — {{documents}}',
+        body: '<p>Hello,</p><p>Please find attached the <b>{{documents}}</b> for sales order <b>{{number}}</b> (Ref {{ref}}).</p><p>Thank you,<br>{{company}}</p>',
+      }
+    : DEFAULTS[key as EmailDocType];
 
 const escapeHtml = (value: string): string =>
   value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');

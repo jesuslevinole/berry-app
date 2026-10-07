@@ -10,6 +10,8 @@ import { confirmClose, Modal } from '../../components/ui/Modal';
 import { FormField, FormGrid } from '../../components/ui/FormField';
 import { DataPortButtons } from '../../components/ui/DataPortButtons';
 import { ToggleSwitch } from '../../components/ui/ToggleSwitch';
+import { EmailListInput } from '../../components/ui/EmailListInput';
+import { parseEmails } from '../../services/emailService';
 import type { EntitySchema } from '../../config/entitySchemas';
 import { CATALOG_DEFS, type CatalogDef, type CatalogToggleDef } from './catalogConfig';
 import './CatalogsView.css';
@@ -82,7 +84,11 @@ export function CatalogsView() {
       return;
     }
     const payload: Record<string, string> = { [def.nameField]: draft[def.nameField].trim() };
-    for (const field of def.extraFields) payload[field.key] = (draft[field.key] ?? '').trim();
+    for (const field of def.extraFields) {
+      const raw = (draft[field.key] ?? '').trim();
+      /* Listas de correos: se guardan limpias y separadas por coma. */
+      payload[field.key] = field.format === 'emails' ? parseEmails(raw).join(', ') : raw;
+    }
     const target = editing;
     setFormOpen(false);
     const persist = target
@@ -124,7 +130,19 @@ export function CatalogsView() {
     ...def.extraFields.map<Column<CatalogDoc>>((field) => ({
       key: field.key,
       header: field.label,
-      render: (row) => String(row[field.key] ?? '') || '—',
+      render: (row) => {
+        const value = String(row[field.key] ?? '');
+        if (field.format === 'emails' && value) {
+          return (
+            <span className="email-list__cell">
+              {parseEmails(value).map((email) => (
+                <span key={email}>{email}</span>
+              ))}
+            </span>
+          );
+        }
+        return value || '—';
+      },
     })),
     ...(def.toggleFields ?? []).map<Column<CatalogDoc>>((field) => ({
       key: field.key,
@@ -229,15 +247,24 @@ export function CatalogsView() {
               onChange={(e) => setDraft((d) => ({ ...d, [def.nameField]: e.target.value }))}
             />
           </FormField>
-          {def.extraFields.map((field) => (
-            <FormField key={field.key} label={field.label}>
-              <input
-                className="input"
-                value={draft[field.key] ?? ''}
-                onChange={(e) => setDraft((d) => ({ ...d, [field.key]: e.target.value }))}
-              />
-            </FormField>
-          ))}
+          {def.extraFields.map((field) =>
+            field.format === 'emails' ? (
+              <FormField key={field.key} label={field.label} span2>
+                <EmailListInput
+                  value={draft[field.key] ?? ''}
+                  onChange={(value) => setDraft((d) => ({ ...d, [field.key]: value }))}
+                />
+              </FormField>
+            ) : (
+              <FormField key={field.key} label={field.label}>
+                <input
+                  className="input"
+                  value={draft[field.key] ?? ''}
+                  onChange={(e) => setDraft((d) => ({ ...d, [field.key]: e.target.value }))}
+                />
+              </FormField>
+            ),
+          )}
         </FormGrid>
       </Modal>
     </div>

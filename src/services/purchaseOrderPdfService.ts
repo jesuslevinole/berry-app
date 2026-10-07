@@ -48,10 +48,8 @@ const fmtSlashDate = (iso: string): string => {
   return y && m && d ? `${parseInt(m, 10)}/${parseInt(d, 10)}/${y}` : iso;
 };
 
-export async function printPurchaseOrderPdf(
-  order: PurchaseOrder,
-  ctx: PurchaseOrderPdfContext,
-): Promise<void> {
+/** HTML del Purchase Order (para imprimir y para adjuntarlo como PDF al correo). */
+export async function buildPurchaseOrderHtml(order: PurchaseOrder, ctx: PurchaseOrderPdfContext): Promise<string> {
   const snap = await getDocs(
     /* Lineas de la empresa activa (companies/{id}/...), las mismas del detalle. */
     query(collection(db, tenantPath(COLLECTIONS.PURCHASE_DETAILS)), where('ID_PURCHASEORDER', '==', order.id)),
@@ -188,7 +186,11 @@ export async function printPurchaseOrderPdf(
 </div>
 </body>
 </html>`;
+  return html;
+}
 
+export async function printPurchaseOrderPdf(order: PurchaseOrder, ctx: PurchaseOrderPdfContext): Promise<void> {
+  const html = await buildPurchaseOrderHtml(order, ctx);
   const win = window.open('', '_blank');
   if (!win) {
     alert('Your browser blocked the document window. Allow pop-ups for this site.');

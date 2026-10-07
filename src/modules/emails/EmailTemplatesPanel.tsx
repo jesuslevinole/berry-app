@@ -2,12 +2,15 @@ import { useState } from 'react';
 import { EmailTemplateFields } from '../../components/ui/EmailTemplateFields';
 import { useEmailTemplates, type TemplateContent } from '../../hooks/useEmailTemplates';
 import { defaultTemplate } from '../../services/emailTemplates';
-import { CUSTOMER_TARGETS, EMAIL_DOC_TYPES, emailDocLabel } from '../../config/emailDocs';
-import type { CustomerEmailTarget, EmailDocType } from '../../types/models';
+import { CUSTOMER_TARGETS, bundleDocsLabel } from '../../config/emailDocs';
+import { useEmailBundles } from '../../hooks/useEmailBundles';
+import type { CustomerEmailTarget, EmailKey } from '../../types/models';
 import './EmailTemplatesPanel.css';
 
 interface Props {
   canEdit: boolean;
+  /** Mensaje que se abre primero. */
+  initialKey?: EmailKey;
 }
 
 /** Ejemplo para la vista previa (asi se ve el mensaje con datos reales). */
@@ -22,12 +25,20 @@ const SAMPLE: Record<string, string> = {
   count: '2',
   start_date: '4/1/2026',
   end_date: '9/28/2026',
+  vendor: 'Gator Produce, LLC',
+  grower: 'Rancho El Sol',
+  documents: 'Pick Ticket & Bill of Lading',
 };
 
 /** Email Settings > Messages: asunto y mensaje guardados de cada documento. */
-export function EmailTemplatesPanel({ canEdit }: Props) {
+export function EmailTemplatesPanel({ canEdit, initialKey = 'invoice' }: Props) {
   const { templateFor, saveTemplate, saveCustomerTo, loading } = useEmailTemplates();
-  const [doc, setDoc] = useState<EmailDocType>('invoice');
+  const { targets } = useEmailBundles();
+  const [doc, setDoc] = useState<EmailKey>(initialKey);
+  const target = targets.find((t) => t.key === doc);
+  const docLabel = target?.label ?? doc;
+  /* Para el Purchase Order el "cliente" es el Vendor. */
+  const partyLabel = doc === 'po' ? 'vendor' : 'customer';
   const [draft, setDraft] = useState<TemplateContent | null>(null);
   const [version, setVersion] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -37,7 +48,7 @@ export function EmailTemplatesPanel({ canEdit }: Props) {
   const content = draft ?? { subject: saved.subject, body: saved.body };
   const changed = !!draft && (draft.subject !== saved.subject || draft.body !== saved.body);
 
-  const choose = (next: EmailDocType) => {
+  const choose = (next: EmailKey) => {
     if (next === doc) return;
     if (changed && !window.confirm('Discard the changes to this message?')) return;
     setDoc(next);
@@ -59,7 +70,7 @@ export function EmailTemplatesPanel({ canEdit }: Props) {
     try {
       await saveTemplate(doc, content);
       setDraft(null);
-      setNotice(`${emailDocLabel(doc)} message saved.`);
+      setNotice(`${docLabel} message saved.`);
     } catch {
       alert('Could not save the message. Try again.');
     } finally {
@@ -71,14 +82,14 @@ export function EmailTemplatesPanel({ canEdit }: Props) {
   const changeCustomerTo = async (value: CustomerEmailTarget) => {
     try {
       await saveCustomerTo(doc, value);
-      setNotice(`${emailDocLabel(doc)}: customer recipient saved.`);
+      setNotice(`${docLabel}: customer recipient saved.`);
     } catch {
       alert('Could not save the change. Try again.');
     }
   };
 
   const restore = () => {
-    if (!window.confirm(`Replace the ${emailDocLabel(doc)} message with the original template?`)) return;
+    if (!window.confirm(`Replace the ${docLabel} message with the original template?`)) return;
     const d = defaultTemplate(doc);
     setDraft({ subject: d.subject, body: d.body });
     setVersion((v) => v + 1);
@@ -87,14 +98,15 @@ export function EmailTemplatesPanel({ canEdit }: Props) {
   return (
     <div className="email-tpls">
       <nav className="email-tpls__list" aria-label="Documents">
-        {EMAIL_DOC_TYPES.map((d) => {
-          const isSaved = templateFor(d.id).saved;
+        {targets.map((d) => {
+          const isSaved = templateFor(d.key).saved;
           return (
             <button
-              key={d.id}
+              key={d.key}
               type="button"
-              className={`email-tpls__item${doc === d.id ? ' email-tpls__item--active' : ''}`}
-              onClick={() => choose(d.id)}
+              className={`email-tpls__item${doc === d.key ? ' email-tpls__item--active' : ''}`}
+              onClick={() => choose(d.key)}
+              title={d.bundle ? `Combined: ${bundleDocsLabel(d.bundle.DOCS)}` : undefined}
             >
               <span>{d.label}</span>
               <span className={`email-tpls__badge${isSaved ? ' email-tpls__badge--custom' : ''}`}>{isSaved ? 'Custom' : 'Original'}</span>
@@ -109,11 +121,11 @@ export function EmailTemplatesPanel({ canEdit }: Props) {
         ) : (
           <>
             <p className="email-tpls__hint">
-              This subject and message are used every time a <b>{emailDocLabel(doc)}</b> is emailed. Use the buttons under the
+              This subject and message are used every time a <b>{docLabel}</b> is emailed. Use the buttons under the
               subject to insert data that changes per order; it is filled automatically when sending.
             </p>
             <label className="email-tpls__customer">
-              <span className="email-tpls__customer-label">Also send to the customer</span>
+              <span className="email-tpls__customer-label">Also send to the {partyLabel}</span>
               <select
                 className="input email-tpls__customer-select"
                 value={saved.customerTo}
@@ -127,7 +139,7 @@ export function EmailTemplatesPanel({ canEdit }: Props) {
                 ))}
               </select>
               <span className="email-tpls__customer-help">
-                Uses the Sales Email / Accounting Email of the customer in Catalogs → Customers. It can be changed when sending.
+                Uses the Sales Email / Accounting Email of the {partyLabel} in Catalogs → Customers. It can be changed when sending.
               </span>
             </label>
 

@@ -139,3 +139,21 @@
   transition: border-color 0.15s, background-color 0.15s;
 }
 .doc-picker__email:hover { border-color: var(--green-500); background-color: var(--green-600); color: #ffffff; }
+
+/* Envios combinados: varios documentos en un mismo correo. */
+.doc-picker__bundles {
+  padding: 0 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.doc-picker__section {
+  margin: 4px 4px 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+.doc-picker__icon--bundle { background-color: var(--green-600); color: #ffffff; }
+.doc-picker { max-height: calc(100vh - 40px); overflow-y: auto; }

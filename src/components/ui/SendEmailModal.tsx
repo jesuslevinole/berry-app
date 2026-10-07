@@ -8,24 +8,33 @@ import { useCollection } from '../../hooks/useCollection';
 import { createDocumentLocalFirst } from '../../services/firestore';
 import { auth } from '../../firebase/config';
 import { defaultTemplate, fillTemplate, sanitizeEmailHtml, wrapEmailHtml } from '../../services/emailTemplates';
-import { emailDocLabel, targetFrom } from '../../config/emailDocs';
-import { COLLECTIONS, type EmailDocType } from '../../types/models';
+import { targetFrom } from '../../config/emailDocs';
+import { COLLECTIONS, type EmailKey } from '../../types/models';
 import './SendEmailModal.css';
 
+export interface PendingAttachment {
+  /** Nombre del archivo (se muestra antes de enviar). */
+  name: string;
+  /** Genera el adjunto al momento de enviar (PDF en base64). */
+  build: () => Promise<EmailAttachment>;
+}
+
 interface Props {
-  /** Tipo de documento: decide destinatarios marcados y la plantilla guardada. */
-  docType: EmailDocType;
+  /** Documento o envio combinado: decide destinatarios marcados y la plantilla guardada. */
+  emailKey: EmailKey;
+  /** Nombre de lo que se envia ("Invoice", "Pick Tix and BOL"...). */
+  label: string;
   title: string;
   /** Referencia del documento para el historial (ej. "46117" o el nombre del cliente). */
   docRef: string;
   /** Cliente del documento: permite enviarlo tambien a su Sales Email / Accounting Email. */
   customerId?: string;
+  /** Como se llama al cliente en este documento ("Customer", "Vendor"). */
+  customerLabel?: string;
   /** Valores de las variables de la plantilla ({{customer}}, {{number}}...). */
   values: Record<string, string>;
-  /** Nombre del archivo que se adjunta (se muestra antes de enviar). */
-  attachmentName: string;
-  /** Genera el adjunto al momento de enviar (PDF en base64). */
-  buildAttachment: () => Promise<EmailAttachment>;
+  /** Archivos que se adjuntan (uno o varios en un mismo correo). */
+  attachments: PendingAttachment[];
   onClose: () => void;
   onSent?: () => void;
 }
@@ -35,7 +44,19 @@ interface Props {
  * Asunto y mensaje: la plantilla guardada del documento; lo que se edite aqui se guarda
  * como la nueva plantilla de ese documento (para la proxima vez solo presionar Send).
  */
-export function SendEmailModal({ docType, title, docRef, customerId, values, attachmentName, buildAttachment, onClose, onSent }: Props) {
+export function SendEmailModal({
+  emailKey,
+  label,
+  title,
+  docRef,
+  customerId,
+  customerLabel = 'Customer',
+  values,
+  attachments,
+  onClose,
+  onSent,
+}: Props) {
+  const docType = emailKey;
   const { active, defaultsFor, loading: loadingRecipients } = useEmailRecipients();
   const { templateFor, saveTemplate, saveCustomerTo, loading: loadingTemplates } = useEmailTemplates();
   /* Correos del cliente (Catalogs > Customers). La consulta ya la comparte Sales Desk: no cuesta lecturas extra. */
@@ -48,7 +69,6 @@ export function SendEmailModal({ docType, title, docRef, customerId, values, att
   const customer = customerId ? customerDocs.find((c) => c.id === customerId) : undefined;
   const salesEmails = parseEmails(customer?.ACCOUNTING_EMAIL_CUSTOMER ?? '');
   const accountingEmails = parseEmails(customer?.ACCOUNTING_EMAIL_TWO_CUSTOMER ?? '');
-  const label = emailDocLabel(docType);
 
   /* null = todavia no se ha tocado: se usan los valores guardados. */
   const [picked, setPicked] = useState<string[] | null>(null);
@@ -76,6 +96,8 @@ export function SendEmailModal({ docType, title, docRef, customerId, values, att
 
   const [remember, setRemember] = useState(true);
   const [status, setStatus] = useState<'idle' | 'saving' | 'building' | 'sending'>('idle');
+  /* Adjunto que se esta generando (1 de N). */
+  const [buildingIndex, setBuildingIndex] = useState(0);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   /* Resultado por destinatario despues de enviar. */
@@ -143,7 +165,12 @@ export function SendEmailModal({ docType, title, docRef, customerId, values, att
         await saveCustomerTo(docType, customerTarget);
       }
       setStatus('building');
-      const attachment = await buildAttachment();
+      /* Uno por uno: cada PDF se pinta en un iframe oculto. */
+      const files: EmailAttachment[] = [];
+      for (let i = 0; i < attachments.length; i += 1) {
+        setBuildingIndex(i);
+        files.push(await attachments[i].build());
+      }
       setStatus('sending');
       const subject = fillTemplate(content.subject.trim(), values);
       const sendResults = await sendEmail({
@@ -151,7 +178,7 @@ export function SendEmailModal({ docType, title, docRef, customerId, values, att
         customerId: customerRecipients.length ? customerId : undefined,
         subject,
         html: wrapEmailHtml(fillTemplate(sanitizeEmailHtml(content.body), values, true)),
-        attachments: [attachment],
+        attachments: files,
       });
       /* Historial (Email Settings > Sent): quien lo envio y el resultado de cada destinatario. */
       createDocumentLocalFirst(COLLECTIONS.EMAIL_LOG, {
@@ -175,7 +202,9 @@ export function SendEmailModal({ docType, title, docRef, customerId, values, att
     status === 'saving'
       ? 'Saving…'
       : status === 'building'
-        ? 'Preparing PDF…'
+        ? attachments.length > 1
+          ? `Preparing PDF ${buildingIndex + 1} of ${attachments.length}…`
+          : 'Preparing PDF…'
         : status === 'sending'
           ? 'Sending…'
           : `Send to ${allRecipients.length || ''}`.trim();
@@ -277,7 +306,10 @@ export function SendEmailModal({ docType, title, docRef, customerId, values, att
 
         {customerId && (
           <div className="send-email__recipients">
-            <span className="send-email__label">Customer{customer?.NAME_CUSTOMER ? ` — ${customer.NAME_CUSTOMER}` : ''}</span>
+            <span className="send-email__label">
+              {customerLabel}
+              {customer?.NAME_CUSTOMER ? ` — ${customer.NAME_CUSTOMER}` : ''}
+            </span>
             <div className="send-email__list">
               {[
                 { key: 'sales' as const, title: 'Sales Email', emails: salesEmails },
@@ -297,7 +329,17 @@ export function SendEmailModal({ docType, title, docRef, customerId, values, att
                     />
                     <span className="send-email__who">
                       <b>{opt.title}</b>
-                      <span>{opt.emails.length ? opt.emails.join(', ') : 'Not set — add it in Catalogs → Customers'}</span>
+                      {opt.emails.length ? (
+                        <span className="send-email__emails">
+                          {opt.emails.map((e) => (
+                            <span key={e} className="send-email__email-chip">
+                              {e}
+                            </span>
+                          ))}
+                        </span>
+                      ) : (
+                        <span>Not set — add it in Catalogs → Customers</span>
+                      )}
                     </span>
                   </label>
                 );
@@ -339,11 +381,18 @@ export function SendEmailModal({ docType, title, docRef, customerId, values, att
         </div>
         {notice && <p className="send-email__notice">{notice}</p>}
 
-        <div className="send-email__attachment">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-            <path d="M21.4 11.1l-8.5 8.5a5.5 5.5 0 01-7.8-7.8l8.5-8.5a3.7 3.7 0 015.2 5.2l-8.5 8.5a1.8 1.8 0 01-2.6-2.6l7.8-7.8" />
-          </svg>
-          <span>{attachmentName}</span>
+        <div className="send-email__attachments">
+          <span className="send-email__label">
+            {attachments.length > 1 ? `${attachments.length} attachments` : 'Attachment'}
+          </span>
+          {attachments.map((a) => (
+            <div key={a.name} className="send-email__attachment">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+                <path d="M21.4 11.1l-8.5 8.5a5.5 5.5 0 01-7.8-7.8l8.5-8.5a3.7 3.7 0 015.2 5.2l-8.5 8.5a1.8 1.8 0 01-2.6-2.6l7.8-7.8" />
+              </svg>
+              <span>{a.name}</span>
+            </div>
+          ))}
         </div>
       </div>
 

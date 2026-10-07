@@ -1,11 +1,11 @@
 import { useRef, useState } from 'react';
 import { RichTextEditor, type RichTextEditorHandle } from './RichTextEditor';
 import { fillTemplate, sanitizeEmailHtml, variablesFor } from '../../services/emailTemplates';
-import type { EmailDocType } from '../../types/models';
+import type { EmailKey } from '../../types/models';
 import './EmailTemplateFields.css';
 
 interface Props {
-  docType: EmailDocType;
+  docType: EmailKey;
   subject: string;
   body: string;
   onSubjectChange: (value: string) => void;

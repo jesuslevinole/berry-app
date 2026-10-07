@@ -5,7 +5,6 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  margin-top: 14px;
   padding: 8px 12px;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
@@ -95,4 +94,25 @@
   background: var(--info-bg);
   border-radius: 6px;
   padding: 1px 6px;
+}
+
+/* Adjuntos (uno o varios en el mismo correo). */
+.send-email__attachments {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+}
+.send-email__attachments .send-email__label { width: 100%; }
+
+/* Varios correos en Sales Email / Accounting Email del cliente. */
+.send-email__who .send-email__emails { display: flex; overflow: visible; white-space: normal; flex-wrap: wrap; gap: 4px; margin-top: 3px; }
+.send-email__who .send-email__email-chip {
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  font-size: 0.76rem;
+  color: var(--ink);
 }

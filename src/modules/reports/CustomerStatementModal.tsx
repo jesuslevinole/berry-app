@@ -29,11 +29,13 @@ interface Props {
   /** Cliente preseleccionado (el elegido en el panel de AR). */
   defaultCustomerId: string;
   customerName: (id?: string) => string;
+  /** 'email': el boton principal es enviar por correo. */
+  mode?: 'download' | 'email';
   onClose: () => void;
 }
 
 /** Filtro del estado de cuenta (como el "Filter Excel" de AppSheet): fechas, cliente y Aging Total. */
-export function CustomerStatementModal({ company, pending, defaultCustomerId, customerName, onClose }: Props) {
+export function CustomerStatementModal({ company, pending, defaultCustomerId, customerName, mode = 'download', onClose }: Props) {
   /* Clientes con saldo pendiente. */
   const customerOptions = useMemo<CatalogOption[]>(() => {
     const ids = [...new Set(pending.map((p) => p.so.ID_CUSTOMER || ''))].filter(Boolean);
@@ -104,7 +106,7 @@ export function CustomerStatementModal({ company, pending, defaultCustomerId, cu
   return (
     <>
       <Modal
-        title="Customer statement"
+        title={mode === 'email' ? 'Email customer statement' : 'Customer statement'}
         open
         onClose={onClose}
         confirmOnClose={false}
@@ -115,14 +117,19 @@ export function CustomerStatementModal({ company, pending, defaultCustomerId, cu
             </button>
             <button
               type="button"
-              className="btn btn--secondary"
+              className={`btn ${mode === 'email' ? 'btn--secondary' : 'btn--primary'}`}
+              disabled={!customerId}
+              onClick={download}
+            >
+              Download PDF
+            </button>
+            <button
+              type="button"
+              className={`btn ${mode === 'email' ? 'btn--primary' : 'btn--secondary'}`}
               disabled={!customerId || rows.length === 0}
               onClick={() => setEmailOpen(true)}
             >
               Email statement
-            </button>
-            <button type="button" className="btn btn--primary" disabled={!customerId} onClick={download}>
-              Download PDF
             </button>
           </>
         }
@@ -150,7 +157,8 @@ export function CustomerStatementModal({ company, pending, defaultCustomerId, cu
       {emailOpen && customerId && (
         <SendEmailModal
           title={`Email statement — ${customerName(customerId)}`}
-          docType="statement"
+          emailKey="statement"
+          label="Statement"
           docRef={customerName(customerId)}
           customerId={customerId}
           values={{
@@ -161,11 +169,15 @@ export function CustomerStatementModal({ company, pending, defaultCustomerId, cu
             end_date: usDate(endDate),
             company: company.name || '',
           }}
-          attachmentName={fileName}
-          buildAttachment={async () => ({
-            filename: fileName,
-            content: await htmlToPdfBase64(buildCustomerStatementHtml(statementInput()), { orientation: 'landscape' }),
-          })}
+          attachments={[
+            {
+              name: fileName,
+              build: async () => ({
+                filename: fileName,
+                content: await htmlToPdfBase64(buildCustomerStatementHtml(statementInput()), { orientation: 'landscape' }),
+              }),
+            },
+          ]}
           onClose={() => setEmailOpen(false)}
         />
       )}

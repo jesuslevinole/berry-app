@@ -25,8 +25,8 @@ export interface SendEmailInput {
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /** "a@x.com, b@y.com; c@z.com" -> ["a@x.com", "b@y.com", "c@z.com"] */
-export const parseEmails = (value: string): string[] =>
-  value
+export const parseEmails = (value: unknown): string[] =>
+  (Array.isArray(value) ? value.join(',') : typeof value === 'string' ? value : '')
     .split(/[,;\s]+/)
     .map((v) => v.trim())
     .filter(Boolean);

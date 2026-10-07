@@ -1,0 +1,56 @@
+/* Lista de correos (EnumList) con etiquetas. */
+.email-list { display: flex; flex-direction: column; gap: 4px; }
+.email-list__box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  cursor: text;
+}
+.email-list__box:focus-within { border-color: var(--green-500); box-shadow: 0 0 0 3px var(--green-100); }
+.email-list__box--error { border-color: #c0392b; }
+.email-list__box--disabled { background: var(--canvas); cursor: default; }
+.email-list__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 4px 3px 10px;
+  border-radius: 999px;
+  background: var(--green-50);
+  border: 1px solid var(--green-100);
+  font-size: 0.82rem;
+  color: var(--ink);
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.email-list__remove {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0 4px;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.email-list__remove:hover { color: #c0392b; background: #fdecea; }
+.email-list__input {
+  flex: 1;
+  min-width: 160px;
+  border: 0;
+  outline: none;
+  background: transparent;
+  font: inherit;
+  font-size: 0.88rem;
+  color: var(--ink);
+  padding: 4px 2px;
+}
+.email-list__error { font-size: 0.78rem; color: #c0392b; }
+
+/* Celda de tabla: un correo por linea. */
+.email-list__cell { display: flex; flex-direction: column; gap: 2px; }

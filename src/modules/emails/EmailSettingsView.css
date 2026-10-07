@@ -50,3 +50,4 @@
 }
 .email-settings__tab:hover { color: var(--ink); }
 .email-settings__tab--active { color: var(--green-600); border-bottom-color: var(--green-600); }
+.email-settings__th--bundle { font-style: italic; }

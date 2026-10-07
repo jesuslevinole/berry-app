@@ -32,7 +32,9 @@ import {
 import { SendEmailModal } from '../../components/ui/SendEmailModal';
 import { htmlToPdfBase64 } from '../../services/htmlToPdf';
 import { usDate } from '../../services/emailTemplates';
-import type { EmailDocType } from '../../types/models';
+import type { EmailKey, SalesDocType } from '../../types/models';
+import { useEmailBundles } from '../../hooks/useEmailBundles';
+import { bundleDocsLabel, bundleKey, isBundleKey } from '../../config/emailDocs';
 import { useCompany } from '../../hooks/useCompany';
 import { DocumentPicker } from '../../components/ui/DocumentPicker';
 import { syncAllSalesOrderTotals } from '../../services/orderTotalsService';
@@ -60,7 +62,9 @@ export function SalesDeskView() {
     CITY_CUSTOMER?: string;
   }>(COLLECTIONS.CUSTOMER);
   /* Documento de una orden que se esta enviando por correo. */
-  const [emailing, setEmailing] = useState<{ order: SalesOrder; doc: EmailDocType } | null>(null);
+  const [emailing, setEmailing] = useState<{ order: SalesOrder; key: EmailKey } | null>(null);
+  /* Envios combinados de Email Settings (ej. Pick Tix and BOL en un mismo correo). */
+  const { bundles } = useEmailBundles();
   const { data: supplierDocs } = useCollection<{ id: string; ADDRESS_SUPPLIERS?: string; PHONE_SUPPLIERS?: string }>(COLLECTIONS.SUPPLIERS);
   const { data: locationDocs } = useCollection<{ id: string; ADDRESS_LOCATIONS?: string; PHONE_LOCATIONS?: string }>(COLLECTIONS.LOCATIONS);
   const { company } = useCompany();
@@ -223,7 +227,7 @@ export function SalesDeskView() {
 
   /* Los 4 documentos: imprimir (run), generar el HTML para el PDF del correo (build) y nombre del archivo. */
   const SALES_DOCS: {
-    id: EmailDocType;
+    id: SalesDocType;
     label: string;
     description: string;
     file: string;
@@ -348,24 +352,35 @@ export function SalesDeskView() {
             const target = docsFor;
             const docDef = SALES_DOCS.find((d) => d.id === id);
             setDocsFor(null);
-            if (docDef && target) setEmailing({ order: target, doc: docDef.id });
+            if (docDef && target) setEmailing({ order: target, key: docDef.id });
+          }}
+          bundles={bundles.map((b) => ({ id: b.id, label: b.NAME, description: bundleDocsLabel(b.DOCS) }))}
+          onEmailBundle={(id) => {
+            const target = docsFor;
+            setDocsFor(null);
+            if (target) setEmailing({ order: target, key: bundleKey(id) });
           }}
         />
       )}
 
       {emailing &&
         (() => {
-          const docDef = SALES_DOCS.find((d) => d.id === emailing.doc);
-          if (!docDef) return null;
+          const bundle = isBundleKey(emailing.key) ? bundles.find((b) => bundleKey(b.id) === emailing.key) : undefined;
+          /* Documentos que van en el correo: uno solo o los del combinado. */
+          const docDefs = bundle
+            ? SALES_DOCS.filter((d) => bundle.DOCS.includes(d.id))
+            : SALES_DOCS.filter((d) => d.id === emailing.key);
+          if (docDefs.length === 0) return null;
+          const label = bundle ? bundle.NAME : docDefs[0].label;
           const so = emailing.order;
           const number = so.SALES_ORDER_NUMBER || 'order';
-          const fileName = `${docDef.file}-${number}.pdf`;
           return (
             <SendEmailModal
-              docType={docDef.id}
+              emailKey={emailing.key}
+              label={label}
               docRef={number}
               customerId={so.ID_CUSTOMER}
-              title={`Email ${docDef.label} — ${number}`}
+              title={`Email ${label} — ${number}`}
               values={{
                 number,
                 customer: customers.nameOf(so.ID_CUSTOMER),
@@ -374,9 +389,15 @@ export function SalesDeskView() {
                 date: usDate(so.DATE),
                 due_date: usDate(so.DUE_DATE),
                 company: company.name || '',
+                documents: docDefs.map((d) => d.label).join(' & '),
               }}
-              attachmentName={fileName}
-              buildAttachment={async () => ({ filename: fileName, content: await htmlToPdfBase64(await docDef.build(so, docContext(so))) })}
+              attachments={docDefs.map((d) => {
+                const fileName = `${d.file}-${number}.pdf`;
+                return {
+                  name: fileName,
+                  build: async () => ({ filename: fileName, content: await htmlToPdfBase64(await d.build(so, docContext(so))) }),
+                };
+              })}
               onClose={() => setEmailing(null)}
             />
           );

@@ -5,8 +5,8 @@ export interface CatalogFieldDef {
   label: string;
   /** Campo obligatorio al guardar en el catalogo. */
   required?: boolean;
-  /** Formato especial del input (p. ej. telefono de EE. UU.). */
-  format?: 'phone';
+  /** Formato especial del input: telefono de EE. UU. o lista de correos (EnumList). */
+  format?: 'phone' | 'emails';
 }
 
 /** Interruptor on/off que se cambia directo desde la tabla del catalogo. */
@@ -49,8 +49,8 @@ export const CATALOG_DEFS: CatalogDef[] = [
     extraFields: [
       { key: 'ADDRESS_CUSTOMER', label: 'Address' },
       { key: 'CITY_CUSTOMER', label: 'City' },
-      { key: 'ACCOUNTING_EMAIL_CUSTOMER', label: 'Sales Email' },
-      { key: 'ACCOUNTING_EMAIL_TWO_CUSTOMER', label: 'Accounting Email' },
+      { key: 'ACCOUNTING_EMAIL_CUSTOMER', label: 'Sales Email', format: 'emails' },
+      { key: 'ACCOUNTING_EMAIL_TWO_CUSTOMER', label: 'Accounting Email', format: 'emails' },
       { key: 'PHONE_ONE_CUSTOMER', label: 'Phone 1', format: 'phone' },
       { key: 'PHONE_TWO_CUSTOMER', label: 'Phone 2', format: 'phone' },
     ],

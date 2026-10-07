@@ -46,6 +46,7 @@ export const COLLECTIONS = {
   EMAIL_RECIPIENTS: 'CAT_EMAILRECIPIENTS',
   /** Asunto y mensaje guardados por documento (id del documento = tipo). */
   EMAIL_TEMPLATES: 'CAT_EMAILTEMPLATES',
+  EMAIL_BUNDLES: 'CAT_EMAILBUNDLES',
   /** Historial de correos enviados (un registro por envio, con el resultado de cada destinatario). */
   EMAIL_LOG: 'BD_EMAILLOG',
   COMPANY: 'settings_company',
@@ -358,8 +359,20 @@ export interface Company extends BaseDoc {
   billingEmail?: string;
 }
 
+/** Documentos de una orden de venta (Sales Desk). */
+export type SalesDocType = 'invoice' | 'pick' | 'so' | 'bol';
+
 /** Documentos que se pueden enviar por correo. */
-export type EmailDocType = 'invoice' | 'pick' | 'so' | 'bol' | 'statement';
+export type EmailDocType = SalesDocType | 'po' | 'statement';
+
+/** Que se envia: un documento o un envio combinado de Email Settings ("bundle_<id>"). */
+export type EmailKey = EmailDocType | `bundle_${string}`;
+
+/** Envio combinado: varios documentos de la orden en un mismo correo (ej. "Pick Tix and BOL"). */
+export interface EmailBundle extends BaseDoc {
+  NAME: string;
+  DOCS: SalesDocType[];
+}
 
 /** Destinatario autorizado (Email Settings). Solo a estos correos se puede enviar. */
 export interface EmailRecipient extends BaseDoc {
@@ -367,11 +380,11 @@ export interface EmailRecipient extends BaseDoc {
   EMAIL: string;
   /** false = no aparece al enviar (se conserva para reactivarlo). */
   ACTIVE: boolean;
-  /** Documentos para los que viene marcado por defecto. */
-  DOCS: EmailDocType[];
+  /** Documentos y envios combinados para los que viene marcado por defecto. */
+  DOCS: EmailKey[];
 }
 
-/** Plantilla de correo de un documento (id = EmailDocType). */
+/** Plantilla de correo de un documento o envio combinado (id = EmailKey). */
 export interface EmailTemplate extends BaseDoc {
   SUBJECT: string;
   /** Mensaje en HTML (negritas, cursivas, tamanos...), con variables {{customer}}, {{number}}... */
@@ -395,7 +408,7 @@ export interface EmailLogRecipient {
 /** Registro de un envio de documento por correo. */
 export interface EmailLog extends BaseDoc {
   DATE: string;
-  DOC_TYPE: EmailDocType;
+  DOC_TYPE: EmailKey;
   /** Ej. "Invoice 46117". */
   DOC_LABEL: string;
   SUBJECT: string;

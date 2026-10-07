@@ -3,7 +3,7 @@ import { useCollection } from './useCollection';
 import { auth } from '../firebase/config';
 import { setDocumentWithId } from '../services/firestore';
 import { defaultTemplate, sanitizeEmailHtml } from '../services/emailTemplates';
-import { COLLECTIONS, type CustomerEmailTarget, type EmailDocType, type EmailTemplate } from '../types/models';
+import { COLLECTIONS, type CustomerEmailTarget, type EmailKey, type EmailTemplate } from '../types/models';
 
 export interface TemplateContent {
   subject: string;
@@ -18,7 +18,7 @@ export function useEmailTemplates() {
 
   const templateFor = useMemo(
     () =>
-      (doc: EmailDocType): TemplateContent & { saved: boolean; customerTo: CustomerEmailTarget } => {
+      (doc: EmailKey): TemplateContent & { saved: boolean; customerTo: CustomerEmailTarget } => {
         const saved = byDoc.get(doc);
         const customerTo = saved?.CUSTOMER_TO ?? 'none';
         if (saved && (saved.SUBJECT || saved.BODY_HTML)) {
@@ -31,7 +31,7 @@ export function useEmailTemplates() {
   );
 
   /** Guarda asunto y mensaje como predeterminados del documento. */
-  const saveTemplate = async (doc: EmailDocType, content: TemplateContent): Promise<void> => {
+  const saveTemplate = async (doc: EmailKey, content: TemplateContent): Promise<void> => {
     await setDocumentWithId(COLLECTIONS.EMAIL_TEMPLATES, doc, {
       SUBJECT: content.subject.trim(),
       BODY_HTML: sanitizeEmailHtml(content.body),
@@ -40,7 +40,7 @@ export function useEmailTemplates() {
   };
 
   /** Guarda a que correo del cliente se envia este documento por defecto. */
-  const saveCustomerTo = async (doc: EmailDocType, customerTo: CustomerEmailTarget): Promise<void> => {
+  const saveCustomerTo = async (doc: EmailKey, customerTo: CustomerEmailTarget): Promise<void> => {
     await setDocumentWithId(COLLECTIONS.EMAIL_TEMPLATES, doc, { CUSTOMER_TO: customerTo });
   };
 

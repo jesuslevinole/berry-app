@@ -4,7 +4,9 @@ import { useEmailRecipients } from '../../hooks/useEmailRecipients';
 import { createDocument, deleteDocument, updateDocument } from '../../services/firestore';
 import { isValidEmail } from '../../services/emailService';
 import { EMAIL_DOC_TYPES } from '../../config/emailDocs';
-import { COLLECTIONS, type EmailDocType, type EmailRecipient } from '../../types/models';
+import { COLLECTIONS, type EmailKey, type EmailRecipient } from '../../types/models';
+import { useEmailBundles } from '../../hooks/useEmailBundles';
+import { EmailBundlesPanel } from './EmailBundlesPanel';
 import { Toolbar } from '../../components/ui/Toolbar';
 import { Modal } from '../../components/ui/Modal';
 import { FormField, FormGrid } from '../../components/ui/FormField';
@@ -27,11 +29,15 @@ export function EmailSettingsView() {
   const { can } = useAuth();
   const canEdit = can('emails', 'edit') || can('emails', 'add');
   const { recipients, loading } = useEmailRecipients();
+  /* Documentos + envios combinados: una columna por cada uno. */
+  const { targets } = useEmailBundles();
+  /* Mensaje que se abre en Messages (al venir de un combinado). */
+  const [messageKey, setMessageKey] = useState<EmailKey>('invoice');
   const [search, setSearch] = useState('');
   const [draft, setDraft] = useState<Draft | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [busy, setBusy] = useState('');
-  const [tab, setTab] = useState<'recipients' | 'messages' | 'sent'>('recipients');
+  const [tab, setTab] = useState<'recipients' | 'combined' | 'messages' | 'sent'>('recipients');
 
   const term = search.trim().toLowerCase();
   const rows = recipients.filter((r) => !term || `${r.NAME} ${r.EMAIL}`.toLowerCase().includes(term));
@@ -86,12 +92,12 @@ export function EmailSettingsView() {
       setBusy('');
     }
   };
-  const toggleDoc = (r: EmailRecipient, doc: EmailDocType) => {
+  const toggleDoc = (r: EmailRecipient, doc: EmailKey) => {
     const docs = r.DOCS ?? [];
     void patch(r, { DOCS: docs.includes(doc) ? docs.filter((d) => d !== doc) : [...docs, doc] }, `${r.id}:${doc}`);
   };
 
-  const toggleDraftDoc = (doc: EmailDocType) =>
+  const toggleDraftDoc = (doc: EmailKey) =>
     setDraft((d) => (d ? { ...d, DOCS: d.DOCS.includes(doc) ? d.DOCS.filter((x) => x !== doc) : [...d.DOCS, doc] } : d));
 
   return (
@@ -122,6 +128,15 @@ export function EmailSettingsView() {
         <button
           type="button"
           role="tab"
+          aria-selected={tab === 'combined'}
+          className={`email-settings__tab${tab === 'combined' ? ' email-settings__tab--active' : ''}`}
+          onClick={() => setTab('combined')}
+        >
+          Combined
+        </button>
+        <button
+          type="button"
+          role="tab"
           aria-selected={tab === 'messages'}
           className={`email-settings__tab${tab === 'messages' ? ' email-settings__tab--active' : ''}`}
           onClick={() => setTab('messages')}
@@ -139,7 +154,12 @@ export function EmailSettingsView() {
         </button>
       </div>
 
-      {tab === 'messages' && <EmailTemplatesPanel canEdit={canEdit} />}
+      {tab === 'messages' && <EmailTemplatesPanel key={messageKey} canEdit={canEdit} initialKey={messageKey} />}
+
+      {tab === 'combined' && <EmailBundlesPanel canEdit={canEdit} onEditMessage={(key) => {
+        setMessageKey(key);
+        setTab('messages');
+      }} />}
 
       {tab === 'sent' && <EmailLogPanel />}
 
@@ -155,8 +175,12 @@ export function EmailSettingsView() {
                 <tr>
                   <th className="email-settings__th">Name</th>
                   <th className="email-settings__th">Email</th>
-                  {EMAIL_DOC_TYPES.map((d) => (
-                    <th key={d.id} className="email-settings__th email-settings__th--center">
+                  {targets.map((d) => (
+                    <th
+                      key={d.key}
+                      className={`email-settings__th email-settings__th--center${d.bundle ? ' email-settings__th--bundle' : ''}`}
+                      title={d.bundle ? 'Combined email' : undefined}
+                    >
                       {d.label}
                     </th>
                   ))}
@@ -167,7 +191,7 @@ export function EmailSettingsView() {
               <tbody>
                 {!loading && rows.length === 0 && (
                   <tr>
-                    <td className="email-settings__empty" colSpan={EMAIL_DOC_TYPES.length + 4}>
+                    <td className="email-settings__empty" colSpan={targets.length + 4}>
                       No recipients yet. Add the emails that can receive documents.
                     </td>
                   </tr>
@@ -176,15 +200,15 @@ export function EmailSettingsView() {
                   <tr key={r.id} className={r.ACTIVE === false ? 'email-settings__row--off' : undefined}>
                     <td className="email-settings__td email-settings__td--strong">{r.NAME || '—'}</td>
                     <td className="email-settings__td">{r.EMAIL}</td>
-                    {EMAIL_DOC_TYPES.map((d) => (
-                      <td key={d.id} className="email-settings__td email-settings__td--center">
+                    {targets.map((d) => (
+                      <td key={d.key} className="email-settings__td email-settings__td--center">
                         <input
                           type="checkbox"
                           className="email-settings__check"
                           aria-label={`${d.label} for ${r.EMAIL}`}
-                          checked={(r.DOCS ?? []).includes(d.id)}
-                          disabled={!canEdit || busy === `${r.id}:${d.id}`}
-                          onChange={() => toggleDoc(r, d.id)}
+                          checked={(r.DOCS ?? []).includes(d.key)}
+                          disabled={!canEdit || busy === `${r.id}:${d.key}`}
+                          onChange={() => toggleDoc(r, d.key)}
                         />
                       </td>
                     ))}
@@ -249,9 +273,9 @@ export function EmailSettingsView() {
             </FormField>
             <FormField label="Pre-selected for" span2>
               <div className="email-settings__docs">
-                {EMAIL_DOC_TYPES.map((d) => (
-                  <label key={d.id} className="email-settings__doc">
-                    <input type="checkbox" checked={draft.DOCS.includes(d.id)} onChange={() => toggleDraftDoc(d.id)} />
+                {targets.map((d) => (
+                  <label key={d.key} className="email-settings__doc">
+                    <input type="checkbox" checked={draft.DOCS.includes(d.key)} onChange={() => toggleDraftDoc(d.key)} />
                     {d.label}
                   </label>
                 ))}

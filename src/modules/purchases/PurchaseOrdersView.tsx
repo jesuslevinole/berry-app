@@ -16,7 +16,10 @@ import { PurchaseOrderForm } from './PurchaseOrderForm';
 import { PurchaseOrderDetailPanel } from './PurchaseOrderDetailPanel';
 import { PurchaseDetailsView } from '../details/LineDetailsView';
 import { PaymentsView } from '../payments/PaymentsView';
-import { printPurchaseOrderPdf } from '../../services/purchaseOrderPdfService';
+import { buildPurchaseOrderHtml, printPurchaseOrderPdf, type PurchaseOrderPdfContext } from '../../services/purchaseOrderPdfService';
+import { SendEmailModal } from '../../components/ui/SendEmailModal';
+import { htmlToPdfBase64 } from '../../services/htmlToPdf';
+import { usDate } from '../../services/emailTemplates';
 import { printLiquidationReport } from '../../services/liquidationReportService';
 import { useCompany } from '../../hooks/useCompany';
 import { DocumentPicker } from '../../components/ui/DocumentPicker';
@@ -55,6 +58,8 @@ export function PurchaseOrdersView() {
   const [viewing, setViewing] = useState<PurchaseOrder | null>(null);
   const [docsFor, setDocsFor] = useState<PurchaseOrder | null>(null);
   const [editing, setEditing] = useState<PurchaseOrder | null>(null);
+  /* Purchase Order que se esta enviando por correo. */
+  const [emailing, setEmailing] = useState<PurchaseOrder | null>(null);
 
   const rows = useMemo(() => {
     /* Mas reciente primero: por fecha de llegada, luego por lote. */
@@ -124,10 +129,10 @@ export function PurchaseOrdersView() {
     },
   ];
 
-  /** Genera el documento imprimible de la orden (formato Berry Source). */
-  const handlePdf = (po: PurchaseOrder) => {
+  /** Datos del documento de la orden (para imprimir o enviar por correo). */
+  const poContext = (po: PurchaseOrder): PurchaseOrderPdfContext => {
     const vendorDoc = customerDocs.find((c) => c.id === po.ID_CUSTOMER);
-    void printPurchaseOrderPdf(po, {
+    return {
       company,
       vendorName: customers.nameOf(po.ID_CUSTOMER),
       vendorAddress: vendorDoc?.ADDRESS_CUSTOMER ?? '',
@@ -138,7 +143,12 @@ export function PurchaseOrdersView() {
       payTerms: po.ID_PAYMENTTERM ? paymentTermsCat.nameOf(po.ID_PAYMENTTERM) : '',
       commodityName: (id) => commodities.nameOf(id),
       commodityDescription: descriptionOf,
-    });
+    };
+  };
+
+  /** Genera el documento imprimible de la orden (formato Berry Source). */
+  const handlePdf = (po: PurchaseOrder) => {
+    void printPurchaseOrderPdf(po, poContext(po));
   };
 
   /** Genera el LIQUIDATION REPORT del lote (ventas, comision, gastos, balance). */
@@ -260,8 +270,13 @@ export function PurchaseOrdersView() {
           subtitle={`Purchase order ${docsFor.LOT_NUMBER || docsFor.REF_NUMBER || ''} — ${growers.nameOf(docsFor.ID_GROWER)}`}
           options={[
             { id: 'po', label: 'Purchase Order', description: 'PO document with terms and line items' },
-            { id: 'liq', label: 'Liquidation Report', description: 'Lot sales, commission, expenses and balance' },
+            { id: 'liq', label: 'Liquidation Report', description: 'Lot sales, commission, expenses and balance', emailable: false },
           ]}
+          onEmail={(id) => {
+            const target = docsFor;
+            setDocsFor(null);
+            if (target && id === 'po') setEmailing(target);
+          }}
           onClose={() => setDocsFor(null)}
           onSelect={(id) => {
             const target = docsFor;
@@ -272,6 +287,42 @@ export function PurchaseOrdersView() {
           }}
         />
       )}
+
+      {emailing &&
+        (() => {
+          const po = emailing;
+          const number = po.LOT_NUMBER || po.REF_NUMBER || 'PO';
+          const fileName = `PO-${number}.pdf`;
+          return (
+            <SendEmailModal
+              emailKey="po"
+              label="Purchase Order"
+              title={`Email Purchase Order — ${number}`}
+              docRef={number}
+              customerId={po.ID_CUSTOMER || undefined}
+              customerLabel="Vendor"
+              values={{
+                number,
+                ref: po.REF_NUMBER ?? '',
+                vendor: customers.nameOf(po.ID_CUSTOMER),
+                grower: growers.nameOf(po.ID_GROWER),
+                total: fmtMoney(po.TOTAL ?? 0),
+                date: usDate(po.ARRIVAL_DATE),
+                company: company.name || '',
+              }}
+              attachments={[
+                {
+                  name: fileName,
+                  build: async () => ({
+                    filename: fileName,
+                    content: await htmlToPdfBase64(await buildPurchaseOrderHtml(po, poContext(po))),
+                  }),
+                },
+              ]}
+              onClose={() => setEmailing(null)}
+            />
+          );
+        })()}
 
       {viewing && (
         <PurchaseOrderDetailPanel
