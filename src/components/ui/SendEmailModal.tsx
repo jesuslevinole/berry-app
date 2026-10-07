@@ -95,6 +95,8 @@ export function SendEmailModal({
   const [editorVersion, setEditorVersion] = useState(0);
 
   const [remember, setRemember] = useState(true);
+  /* Pestanas del modal: el mensaje primero; los destinatarios se configuran en la segunda. */
+  const [tab, setTab] = useState<'message' | 'recipients'>('message');
   const [status, setStatus] = useState<'idle' | 'saving' | 'building' | 'sending'>('idle');
   /* Adjunto que se esta generando (1 de N). */
   const [buildingIndex, setBuildingIndex] = useState(0);
@@ -263,137 +265,178 @@ export function SendEmailModal({
       )}
 
       <div className={results ? 'send-email__hidden' : undefined}>
-        <div className="send-email__recipients">
-          <div className="send-email__to-head">
-            <span className="send-email__label">To</span>
-            {active.length > 1 && (
-              <button
-                type="button"
-                className="send-email__link"
-                disabled={busy}
-                onClick={() => setPicked(allSelected ? [] : allEmails)}
-              >
-                {allSelected ? 'Clear all' : `Select all (${active.length})`}
+        <div className="send-email__tabs" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === 'message'}
+            className={`send-email__tab${tab === 'message' ? ' send-email__tab--active' : ''}`}
+            onClick={() => setTab('message')}
+          >
+            Message
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === 'recipients'}
+            className={`send-email__tab${tab === 'recipients' ? ' send-email__tab--active' : ''}`}
+            onClick={() => setTab('recipients')}
+          >
+            Recipients <span className="send-email__tab-count">{allRecipients.length}</span>
+          </button>
+        </div>
+
+        {tab === 'message' && (
+          <>
+            <p className="send-email__summary">
+              {allRecipients.length === 0 ? (
+                <span className="send-email__summary-warn">No recipients selected.</span>
+              ) : (
+                <>
+                  <b>To:</b> {allRecipients.join(', ')}
+                </>
+              )}{' '}
+              <button type="button" className="send-email__link" disabled={busy} onClick={() => setTab('recipients')}>
+                Change
               </button>
-            )}
-          </div>
-          {loadingRecipients ? (
-            <p className="send-email__muted">Loading recipients…</p>
-          ) : active.length === 0 ? (
-            <p className="send-email__muted">
-              No authorized recipients yet. Add them in <b>Email Settings</b>.
             </p>
-          ) : (
-            <div className="send-email__list">
-              {active.map((r) => (
-                <label key={r.id} className={`send-email__option${selected.includes(r.EMAIL) ? ' send-email__option--on' : ''}`}>
-                  <input type="checkbox" checked={selected.includes(r.EMAIL)} onChange={() => toggle(r.EMAIL)} disabled={busy} />
-                  <span className="send-email__who">
-                    <b>{r.NAME || r.EMAIL}</b>
-                    {r.NAME && <span>{r.EMAIL}</span>}
-                  </span>
-                </label>
+            {loadingTemplates ? (
+              <p className="send-email__muted">Loading the saved message…</p>
+            ) : (
+              <EmailTemplateFields
+                docType={docType}
+                subject={content.subject}
+                body={content.body}
+                onSubjectChange={(subject) => update({ subject })}
+                onBodyChange={(body) => update({ body })}
+                editorKey={`${docType}-${editorVersion}`}
+                previewValues={values}
+                disabled={busy}
+              />
+            )}
+
+            <div className="send-email__template-bar">
+              <label className="send-email__remember">
+                <input type="checkbox" checked={remember} disabled={busy} onChange={(e) => setRemember(e.target.checked)} />
+                Save subject and message for every <b>{label}</b>
+              </label>
+              <div className="send-email__template-actions">
+                {changed && (
+                  <button type="button" className="send-email__link" disabled={busy} onClick={() => void saveOnly()}>
+                    Save now
+                  </button>
+                )}
+                <button type="button" className="send-email__link" disabled={busy} onClick={restoreDefault}>
+                  Restore original
+                </button>
+              </div>
+            </div>
+            {notice && <p className="send-email__notice">{notice}</p>}
+
+            <div className="send-email__attachments">
+              <span className="send-email__label">
+                {attachments.length > 1 ? `${attachments.length} attachments` : 'Attachment'}
+              </span>
+              {attachments.map((a) => (
+                <div key={a.name} className="send-email__attachment">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+                    <path d="M21.4 11.1l-8.5 8.5a5.5 5.5 0 01-7.8-7.8l8.5-8.5a3.7 3.7 0 015.2 5.2l-8.5 8.5a1.8 1.8 0 01-2.6-2.6l7.8-7.8" />
+                  </svg>
+                  <span>{a.name}</span>
+                </div>
               ))}
             </div>
-          )}
-          {picked === null && active.some((r) => !defaultsFor(docType).includes(r.EMAIL)) && (
-            <p className="send-email__muted">
-              Unchecked addresses are not set to receive the {label} (Email Settings → Recipients). Check them here to include
-              them.
-            </p>
-          )}
-        </div>
+          </>
+        )}
 
-        {customerId && (
-          <div className="send-email__recipients">
-            <span className="send-email__label">
-              {customerLabel}
-              {customer?.NAME_CUSTOMER ? ` — ${customer.NAME_CUSTOMER}` : ''}
-            </span>
-            <div className="send-email__list">
-              {[
-                { key: 'sales' as const, title: 'Sales Email', emails: salesEmails },
-                { key: 'accounting' as const, title: 'Accounting Email', emails: accountingEmails },
-              ].map((opt) => {
-                const on = customerChoice[opt.key] && opt.emails.length > 0;
-                return (
-                  <label
-                    key={opt.key}
-                    className={`send-email__option${on ? ' send-email__option--on' : ''}${opt.emails.length === 0 ? ' send-email__option--off' : ''}`}
+        {tab === 'recipients' && (
+          <>
+            <div className="send-email__recipients">
+              <div className="send-email__to-head">
+                <span className="send-email__label">To</span>
+                {active.length > 1 && (
+                  <button
+                    type="button"
+                    className="send-email__link"
+                    disabled={busy}
+                    onClick={() => setPicked(allSelected ? [] : allEmails)}
                   >
-                    <input
-                      type="checkbox"
-                      checked={on}
-                      disabled={busy || opt.emails.length === 0}
-                      onChange={() => setCustomerPick({ ...customerChoice, [opt.key]: !customerChoice[opt.key] })}
-                    />
-                    <span className="send-email__who">
-                      <b>{opt.title}</b>
-                      {opt.emails.length ? (
-                        <span className="send-email__emails">
-                          {opt.emails.map((e) => (
-                            <span key={e} className="send-email__email-chip">
-                              {e}
+                    {allSelected ? 'Clear all' : `Select all (${active.length})`}
+                  </button>
+                )}
+              </div>
+              {loadingRecipients ? (
+                <p className="send-email__muted">Loading recipients…</p>
+              ) : active.length === 0 ? (
+                <p className="send-email__muted">
+                  No authorized recipients yet. Add them in <b>Email Settings</b>.
+                </p>
+              ) : (
+                <div className="send-email__list">
+                  {active.map((r) => (
+                    <label key={r.id} className={`send-email__option${selected.includes(r.EMAIL) ? ' send-email__option--on' : ''}`}>
+                      <input type="checkbox" checked={selected.includes(r.EMAIL)} onChange={() => toggle(r.EMAIL)} disabled={busy} />
+                      <span className="send-email__who">
+                        <b>{r.NAME || r.EMAIL}</b>
+                        {r.NAME && <span>{r.EMAIL}</span>}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              )}
+              {picked === null && active.some((r) => !defaultsFor(docType).includes(r.EMAIL)) && (
+                <p className="send-email__muted">
+                  Unchecked addresses are not set to receive the {label} (Email Settings → Recipients). Check them here to include
+                  them.
+                </p>
+              )}
+            </div>
+
+            {customerId && (
+              <div className="send-email__recipients">
+                <span className="send-email__label">
+                  {customerLabel}
+                  {customer?.NAME_CUSTOMER ? ` — ${customer.NAME_CUSTOMER}` : ''}
+                </span>
+                <div className="send-email__list">
+                  {[
+                    { key: 'sales' as const, title: 'Sales Email', emails: salesEmails },
+                    { key: 'accounting' as const, title: 'Accounting Email', emails: accountingEmails },
+                  ].map((opt) => {
+                    const on = customerChoice[opt.key] && opt.emails.length > 0;
+                    return (
+                      <label
+                        key={opt.key}
+                        className={`send-email__option${on ? ' send-email__option--on' : ''}${opt.emails.length === 0 ? ' send-email__option--off' : ''}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={on}
+                          disabled={busy || opt.emails.length === 0}
+                          onChange={() => setCustomerPick({ ...customerChoice, [opt.key]: !customerChoice[opt.key] })}
+                        />
+                        <span className="send-email__who">
+                          <b>{opt.title}</b>
+                          {opt.emails.length ? (
+                            <span className="send-email__emails">
+                              {opt.emails.map((e) => (
+                                <span key={e} className="send-email__email-chip">
+                                  {e}
+                                </span>
+                              ))}
                             </span>
-                          ))}
+                          ) : (
+                            <span>Not set — add it in Catalogs → Customers</span>
+                          )}
                         </span>
-                      ) : (
-                        <span>Not set — add it in Catalogs → Customers</span>
-                      )}
-                    </span>
-                  </label>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {loadingTemplates ? (
-          <p className="send-email__muted">Loading the saved message…</p>
-        ) : (
-          <EmailTemplateFields
-            docType={docType}
-            subject={content.subject}
-            body={content.body}
-            onSubjectChange={(subject) => update({ subject })}
-            onBodyChange={(body) => update({ body })}
-            editorKey={`${docType}-${editorVersion}`}
-            previewValues={values}
-            disabled={busy}
-          />
-        )}
-
-        <div className="send-email__template-bar">
-          <label className="send-email__remember">
-            <input type="checkbox" checked={remember} disabled={busy} onChange={(e) => setRemember(e.target.checked)} />
-            Save subject and message for every <b>{label}</b>
-          </label>
-          <div className="send-email__template-actions">
-            {changed && (
-              <button type="button" className="send-email__link" disabled={busy} onClick={() => void saveOnly()}>
-                Save now
-              </button>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
             )}
-            <button type="button" className="send-email__link" disabled={busy} onClick={restoreDefault}>
-              Restore original
-            </button>
-          </div>
-        </div>
-        {notice && <p className="send-email__notice">{notice}</p>}
-
-        <div className="send-email__attachments">
-          <span className="send-email__label">
-            {attachments.length > 1 ? `${attachments.length} attachments` : 'Attachment'}
-          </span>
-          {attachments.map((a) => (
-            <div key={a.name} className="send-email__attachment">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-                <path d="M21.4 11.1l-8.5 8.5a5.5 5.5 0 01-7.8-7.8l8.5-8.5a3.7 3.7 0 015.2 5.2l-8.5 8.5a1.8 1.8 0 01-2.6-2.6l7.8-7.8" />
-              </svg>
-              <span>{a.name}</span>
-            </div>
-          ))}
-        </div>
+          </>
+        )}
       </div>
 
       {error && <p className="send-email__error">{error}</p>}

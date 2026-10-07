@@ -116,3 +116,32 @@
   font-size: 0.76rem;
   color: var(--ink);
 }
+
+/* Pestanas: Message (por defecto) | Recipients. */
+.send-email__tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+.send-email__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  padding: 8px 14px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--muted);
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+}
+.send-email__tab:hover { color: var(--ink); }
+.send-email__tab--active { color: var(--green-600); border-bottom-color: var(--green-600); }
+.send-email__tab-count {
+  min-width: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--green-100);
+  color: var(--green-700);
+  font-size: 0.74rem;
+  text-align: center;
+}
+.send-email__summary { margin: 0 0 12px; font-size: 0.84rem; color: var(--ink); line-height: 1.5; overflow-wrap: anywhere; }
+.send-email__summary-warn { color: #c0392b; font-weight: 600; }
