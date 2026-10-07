@@ -376,8 +376,13 @@ export interface EmailTemplate extends BaseDoc {
   SUBJECT: string;
   /** Mensaje en HTML (negritas, cursivas, tamanos...), con variables {{customer}}, {{number}}... */
   BODY_HTML: string;
+  /** A que correo del cliente se envia tambien por defecto. */
+  CUSTOMER_TO?: CustomerEmailTarget;
   UPDATED_BY?: string;
 }
+
+/** Correo del cliente al que se envia el documento (ademas de Email Settings). */
+export type CustomerEmailTarget = 'none' | 'sales' | 'accounting' | 'both';
 
 /** Resultado de un destinatario en un envio. */
 export interface EmailLogRecipient {

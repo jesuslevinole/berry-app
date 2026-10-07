@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { EmailTemplateFields } from '../../components/ui/EmailTemplateFields';
 import { useEmailTemplates, type TemplateContent } from '../../hooks/useEmailTemplates';
 import { defaultTemplate } from '../../services/emailTemplates';
-import { EMAIL_DOC_TYPES, emailDocLabel } from '../../config/emailDocs';
-import type { EmailDocType } from '../../types/models';
+import { CUSTOMER_TARGETS, EMAIL_DOC_TYPES, emailDocLabel } from '../../config/emailDocs';
+import type { CustomerEmailTarget, EmailDocType } from '../../types/models';
 import './EmailTemplatesPanel.css';
 
 interface Props {
@@ -26,7 +26,7 @@ const SAMPLE: Record<string, string> = {
 
 /** Email Settings > Messages: asunto y mensaje guardados de cada documento. */
 export function EmailTemplatesPanel({ canEdit }: Props) {
-  const { templateFor, saveTemplate, loading } = useEmailTemplates();
+  const { templateFor, saveTemplate, saveCustomerTo, loading } = useEmailTemplates();
   const [doc, setDoc] = useState<EmailDocType>('invoice');
   const [draft, setDraft] = useState<TemplateContent | null>(null);
   const [version, setVersion] = useState(0);
@@ -67,6 +67,16 @@ export function EmailTemplatesPanel({ canEdit }: Props) {
     }
   };
 
+  /** A que correo del cliente se envia este documento (se guarda al momento). */
+  const changeCustomerTo = async (value: CustomerEmailTarget) => {
+    try {
+      await saveCustomerTo(doc, value);
+      setNotice(`${emailDocLabel(doc)}: customer recipient saved.`);
+    } catch {
+      alert('Could not save the change. Try again.');
+    }
+  };
+
   const restore = () => {
     if (!window.confirm(`Replace the ${emailDocLabel(doc)} message with the original template?`)) return;
     const d = defaultTemplate(doc);
@@ -102,6 +112,25 @@ export function EmailTemplatesPanel({ canEdit }: Props) {
               This subject and message are used every time a <b>{emailDocLabel(doc)}</b> is emailed. Use the buttons under the
               subject to insert data that changes per order; it is filled automatically when sending.
             </p>
+            <label className="email-tpls__customer">
+              <span className="email-tpls__customer-label">Also send to the customer</span>
+              <select
+                className="input email-tpls__customer-select"
+                value={saved.customerTo}
+                disabled={!canEdit}
+                onChange={(e) => void changeCustomerTo(e.target.value as CustomerEmailTarget)}
+              >
+                {CUSTOMER_TARGETS.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+              <span className="email-tpls__customer-help">
+                Uses the Sales Email / Accounting Email of the customer in Catalogs → Customers. It can be changed when sending.
+              </span>
+            </label>
+
             <EmailTemplateFields
               docType={doc}
               subject={content.subject}

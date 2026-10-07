@@ -3,7 +3,7 @@ import { useCollection } from './useCollection';
 import { auth } from '../firebase/config';
 import { setDocumentWithId } from '../services/firestore';
 import { defaultTemplate, sanitizeEmailHtml } from '../services/emailTemplates';
-import { COLLECTIONS, type EmailDocType, type EmailTemplate } from '../types/models';
+import { COLLECTIONS, type CustomerEmailTarget, type EmailDocType, type EmailTemplate } from '../types/models';
 
 export interface TemplateContent {
   subject: string;
@@ -18,11 +18,14 @@ export function useEmailTemplates() {
 
   const templateFor = useMemo(
     () =>
-      (doc: EmailDocType): TemplateContent & { saved: boolean } => {
+      (doc: EmailDocType): TemplateContent & { saved: boolean; customerTo: CustomerEmailTarget } => {
         const saved = byDoc.get(doc);
-        if (saved && (saved.SUBJECT || saved.BODY_HTML)) return { subject: saved.SUBJECT ?? '', body: saved.BODY_HTML ?? '', saved: true };
+        const customerTo = saved?.CUSTOMER_TO ?? 'none';
+        if (saved && (saved.SUBJECT || saved.BODY_HTML)) {
+          return { subject: saved.SUBJECT ?? '', body: saved.BODY_HTML ?? '', saved: true, customerTo };
+        }
         const d = defaultTemplate(doc);
-        return { subject: d.subject, body: d.body, saved: false };
+        return { subject: d.subject, body: d.body, saved: false, customerTo };
       },
     [byDoc],
   );
@@ -36,5 +39,10 @@ export function useEmailTemplates() {
     });
   };
 
-  return { templateFor, saveTemplate, loading };
+  /** Guarda a que correo del cliente se envia este documento por defecto. */
+  const saveCustomerTo = async (doc: EmailDocType, customerTo: CustomerEmailTarget): Promise<void> => {
+    await setDocumentWithId(COLLECTIONS.EMAIL_TEMPLATES, doc, { CUSTOMER_TO: customerTo });
+  };
+
+  return { templateFor, saveTemplate, saveCustomerTo, loading };
 }

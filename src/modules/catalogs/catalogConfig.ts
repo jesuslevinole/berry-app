@@ -50,7 +50,7 @@ export const CATALOG_DEFS: CatalogDef[] = [
       { key: 'ADDRESS_CUSTOMER', label: 'Address' },
       { key: 'CITY_CUSTOMER', label: 'City' },
       { key: 'ACCOUNTING_EMAIL_CUSTOMER', label: 'Sales Email' },
-      { key: 'ACCOUNTING_EMAIL_TWO_CUSTOMER', label: 'Accounting email 2' },
+      { key: 'ACCOUNTING_EMAIL_TWO_CUSTOMER', label: 'Accounting Email' },
       { key: 'PHONE_ONE_CUSTOMER', label: 'Phone 1', format: 'phone' },
       { key: 'PHONE_TWO_CUSTOMER', label: 'Phone 2', format: 'phone' },
     ],

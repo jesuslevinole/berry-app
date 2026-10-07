@@ -15,6 +15,8 @@ export interface EmailAttachment {
 export interface SendEmailInput {
   to: string[];
   cc?: string[];
+  /** Cliente del documento: el servidor permite tambien sus correos (Sales / Accounting Email). */
+  customerId?: string;
   subject: string;
   html: string;
   attachments?: EmailAttachment[];

@@ -152,6 +152,7 @@ export function CustomerStatementModal({ company, pending, defaultCustomerId, cu
           title={`Email statement — ${customerName(customerId)}`}
           docType="statement"
           docRef={customerName(customerId)}
+          customerId={customerId}
           values={{
             customer: customerName(customerId),
             total: fmtMoney(agingTotal),

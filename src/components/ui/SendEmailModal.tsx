@@ -3,11 +3,12 @@ import { Modal } from './Modal';
 import { EmailTemplateFields } from './EmailTemplateFields';
 import { useEmailRecipients } from '../../hooks/useEmailRecipients';
 import { useEmailTemplates, type TemplateContent } from '../../hooks/useEmailTemplates';
-import { sendEmail, type EmailAttachment, type RecipientResult } from '../../services/emailService';
+import { parseEmails, sendEmail, type EmailAttachment, type RecipientResult } from '../../services/emailService';
+import { useCollection } from '../../hooks/useCollection';
 import { createDocumentLocalFirst } from '../../services/firestore';
 import { auth } from '../../firebase/config';
 import { defaultTemplate, fillTemplate, sanitizeEmailHtml, wrapEmailHtml } from '../../services/emailTemplates';
-import { emailDocLabel } from '../../config/emailDocs';
+import { emailDocLabel, targetFrom } from '../../config/emailDocs';
 import { COLLECTIONS, type EmailDocType } from '../../types/models';
 import './SendEmailModal.css';
 
@@ -17,6 +18,8 @@ interface Props {
   title: string;
   /** Referencia del documento para el historial (ej. "46117" o el nombre del cliente). */
   docRef: string;
+  /** Cliente del documento: permite enviarlo tambien a su Sales Email / Accounting Email. */
+  customerId?: string;
   /** Valores de las variables de la plantilla ({{customer}}, {{number}}...). */
   values: Record<string, string>;
   /** Nombre del archivo que se adjunta (se muestra antes de enviar). */
@@ -32,16 +35,41 @@ interface Props {
  * Asunto y mensaje: la plantilla guardada del documento; lo que se edite aqui se guarda
  * como la nueva plantilla de ese documento (para la proxima vez solo presionar Send).
  */
-export function SendEmailModal({ docType, title, docRef, values, attachmentName, buildAttachment, onClose, onSent }: Props) {
+export function SendEmailModal({ docType, title, docRef, customerId, values, attachmentName, buildAttachment, onClose, onSent }: Props) {
   const { active, defaultsFor, loading: loadingRecipients } = useEmailRecipients();
-  const { templateFor, saveTemplate, loading: loadingTemplates } = useEmailTemplates();
+  const { templateFor, saveTemplate, saveCustomerTo, loading: loadingTemplates } = useEmailTemplates();
+  /* Correos del cliente (Catalogs > Customers). La consulta ya la comparte Sales Desk: no cuesta lecturas extra. */
+  const { data: customerDocs } = useCollection<{
+    id: string;
+    NAME_CUSTOMER?: string;
+    ACCOUNTING_EMAIL_CUSTOMER?: string;
+    ACCOUNTING_EMAIL_TWO_CUSTOMER?: string;
+  }>(COLLECTIONS.CUSTOMER);
+  const customer = customerId ? customerDocs.find((c) => c.id === customerId) : undefined;
+  const salesEmails = parseEmails(customer?.ACCOUNTING_EMAIL_CUSTOMER ?? '');
+  const accountingEmails = parseEmails(customer?.ACCOUNTING_EMAIL_TWO_CUSTOMER ?? '');
   const label = emailDocLabel(docType);
 
   /* null = todavia no se ha tocado: se usan los valores guardados. */
   const [picked, setPicked] = useState<string[] | null>(null);
   const selected = picked ?? defaultsFor(docType);
+  /* Envio al cliente: por defecto lo guardado para este documento. */
+  const [customerPick, setCustomerPick] = useState<{ sales: boolean; accounting: boolean } | null>(null);
   const [draft, setDraft] = useState<TemplateContent | null>(null);
   const saved = templateFor(docType);
+  const customerChoice = customerPick ?? {
+    sales: saved.customerTo === 'sales' || saved.customerTo === 'both',
+    accounting: saved.customerTo === 'accounting' || saved.customerTo === 'both',
+  };
+  const customerTarget = targetFrom(customerChoice.sales, customerChoice.accounting);
+  const customerTargetChanged = !!customerPick && customerTarget !== saved.customerTo;
+  /* Correos del cliente que se van a incluir. */
+  const customerRecipients = customer
+    ? [...(customerChoice.sales ? salesEmails : []), ...(customerChoice.accounting ? accountingEmails : [])]
+    : [];
+  /* Todos los destinatarios (sin repetir). */
+  const allRecipients = [...new Map([...selected, ...customerRecipients].map((e) => [e.toLowerCase(), e])).values()];
+  const isCustomerEmail = (email: string): boolean => customerRecipients.some((c) => c.toLowerCase() === email.toLowerCase());
   const content = draft ?? { subject: saved.subject, body: saved.body };
   const changed = !!draft && (draft.subject !== saved.subject || draft.body !== saved.body);
   const [editorVersion, setEditorVersion] = useState(0);
@@ -96,7 +124,7 @@ export function SendEmailModal({ docType, title, docRef, values, attachmentName,
   const send = async () => {
     setError('');
     setNotice('');
-    if (selected.length === 0) {
+    if (allRecipients.length === 0) {
       setError('Select at least one recipient.');
       return;
     }
@@ -110,12 +138,17 @@ export function SendEmailModal({ docType, title, docRef, values, attachmentName,
         setStatus('saving');
         await persistTemplate();
       }
+      /* Tambien se recuerda a que correo del cliente se envia este documento. */
+      if (customer && customerTargetChanged && remember) {
+        await saveCustomerTo(docType, customerTarget);
+      }
       setStatus('building');
       const attachment = await buildAttachment();
       setStatus('sending');
       const subject = fillTemplate(content.subject.trim(), values);
       const sendResults = await sendEmail({
-        to: selected,
+        to: allRecipients,
+        customerId: customerRecipients.length ? customerId : undefined,
         subject,
         html: wrapEmailHtml(fillTemplate(sanitizeEmailHtml(content.body), values, true)),
         attachments: [attachment],
@@ -145,7 +178,7 @@ export function SendEmailModal({ docType, title, docRef, values, attachmentName,
         ? 'Preparing PDF…'
         : status === 'sending'
           ? 'Sending…'
-          : `Send to ${selected.length || ''}`.trim();
+          : `Send to ${allRecipients.length || ''}`.trim();
 
   return (
     <Modal
@@ -168,7 +201,7 @@ export function SendEmailModal({ docType, title, docRef, values, attachmentName,
               <button
                 type="button"
                 className="btn btn--primary"
-                disabled={busy || selected.length === 0 || loadingTemplates}
+                disabled={busy || allRecipients.length === 0 || loadingTemplates}
                 onClick={() => void send()}
               >
                 {sendLabel}
@@ -189,6 +222,7 @@ export function SendEmailModal({ docType, title, docRef, values, attachmentName,
             {results.map((r) => (
               <li key={r.email} className={`send-email__result${r.id ? ' send-email__result--ok' : ' send-email__result--bad'}`}>
                 <b>{r.id ? '✓' : '✕'}</b> {r.email}
+                {isCustomerEmail(r.email) && <span className="send-email__tag">customer</span>}
                 {r.error && <span className="send-email__result-error"> — {r.error}</span>}
               </li>
             ))}
@@ -240,6 +274,37 @@ export function SendEmailModal({ docType, title, docRef, values, attachmentName,
             </p>
           )}
         </div>
+
+        {customerId && (
+          <div className="send-email__recipients">
+            <span className="send-email__label">Customer{customer?.NAME_CUSTOMER ? ` — ${customer.NAME_CUSTOMER}` : ''}</span>
+            <div className="send-email__list">
+              {[
+                { key: 'sales' as const, title: 'Sales Email', emails: salesEmails },
+                { key: 'accounting' as const, title: 'Accounting Email', emails: accountingEmails },
+              ].map((opt) => {
+                const on = customerChoice[opt.key] && opt.emails.length > 0;
+                return (
+                  <label
+                    key={opt.key}
+                    className={`send-email__option${on ? ' send-email__option--on' : ''}${opt.emails.length === 0 ? ' send-email__option--off' : ''}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={on}
+                      disabled={busy || opt.emails.length === 0}
+                      onChange={() => setCustomerPick({ ...customerChoice, [opt.key]: !customerChoice[opt.key] })}
+                    />
+                    <span className="send-email__who">
+                      <b>{opt.title}</b>
+                      <span>{opt.emails.length ? opt.emails.join(', ') : 'Not set — add it in Catalogs → Customers'}</span>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {loadingTemplates ? (
           <p className="send-email__muted">Loading the saved message…</p>

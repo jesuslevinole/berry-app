@@ -161,6 +161,23 @@ async function authorizedRecipients(projectId: string, companyId: string, idToke
   return emails;
 }
 
+/** Correos del cliente (Sales Email y Accounting Email), leidos con los permisos del usuario. */
+async function customerEmails(projectId: string, companyId: string, customerId: string, idToken: string): Promise<Set<string>> {
+  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/companies/${companyId}/BD_CUSTOMER/${encodeURIComponent(customerId)}`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${idToken}`, Accept: 'application/json' } });
+  if (res.status === 404) return new Set();
+  if (res.status === 403 || res.status === 401) throw new Error('forbidden');
+  if (!res.ok) throw new Error(`Firestore ${res.status}`);
+  const data = (await res.json()) as { fields?: Record<string, { stringValue?: string }> };
+  const raw = `${data.fields?.ACCOUNTING_EMAIL_CUSTOMER?.stringValue ?? ''} ${data.fields?.ACCOUNTING_EMAIL_TWO_CUSTOMER?.stringValue ?? ''}`;
+  return new Set(
+    raw
+      .split(/[,;\s]+/)
+      .map((e) => e.trim().toLowerCase())
+      .filter((e) => EMAIL_RE.test(e)),
+  );
+}
+
 /* ---------------- /api/send-email ---------------- */
 
 interface SendEmailBody {
@@ -170,6 +187,7 @@ interface SendEmailBody {
   html?: unknown;
   attachments?: unknown;
   companyId?: unknown;
+  customerId?: unknown;
 }
 
 const emailList = (value: unknown): string[] =>
@@ -218,6 +236,11 @@ async function handleSendEmail(request: Request, env: Env): Promise<Response> {
   let allowed: Set<string>;
   try {
     allowed = await authorizedRecipients(env.FIREBASE_PROJECT_ID, companyId, token);
+    /* Ademas de Email Settings: los correos del cliente del documento (Catalogs > Customers). */
+    const customerId = typeof body.customerId === 'string' ? body.customerId : '';
+    if (customerId && COMPANY_ID_RE.test(customerId)) {
+      for (const email of await customerEmails(env.FIREBASE_PROJECT_ID, companyId, customerId, token)) allowed.add(email);
+    }
   } catch (e) {
     const message = (e as Error).message || 'unknown error';
     if (message === 'forbidden') return json({ error: 'You do not have access to this company.' }, 403);
@@ -226,7 +249,7 @@ async function handleSendEmail(request: Request, env: Env): Promise<Response> {
   }
   const notAllowed = [...to, ...cc].filter((e) => !allowed.has(e.toLowerCase()));
   if (notAllowed.length) {
-    return json({ error: `Not in Email Settings: ${notAllowed.join(', ')}` }, 403);
+    return json({ error: `Not in Email Settings or the customer's emails: ${notAllowed.join(', ')}` }, 403);
   }
 
   let totalChars = 0;

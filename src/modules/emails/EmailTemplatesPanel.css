@@ -50,3 +50,21 @@
   .email-tpls__list { flex-direction: row; overflow-x: auto; }
   .email-tpls__item { flex-shrink: 0; }
 }
+
+/* Envio al cliente por defecto. */
+.email-tpls__customer {
+  display: grid;
+  grid-template-columns: auto minmax(220px, 320px);
+  align-items: center;
+  gap: 6px 12px;
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--canvas);
+}
+.email-tpls__customer-label { font-size: 0.85rem; font-weight: 600; color: var(--ink); }
+.email-tpls__customer-help { grid-column: 1 / -1; font-size: 0.78rem; color: var(--muted); }
+@media (max-width: 640px) {
+  .email-tpls__customer { grid-template-columns: minmax(0, 1fr); }
+}

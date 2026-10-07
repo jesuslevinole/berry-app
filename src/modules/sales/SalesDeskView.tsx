@@ -364,6 +364,7 @@ export function SalesDeskView() {
             <SendEmailModal
               docType={docDef.id}
               docRef={number}
+              customerId={so.ID_CUSTOMER}
               title={`Email ${docDef.label} — ${number}`}
               values={{
                 number,

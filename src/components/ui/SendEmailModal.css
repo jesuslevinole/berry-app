@@ -81,3 +81,18 @@
 .send-email__result--ok { color: var(--ok); }
 .send-email__result--bad { color: var(--bad); }
 .send-email__result-error { color: var(--bad); }
+
+/* Correos del cliente. */
+.send-email__option--off { cursor: default; }
+.send-email__option--off .send-email__who b { color: var(--muted); }
+.send-email__tag {
+  margin-left: 6px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--info);
+  background: var(--info-bg);
+  border-radius: 6px;
+  padding: 1px 6px;
+}
