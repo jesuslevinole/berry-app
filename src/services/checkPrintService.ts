@@ -160,7 +160,9 @@ export function printCheck(
   .stub-co { font-weight: 700; margin-top: 30px; }
   .print-bar { text-align: center; padding: 14px 0; }
   .print-bar button { background: #1f7a4d; color: #ffffff; border: none; padding: 10px 26px; border-radius: 8px; font-size: 14px; cursor: pointer; font-family: inherit; }
-  @media print { body { background: #ffffff; } .sheet { width: auto; } .print-bar { display: none; } .cut { visibility: hidden; } }
+  @media print {
+    /* Imprimir los fondos (bandas verdes, etiquetas blancas) igual que en pantalla. */
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; } body { background: #ffffff; } .sheet { width: auto; } .print-bar { display: none; } .cut { visibility: hidden; } }
 </style>
 </head>
 <body>

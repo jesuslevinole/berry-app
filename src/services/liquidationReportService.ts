@@ -9,7 +9,7 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { tenantPath } from './tenant';
 import { deductibleExpenses, liquidationDeduction } from './orderTotalsService';
-import { COLLECTIONS, type CompanyInfo, type Expense, type PurchaseOrder, type SalesOrderDetail } from '../types/models';
+import { COLLECTIONS, type CompanyInfo, type Expense, type PurchaseDetail, type PurchaseOrder, type SalesOrderDetail } from '../types/models';
 
 const GREEN = '#6aa84f';
 
@@ -43,8 +43,39 @@ export async function printLiquidationReport(
   );
   const lines: SalesOrderDetail[] = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as SalesOrderDetail);
 
-  const subtotal = lines.reduce((acc, l) => acc + (l.TOTAL ?? 0), 0);
-  const commission = order.COMMISION_AMOUNT ?? 0;
+  /* Precio del Purchase Order: la liquidacion al grower usa el precio de la PO (si se
+     ajusta, por ejemplo de $22 a $12, la liquidacion lo refleja). Por producto; si
+     hay varias lineas del mismo producto se usa el promedio ponderado. */
+  const poSnap = await getDocs(
+    query(collection(db, tenantPath(COLLECTIONS.PURCHASE_DETAILS)), where('ID_PURCHASEORDER', '==', order.id)),
+  );
+  const poLines = poSnap.docs.map((d) => d.data() as PurchaseDetail);
+  const poAgg = new Map<string, { qty: number; total: number }>();
+  for (const l of poLines) {
+    const agg = poAgg.get(l.ID_COMMODITIES) ?? { qty: 0, total: 0 };
+    agg.qty += l.QUANTITY ?? 0;
+    agg.total += l.TOTAL ?? (l.QUANTITY ?? 0) * (l.PRICE ?? 0);
+    poAgg.set(l.ID_COMMODITIES, agg);
+  }
+  const poPriceOf = (commodityId: string): number | null => {
+    const agg = poAgg.get(commodityId);
+    if (!agg) return null;
+    if (agg.qty) return agg.total / agg.qty;
+    const first = poLines.find((l) => l.ID_COMMODITIES === commodityId);
+    return first?.PRICE ?? null;
+  };
+  const priced = lines.map((line) => {
+    const qty = line.QUANTITY ?? 0;
+    const price = poPriceOf(line.ID_COMMODITIES) ?? line.PRICE ?? 0;
+    return { line, qty, price, total: Math.round(qty * price * 100) / 100 };
+  });
+
+  const subtotal = priced.reduce((acc, r) => acc + r.total, 0);
+  /* Comision con el porcentaje del lote sobre el subtotal de la liquidacion. */
+  const commission =
+    order.COMMISION_PERCENT != null && order.COMMISION_PERCENT > 0
+      ? Math.round(subtotal * order.COMMISION_PERCENT) / 100
+      : (order.COMMISION_AMOUNT ?? 0);
 
   /* Gastos del lote marcados como Deduct: se consultan en vivo (el total del PO no se mantiene). */
   const expSnap = await getDocs(
@@ -70,15 +101,15 @@ export async function printLiquidationReport(
   const { company } = ctx;
 
 
-  const rowsHtml = lines
+  const rowsHtml = priced
     .map(
-      (line) => `
+      ({ line, qty, price, total }) => `
       <tr>
         <td class="td center">${esc(ctx.soNumberOf(line.ID_SALESORDER))}</td>
         <td class="td">${esc(ctx.commodityName(line.ID_COMMODITIES))}</td>
-        <td class="td center">${fmtUsd(line.QUANTITY ?? 0, 0)}</td>
-        <td class="td num">$${fmtUsd(line.PRICE ?? 0, 6)}</td>
-        <td class="td num">$${fmtUsd(line.TOTAL ?? 0, 6)}</td>
+        <td class="td center">${fmtUsd(qty, 0)}</td>
+        <td class="td num">$${fmtUsd(price, 6)}</td>
+        <td class="td num">$${fmtUsd(total, 6)}</td>
       </tr>`,
     )
     .join('');
@@ -122,10 +153,14 @@ export async function printLiquidationReport(
   .print-bar { text-align: center; margin: 0 0 18px; }
   .print-bar button { background: #1f7a4d; color: #ffffff; border: none; padding: 10px 26px; border-radius: 8px; font-size: 14px; cursor: pointer; }
   @media print {
+    /* Imprimir los fondos (bandas verdes, etiquetas blancas) igual que en pantalla. */
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     body { background: #ffffff; padding: 0; }
     .print-bar { display: none; }
-    .page { box-shadow: none; max-width: none; min-height: auto; padding: 30px 40px 50px; }
+    .page { box-shadow: none; max-width: none; min-height: auto; padding: 14mm 14mm 16mm; }
   }
+  /* Sin margenes del navegador: no imprime fecha/URL arriba y abajo; el margen lo da .page. */
+  @page { size: letter; margin: 0; }
 </style>
 </head>
 <body>

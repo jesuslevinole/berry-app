@@ -110,6 +110,8 @@ export async function buildPurchaseOrderHtml(order: PurchaseOrder, ctx: Purchase
   .print-bar { text-align: center; margin: 0 0 18px; }
   .print-bar button { background: #1f7a4d; color: #ffffff; border: none; padding: 10px 26px; border-radius: 8px; font-size: 14px; cursor: pointer; }
   @media print {
+    /* Imprimir los fondos (bandas verdes, etiquetas blancas) igual que en pantalla. */
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     body { background: #ffffff; padding: 0; }
     .print-bar { display: none; }
     .page { box-shadow: none; max-width: none; min-height: auto; padding: 30px 40px 50px; }
