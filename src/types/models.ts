@@ -47,6 +47,8 @@ export const COLLECTIONS = {
   /** Asunto y mensaje guardados por documento (id del documento = tipo). */
   EMAIL_TEMPLATES: 'CAT_EMAILTEMPLATES',
   EMAIL_BUNDLES: 'CAT_EMAILBUNDLES',
+  /** Archivos adjuntos (foto o PDF del pago), guardados aparte para no inflar los pagos. */
+  ATTACHMENTS: 'BD_ATTACHMENTS',
   /** Historial de correos enviados (un registro por envio, con el resultado de cada destinatario). */
   EMAIL_LOG: 'BD_EMAILLOG',
   COMPANY: 'settings_company',

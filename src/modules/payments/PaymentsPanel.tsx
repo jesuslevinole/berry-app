@@ -5,6 +5,7 @@ import { where } from 'firebase/firestore';
 import { useCollection } from '../../hooks/useCollection';
 import { useCatalog } from '../../hooks/useCatalog';
 import { createDocument, deleteDocument, updateDocument } from '../../services/firestore';
+import { openAttachment, saveAttachment } from '../../services/attachments';
 import { COLLECTIONS, type PaymentBase } from '../../types/models';
 import { byNewest, fmtDate, fmtMoney, round2, toNumber, todayISO } from '../../utils/format';
 import { DataTable, type Column } from '../../components/ui/DataTable';
@@ -54,7 +55,11 @@ export function PaymentsPanel({
   const [checkNumber, setCheckNumber] = useState('');
   const [refNumber, setRefNumber] = useState('');
   const [note, setNote] = useState('');
+  /* Foto o PDF del pago (opcional). */
+  const [file, setFile] = useState<File | null>(null);
+  const [fileKey, setFileKey] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
   const totalPaid = useMemo(() => round2(payments.reduce((acc, p) => acc + (p.AMOUNT ?? 0), 0)), [payments]);
   const balance = round2(expectedTotal - totalPaid);
@@ -65,6 +70,9 @@ export function PaymentsPanel({
     setCheckNumber('');
     setRefNumber('');
     setNote('');
+    setFile(null);
+    setFileKey((k) => k + 1);
+    setError('');
   };
 
   const startEdit = (payment: PaymentDoc) => {
@@ -80,8 +88,15 @@ export function PaymentsPanel({
   const handleSave = async () => {
     const value = toNumber(amount);
     if (value <= 0) return;
+    if (!methodId) {
+      setError('Choose the payment method.');
+      return;
+    }
+    setError('');
     setSaving(true);
     try {
+      const previousPhoto = editingId ? (payments.find((p) => p.id === editingId)?.PHOTO ?? '') : '';
+      const photo = file ? await saveAttachment(file) : previousPhoto;
       const payload = {
         [parentField]: parentId,
         DATE: date,
@@ -89,7 +104,7 @@ export function PaymentsPanel({
         AMOUNT: value,
         CHECK_NUMBER: checkNumber.trim(),
         REF_NUMBER: refNumber.trim(),
-        PHOTO: '',
+        PHOTO: photo,
         NOTE: note.trim(),
       } as Omit<PaymentDoc, 'id'>;
       if (editingId) {
@@ -101,6 +116,8 @@ export function PaymentsPanel({
         await onTotalPaidChange(round2(totalPaid + value));
       }
       resetForm();
+    } catch (e) {
+      setError((e as Error).message || 'The payment could not be saved. Try again.');
     } finally {
       setSaving(false);
     }
@@ -118,6 +135,25 @@ export function PaymentsPanel({
     { key: 'ID_PAYMENTMETHOD', header: 'Method', render: (p) => paymentMethods.nameOf(p.ID_PAYMENTMETHOD) },
     { key: 'CHECK_NUMBER', header: 'Check #', render: (p) => p.CHECK_NUMBER || '—' },
     { key: 'REF_NUMBER', header: 'Ref #', render: (p) => p.REF_NUMBER || '—' },
+    {
+      key: 'PHOTO',
+      header: 'Image',
+      render: (p) =>
+        p.PHOTO ? (
+          <button
+            type="button"
+            className="payments-panel__link"
+            onClick={(e) => {
+              e.stopPropagation();
+              void openAttachment(p.PHOTO);
+            }}
+          >
+            View
+          </button>
+        ) : (
+          '—'
+        ),
+    },
     {
       key: 'AMOUNT',
       header: 'Amount',
@@ -155,10 +191,10 @@ export function PaymentsPanel({
       <div className="payments-panel__form">
         <h4 className="payments-panel__form-title">{editingId ? 'Edit payment' : 'Register payment'}</h4>
         <FormGrid>
-          <FormField label="Date">
+          <FormField label="Date" required>
             <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           </FormField>
-          <FormField label="Payment method">
+          <FormField label="Payment method" required>
             <CatalogSelect
               value={methodId}
               onChange={setMethodId}
@@ -168,7 +204,7 @@ export function PaymentsPanel({
               catalogLabel="payment method"
             />
           </FormField>
-          <FormField label="Amount">
+          <FormField label="Amount" required>
             <input
               className="input"
               type="number"
@@ -178,16 +214,26 @@ export function PaymentsPanel({
               onChange={(e) => setAmount(e.target.value)}
             />
           </FormField>
-          <FormField label="Check #">
+          <FormField label="# Check">
             <input className="input" value={checkNumber} onChange={(e) => setCheckNumber(e.target.value)} />
           </FormField>
-          <FormField label="Ref #">
+          <FormField label="# Ref">
             <input className="input" value={refNumber} onChange={(e) => setRefNumber(e.target.value)} />
           </FormField>
           <FormField label="Note">
             <input className="input" value={note} onChange={(e) => setNote(e.target.value)} />
           </FormField>
+          <FormField label="Image (photo or PDF)" span2>
+            <input
+              key={fileKey}
+              className="input"
+              type="file"
+              accept="image/*,application/pdf"
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            />
+          </FormField>
         </FormGrid>
+        {error && <p className="payments-panel__error">{error}</p>}
         <div className="payments-panel__form-actions">
           {editingId && (
             <button type="button" className="btn btn--secondary" onClick={resetForm}>

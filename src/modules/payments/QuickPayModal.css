@@ -1,0 +1,32 @@
+/* Nuevo pago desde AR / AP (campos del formulario de AppSheet). */
+.quick-pay__subtitle { margin: 0 0 12px; font-size: 0.88rem; color: var(--muted); }
+.quick-pay__kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+.quick-pay__kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--canvas);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 9px 12px;
+}
+.quick-pay__kpi span { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; font-weight: 700; color: var(--muted); }
+.quick-pay__kpi b { font-size: 15px; }
+.quick-pay__file { padding: 7px 10px; }
+.quick-pay__history { margin-top: 16px; display: flex; flex-direction: column; gap: 6px; }
+.quick-pay__history-title { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.quick-pay__table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.quick-pay__table td { padding: 6px 8px; border-bottom: 1px solid var(--line); color: var(--ink); }
+.quick-pay__table td.num { text-align: right; }
+.quick-pay__link { border: 0; background: none; color: var(--green-600); font-weight: 600; cursor: pointer; text-decoration: underline; padding: 0; }
+.quick-pay__error {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: #fdecea;
+  color: #b03a2e;
+  font-size: 0.85rem;
+}
+@media (max-width: 560px) {
+  .quick-pay__kpis { grid-template-columns: 1fr; }
+}

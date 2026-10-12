@@ -1,4 +1,5 @@
 import { round2 } from '../../utils/format';
+import { isPayableSupplier } from '../../services/balances';
 import { COLLECTIONS, type Expense, type PaymentBase, type PurchaseOrder, type SalesOrder } from '../../types/models';
 
 /**
@@ -17,7 +18,9 @@ export type AuditKind =
   /** El documento dice pagado pero no tiene registros de pago (dato de AppSheet). */
   | 'no-records'
   /** Se pago mas que el total del documento. */
-  | 'overpaid';
+  | 'overpaid'
+  /** Pago al grower que parece ser el pago de un gasto del mismo lote (flete, aduana...). */
+  | 'misplaced';
 
 export interface AuditIssue {
   id: string;
@@ -191,5 +194,55 @@ export function auditPayments(input: AuditInput): AuditIssue[] {
     ...auditArea('sales', sales, cast(input.salesPayments)),
     ...auditArea('lots', lots, cast(input.purchasePayments)),
     ...auditArea('expenses', expenses, cast(input.billPayments)),
+    ...misplacedPayments(input, lots),
   ];
+}
+
+/**
+ * Pagos registrados al grower (en el Purchase Order) por el monto EXACTO del saldo de
+ * un gasto pendiente del mismo lote: casi siempre es el pago del flete / aduana que se
+ * registro en el lugar equivocado, y por eso el gasto sigue en Accounts Payable.
+ */
+function misplacedPayments(input: AuditInput, lots: ParentView[]): AuditIssue[] {
+  const lotById = new Map(lots.map((l) => [l.id, l]));
+  const paidByExpense = new Map<string, number>();
+  for (const p of input.billPayments) {
+    const id = String((p as PaymentBase & { ID_EXPENSES?: string }).ID_EXPENSES ?? '');
+    if (id) paidByExpense.set(id, round2((paidByExpense.get(id) ?? 0) + (p.AMOUNT ?? 0)));
+  }
+  /* Gastos pagables con saldo, por lote. */
+  const pendingByLot = new Map<string, { e: Expense; balance: number }[]>();
+  for (const e of input.expenses) {
+    if (!e.ID_PURCHASEORDER || !isPayableSupplier(input.supplierName(e.ID_SUPPLIERS))) continue;
+    const paid = paidByExpense.has(e.id) ? (paidByExpense.get(e.id) as number) : round2(e.PAY_AMOUNT ?? 0);
+    const balance = round2((e.AMOUNT ?? 0) - paid);
+    if (balance <= NEAR) continue;
+    pendingByLot.set(e.ID_PURCHASEORDER, [...(pendingByLot.get(e.ID_PURCHASEORDER) ?? []), { e, balance }]);
+  }
+  const issues: AuditIssue[] = [];
+  for (const pay of input.purchasePayments) {
+    const lotId = String((pay as PaymentBase & { ID_PURCHASEORDER?: string }).ID_PURCHASEORDER ?? '');
+    const lot = lotById.get(lotId);
+    if (!lot) continue;
+    const matches = (pendingByLot.get(lotId) ?? []).filter((x) => Math.abs(x.balance - (pay.AMOUNT ?? 0)) < NEAR);
+    if (matches.length !== 1) continue;
+    const { e } = matches[0];
+    issues.push({
+      id: `misplaced-${pay.id}`,
+      kind: 'misplaced',
+      area: 'lots',
+      docId: lot.id,
+      docLabel: lot.label,
+      party: lot.party,
+      date: pay.DATE ?? '',
+      total: round2(e.AMOUNT ?? 0),
+      storedPaid: round2(e.PAY_AMOUNT ?? 0),
+      paymentsSum: round2(pay.AMOUNT ?? 0),
+      paymentId: pay.id,
+      paymentAmount: round2(pay.AMOUNT ?? 0),
+      relinkTo: e.id,
+      relinkLabel: [input.supplierName(e.ID_SUPPLIERS), e.INVOICE_NUMBER].filter(Boolean).join(' · '),
+    });
+  }
+  return issues;
 }

@@ -90,3 +90,4 @@
 }
 .pay-audit__badge--orphan,
 .pay-audit__badge--overpaid { background: var(--bad-bg); color: var(--bad); }
+.pay-audit__badge--misplaced { background: var(--warn-bg); color: var(--warn); }

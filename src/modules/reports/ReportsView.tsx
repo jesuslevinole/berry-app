@@ -8,12 +8,10 @@ import { Toolbar } from '../../components/ui/Toolbar';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { SalesOrderDetailPanel } from '../sales/SalesOrderDetailPanel';
 import { PurchaseOrderDetailPanel } from '../purchases/PurchaseOrderDetailPanel';
-import { PaymentsPanel } from '../payments/PaymentsPanel';
+import { QuickPayModal } from '../payments/QuickPayModal';
 import { PaymentsAuditPanel } from '../payments/PaymentsAuditPanel';
 import { CustomerStatementModal } from './CustomerStatementModal';
 import { useCompany } from '../../hooks/useCompany';
-import { Modal } from '../../components/ui/Modal';
-import { updateDocument } from '../../services/firestore';
 import { expenseBalanceResolver, isPayableSupplier, purchaseBalance, saleBalanceResolver, SETTLED } from '../../services/balances';
 import { fmtMoney, round2, todayISO } from '../../utils/format';
 import { PAGE_SIZE } from '../../config/limits';
@@ -417,13 +415,9 @@ export function ReportsView({ report }: ReportsViewProps) {
 
   /* Cobro directo desde AR (mismo panel de pagos que Sales Desk). */
   const [payingSale, setPayingSale] = useState<SalesOrder | null>(null);
+  /* Pago directo desde AP. */
+  const [payingExpense, setPayingExpense] = useState<Expense | null>(null);
   const [auditOpen, setAuditOpen] = useState(false);
-  const handleSalePaid = async (so: SalesOrder, totalPaid: number) => {
-    await updateDocument<SalesOrder>(COLLECTIONS.SALES_ORDER, so.id, {
-      INCOMES: totalPaid,
-      BALANCE: round2((so.TOTAL ?? 0) - totalPaid),
-    });
-  };
 
   /* ---- 5. Expenses: todos los gastos con estado y fecha de pago ---- */
   const expenseRows = useMemo(() => {
@@ -770,6 +764,7 @@ export function ReportsView({ report }: ReportsViewProps) {
                 <table className="reports__table">
                   <thead>
                     <tr>
+                      <th className="reports__th reports__th--pay" aria-label="Pay bill" />
                       {apVisible.map((f) => (
                         <th key={f.key} className={`reports__th${AP_COLUMNS[f.key].numeric ? ' reports__th--num' : ''}`}>{f.label}</th>
                       ))}
@@ -777,10 +772,26 @@ export function ReportsView({ report }: ReportsViewProps) {
                   </thead>
                   <tbody>
                     {apRows.length === 0 && (
-                      <tr><td className="reports__empty" colSpan={Math.max(apVisible.length, 1)}>No pending bills. All caught up.</td></tr>
+                      <tr><td className="reports__empty" colSpan={apVisible.length + 1}>No pending bills. All caught up.</td></tr>
                     )}
                     {paginate(apRows).map((r) => (
                       <tr key={r.e.id} className="reports__row--click" onClick={() => openPurchase(r.e.ID_PURCHASEORDER)} title="Open purchase order detail">
+                        <td className="reports__td reports__td--pay">
+                          <button
+                            type="button"
+                            className="btn btn--icon reports__pay-btn"
+                            aria-label={`Pay bill ${r.e.INVOICE_NUMBER ?? ''}`}
+                            title="Pay bill"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPayingExpense(r.e);
+                            }}
+                          >
+                            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8">
+                              <path d="M12 2v20M17 6.5c0-1.9-2.2-3-5-3s-5 1.1-5 3 2 2.7 5 3.4 5 1.5 5 3.6-2.2 3-5 3-5-1.1-5-3" />
+                            </svg>
+                          </button>
+                        </td>
                         {apVisible.map((f) => (
                           <td key={f.key} className={`reports__td${AP_COLUMNS[f.key].numeric ? ' reports__td--num' : ''}`}>{AP_COLUMNS[f.key].render(r)}</td>
                         ))}
@@ -792,6 +803,21 @@ export function ReportsView({ report }: ReportsViewProps) {
               {pagerFor(apRows.length)}
             </div>
           </div>
+
+          {payingExpense && (
+            <QuickPayModal
+              kind="expense"
+              parentId={payingExpense.id}
+              subtitle={[
+                `Invoice ${payingExpense.INVOICE_NUMBER || '—'}`,
+                suppliers.nameOf(payingExpense.ID_SUPPLIERS),
+                categories.nameOf(payingExpense.ID_CATEGORYBILL),
+              ].join(' · ')}
+              total={payingExpense.AMOUNT ?? 0}
+              storedPaid={payingExpense.PAY_AMOUNT ?? 0}
+              onClose={() => setPayingExpense(null)}
+            />
+          )}
         </>
       )}
 
@@ -879,21 +905,14 @@ export function ReportsView({ report }: ReportsViewProps) {
           </div>
 
           {payingSale && (
-            <Modal
-              title={`Payments — Sales order ${payingSale.SALES_ORDER_NUMBER}`}
-              open
+            <QuickPayModal
+              kind="sale"
+              parentId={payingSale.id}
+              subtitle={`Sales order ${payingSale.SALES_ORDER_NUMBER || '—'} · ${customers.nameOf(payingSale.ID_CUSTOMER)}${payingSale.REF ? ` · Ref ${payingSale.REF}` : ''}`}
+              total={payingSale.TOTAL ?? 0}
+              storedPaid={payingSale.INCOMES ?? 0}
               onClose={() => setPayingSale(null)}
-              wide
-            >
-              <PaymentsPanel
-                moduleId="sales"
-                collectionName={COLLECTIONS.PAYMENT_SALES}
-                parentField="ID_SALESORDER"
-                parentId={payingSale.id}
-                expectedTotal={payingSale.TOTAL ?? 0}
-                onTotalPaidChange={(totalPaid) => handleSalePaid(payingSale, totalPaid)}
-              />
-            </Modal>
+            />
           )}
         </>
       )}

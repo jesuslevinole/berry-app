@@ -32,3 +32,6 @@
 @media (max-width: 560px) {
   .payments-panel__totals { grid-template-columns: 1fr; }
 }
+
+.payments-panel__link { border: 0; background: none; color: var(--green-600); font-weight: 600; cursor: pointer; text-decoration: underline; padding: 0; }
+.payments-panel__error { margin: 0; color: #b03a2e; font-size: 0.85rem; }

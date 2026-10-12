@@ -47,6 +47,11 @@ const KIND_META: Record<AuditKind, { label: string; help: string; order: number 
     help: 'More was paid than the document total. Check the payments of that document.',
     order: 4,
   },
+  misplaced: {
+    label: 'Bill paid as grower payment',
+    help: 'A payment was registered to the grower (in the Purchase Order) for exactly the balance of a pending bill of the same lot (freight, customs…). That is why the bill stays in Accounts Payable. "Move to bill" moves the payment to that bill.',
+    order: 0,
+  },
 };
 
 type AreaFilter = AuditArea | 'all';
@@ -122,6 +127,23 @@ export function PaymentsAuditPanel({ initialArea = 'all', onClose }: Props) {
         PHOTO: '',
         NOTE: 'Paid before the migration (record created by Check payments)',
       });
+    } else if (i.kind === 'misplaced' && i.relinkTo) {
+      /* El pago pasa del lote (grower) al gasto, con los mismos datos. */
+      const original = purchasePayments.find((p) => p.id === i.paymentId);
+      if (!original) return;
+      await createDocument<BaseDoc & Record<string, unknown>>(COLLECTIONS.PAYMENT_BILL, {
+        ID_EXPENSES: i.relinkTo,
+        DATE: original.DATE ?? todayISO(),
+        AMOUNT: original.AMOUNT ?? 0,
+        ID_PAYMENTMETHOD: original.ID_PAYMENTMETHOD ?? '',
+        CHECK_NUMBER: original.CHECK_NUMBER ?? '',
+        REF_NUMBER: original.REF_NUMBER ?? '',
+        PHOTO: original.PHOTO ?? '',
+        NOTE: [original.NOTE, 'Moved from the grower payments'].filter(Boolean).join(' — '),
+      });
+      await deleteDocument(COLLECTIONS.PAYMENT_PURCHASE, original.id);
+      await syncExpenseTotals([i.relinkTo], true, { paymentsChanged: true });
+      await syncPurchaseOrderTotals([i.docId], true, { paymentsChanged: true });
     } else if (i.kind === 'orphan' && i.relinkTo) {
       await updateDocument<BaseDoc & Record<string, unknown>>(meta.paymentCollection, i.paymentId, {
         [meta.parentField]: i.relinkTo,
@@ -130,8 +152,19 @@ export function PaymentsAuditPanel({ initialArea = 'all', onClose }: Props) {
     }
   };
 
+  /* "Move to bill" no entra en Fix all: cada uno se revisa y se confirma. */
   const isFixable = (i: AuditIssue): boolean =>
     canFix(i) && (i.kind === 'out-of-sync' || i.kind === 'no-records' || (i.kind === 'orphan' && !!i.relinkTo));
+
+  const moveToBill = async (i: AuditIssue) => {
+    if (
+      !window.confirm(
+        `Move the ${fmtMoney(i.paymentAmount)} payment of lot ${i.docLabel} from the grower to the bill ${i.relinkLabel}?`,
+      )
+    )
+      return;
+    await fixOne(i);
+  };
 
   const fixOne = async (i: AuditIssue) => {
     setBusy(i.id);
@@ -179,6 +212,8 @@ export function PaymentsAuditPanel({ initialArea = 'all', onClose }: Props) {
       return <button type="button" className="inline-lines__btn inline-lines__btn--save" disabled={disabled} onClick={() => void fixOne(i)}>Sync</button>;
     if (i.kind === 'no-records')
       return <button type="button" className="inline-lines__btn inline-lines__btn--save" disabled={disabled} onClick={() => void fixOne(i)}>Create record</button>;
+    if (i.kind === 'misplaced')
+      return <button type="button" className="inline-lines__btn inline-lines__btn--save" disabled={disabled} onClick={() => void moveToBill(i)}>Move to bill {i.relinkLabel}</button>;
     if (i.kind === 'orphan' && i.relinkTo)
       return <button type="button" className="inline-lines__btn inline-lines__btn--save" disabled={disabled} onClick={() => void fixOne(i)}>Link to {i.relinkLabel}</button>;
     if (i.kind === 'orphan')
