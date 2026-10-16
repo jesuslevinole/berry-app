@@ -2,17 +2,15 @@ import { useMemo, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useCollection } from '../../hooks/useCollection';
 import { useCatalog, type CatalogOption } from '../../hooks/useCatalog';
-import { deleteDocument, replaceChildren, updateDocument } from '../../services/firestore';
+import { deleteDocument, replaceChildren } from '../../services/firestore';
 import { COLLECTIONS, type Expense, type PurchaseOrder } from '../../types/models';
-import { byNewest, fmtDate, fmtMoney, round2 } from '../../utils/format';
+import { byNewest, fmtDate, fmtMoney } from '../../utils/format';
 import { DataTable, type Column } from '../../components/ui/DataTable';
 import { ViewTabs } from '../../components/ui/ViewTabs';
 import { PaymentsView } from '../payments/PaymentsView';
 import { Toolbar } from '../../components/ui/Toolbar';
 import { DataPortButtons } from '../../components/ui/DataPortButtons';
 import { EXPENSES_SCHEMAS } from '../../config/entitySchemas';
-import { Modal } from '../../components/ui/Modal';
-import { PaymentsPanel } from '../payments/PaymentsPanel';
 import { ExpenseForm } from './ExpenseForm';
 import { ExpenseDetailPanel } from './ExpenseDetailPanel';
 import { isPayableSupplier } from '../../services/balances';
@@ -32,7 +30,6 @@ export function ExpensesView() {
   const [formOpen, setFormOpen] = useState(false);
   const [viewing, setViewing] = useState<Expense | null>(null);
   const [editing, setEditing] = useState<Expense | null>(null);
-  const [paymentsFor, setPaymentsFor] = useState<Expense | null>(null);
 
   const lotOf = useMemo(() => {
     const map = new Map(purchaseOrders.map((po) => [po.id, po.LOT_NUMBER || po.REF_NUMBER || po.id]));
@@ -81,36 +78,7 @@ export function ExpensesView() {
         </span>
       ),
     },
-    {
-      key: 'payments',
-      header: '',
-      align: 'center',
-      width: '52px',
-      render: (exp) => (
-        <button
-          type="button"
-          className="btn btn--icon expenses__pay-btn"
-          aria-label="Payments"
-          title="Payments"
-          onClick={(e) => {
-            e.stopPropagation();
-            setPaymentsFor(exp);
-          }}
-        >
-          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8">
-            <path d="M12 2v20M17 6.5c0-1.9-2.2-3-5-3s-5 1.1-5 3 2 2.7 5 3.4 5 1.5 5 3.6-2.2 3-5 3-5-1.1-5-3" />
-          </svg>
-        </button>
-      ),
-    },
   ];
-
-  const handleTotalPaidChange = async (exp: Expense, totalPaid: number) => {
-    await updateDocument<Expense>(COLLECTIONS.EXPENSES, exp.id, {
-      PAY_AMOUNT: totalPaid,
-      BALANCE: round2((exp.AMOUNT ?? 0) - totalPaid),
-    });
-  };
 
   /** Borrado desde la tabla: pagos + gasto, en segundo plano. */
   /** Borra un gasto con sus pagos (sin preguntar: quien llama confirma). */
@@ -201,23 +169,6 @@ export function ExpensesView() {
         onClose={() => setFormOpen(false)}
       />
 
-      {paymentsFor && (
-        <Modal
-          title={`Payments — Invoice ${paymentsFor.INVOICE_NUMBER || lotOf(paymentsFor.ID_PURCHASEORDER)}`}
-          open
-          onClose={() => setPaymentsFor(null)}
-          wide
-        >
-          <PaymentsPanel
-            moduleId="expenses"
-            collectionName={COLLECTIONS.PAYMENT_BILL}
-            parentField="ID_EXPENSES"
-            parentId={paymentsFor.id}
-            expectedTotal={paymentsFor.AMOUNT ?? 0}
-            onTotalPaidChange={(totalPaid) => handleTotalPaidChange(paymentsFor, totalPaid)}
-          />
-        </Modal>
-      )}
     </div>
   );
 }
