@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
-import { collection, documentId, getDocs, query, where } from 'firebase/firestore';
-import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
-import { COLLECTIONS, type Company } from '../../types/models';
+import { getCompanyBrands } from '../../services/companyBrandService';
+import type { CompanyBrand } from '../../types/models';
 import './CompanyChooser.css';
 
 /**
@@ -11,25 +10,26 @@ import './CompanyChooser.css';
  */
 export function CompanyChooser() {
   const { memberships, chooseCompany, logout, profile } = useAuth();
-  const [names, setNames] = useState<Record<string, string>>({});
+  const [brands, setBrands] = useState<Record<string, CompanyBrand>>({});
   const [selected, setSelected] = useState('');
 
   const companyIds = memberships.map((m) => m.companyId ?? '').filter(Boolean);
 
-  /* Nombres de las empresas donde tiene acceso. */
+  const companyKey = companyIds.join(',');
+
+  /* Nombre y logo de cada empresa donde tiene acceso. */
   useEffect(() => {
-    if (companyIds.length === 0) return;
-    void getDocs(
-      query(collection(db, COLLECTIONS.COMPANIES), where(documentId(), 'in', companyIds.slice(0, 10))),
-    )
-      .then((snap) => {
-        const map: Record<string, string> = {};
-        for (const d of snap.docs) map[d.id] = (d.data() as Company).name ?? d.id;
-        setNames(map);
-      })
-      .catch(() => setNames({}));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [companyIds.join(',')]);
+    if (!companyKey) return;
+    let cancelled = false;
+    const loadBrands = async () => {
+      const found = await getCompanyBrands(companyKey.split(','));
+      if (!cancelled) setBrands(found);
+    };
+    void loadBrands();
+    return () => {
+      cancelled = true;
+    };
+  }, [companyKey]);
 
   return (
     <div className="chooser">
@@ -44,6 +44,8 @@ export function CompanyChooser() {
           {memberships.map((m) => {
             const id = m.companyId ?? '';
             if (!id) return null;
+            const brand = brands[id];
+            const companyName = brand?.name || `Company ${id.slice(0, 6)}`;
             return (
               <button
                 key={m.id}
@@ -51,7 +53,14 @@ export function CompanyChooser() {
                 className={`chooser__option${selected === id ? ' chooser__option--active' : ''}`}
                 onClick={() => setSelected(id)}
               >
-                <span className="chooser__option-name">{names[id] ?? `Company ${id.slice(0, 6)}`}</span>
+                <span className="chooser__option-brand">
+                  {brand?.logo ? (
+                    <img className="chooser__option-logo" src={brand.logo} alt="" />
+                  ) : (
+                    <span className="chooser__option-initial" aria-hidden="true">{companyName.charAt(0)}</span>
+                  )}
+                  <span className="chooser__option-name">{companyName}</span>
+                </span>
                 <span className="chooser__option-role">{m.status === 'Inactive' ? 'Inactive' : 'Active'}</span>
               </button>
             );

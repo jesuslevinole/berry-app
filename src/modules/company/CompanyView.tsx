@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useCompany } from '../../hooks/useCompany';
 import { Toolbar } from '../../components/ui/Toolbar';
 import type { CompanyBank } from '../../types/models';
+import { BrandColorPicker } from './BrandColorPicker';
 import './CompanyView.css';
 
 const MAX_LOGO_BYTES = 400 * 1024;
@@ -26,6 +27,7 @@ export function CompanyView() {
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [logo, setLogo] = useState('');
+  const [brandColor, setBrandColor] = useState('');
   const [banks, setBanks] = useState<CompanyBank[]>([]);
 
   useEffect(() => {
@@ -36,6 +38,7 @@ export function CompanyView() {
     setPhone(company.phone);
     setEmail(company.email);
     setLogo(company.logo);
+    setBrandColor(company.brandColor ?? '');
     setBanks(company.banks ?? []);
   }, [company, loading]);
 
@@ -69,6 +72,7 @@ export function CompanyView() {
       phone: phone.trim(),
       email: email.trim(),
       logo,
+      brandColor,
       banks: cleanBanks,
     });
     alert('Company information saved.');
@@ -76,7 +80,7 @@ export function CompanyView() {
 
   return (
     <div className="company">
-      <Toolbar title="Company Info" subtitle="Logo, contact details and bank accounts">
+      <Toolbar title="Company Info" subtitle="Logo, name, brand color, contact details and bank accounts">
         {canEdit && (
           <button type="button" className="btn btn--primary" onClick={handleSave}>Save changes</button>
         )}
@@ -108,7 +112,7 @@ export function CompanyView() {
                 {logo && (
                   <button type="button" className="btn btn--secondary" onClick={() => setLogo('')}>Remove</button>
                 )}
-                <p className="company__hint">PNG or JPG, max 400 KB. Used on checks and exports.</p>
+                <p className="company__hint">PNG or JPG, max 400 KB. Shown in the menu, the sign-in page and every document.</p>
               </div>
             )}
           </div>
@@ -132,6 +136,9 @@ export function CompanyView() {
 
           <label className="company__label" htmlFor="co-email">Email</label>
           <input id="co-email" className="input" type="email" value={email} disabled={!canEdit} onChange={(e) => setEmail(e.target.value)} />
+
+          <span className="company__label">Brand color</span>
+          <BrandColorPicker value={brandColor} onChange={setBrandColor} disabled={!canEdit} />
         </section>
 
         <section className="company__card">

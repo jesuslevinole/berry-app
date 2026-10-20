@@ -1,0 +1,78 @@
+/* Barras horizontales por empresa. El largo llega como --level (0-100 %). */
+.revenue-company {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.revenue-company__row {
+  align-items: center;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(120px, 34%) 1fr;
+  outline: none;
+  position: relative;
+}
+
+.revenue-company__name {
+  color: var(--ink);
+  font-size: 0.85rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.revenue-company__track {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* El valor necesita su espacio: la barra llega como maximo al 75 % del carril. */
+.revenue-company__bar {
+  background-color: var(--green-600);
+  border-radius: 0 4px 4px 0;
+  height: 18px;
+  max-width: 75%;
+  min-width: 2px;
+  transition: background-color 0.15s ease;
+  width: calc(var(--level) * 0.75);
+}
+
+.revenue-company__row:hover .revenue-company__bar,
+.revenue-company__row:focus-visible .revenue-company__bar {
+  background-color: var(--green-800);
+}
+
+.revenue-company__value {
+  color: var(--ink);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.revenue-company__tip {
+  background-color: var(--ink);
+  border-radius: 8px;
+  bottom: calc(100% + 6px);
+  color: #ffffff;
+  font-size: 12px;
+  left: 34%;
+  opacity: 0;
+  padding: 6px 10px;
+  pointer-events: none;
+  position: absolute;
+  transition: opacity 0.12s ease;
+  white-space: nowrap;
+  z-index: 5;
+}
+
+.revenue-company__row:hover .revenue-company__tip,
+.revenue-company__row:focus-visible .revenue-company__tip {
+  opacity: 1;
+}

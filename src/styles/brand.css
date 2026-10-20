@@ -125,6 +125,17 @@ textarea.input { resize: vertical; min-height: 64px; }
    Oscuros con texto claro para que se distingan del contenido.
    Para cambiar el tono basta con estas dos variables.
    ============================================================ */
+/* Marca de la plataforma (Integrated Results): landing page. No cambia por empresa. */
+:root {
+  --ir-green: #04724D;
+  --ir-lime: #CFF27E;
+  --ir-mist: #F7F7F9;
+  --ir-navy: #011636;
+  --ir-navy-soft: rgba(1, 22, 54, 0.6);
+  --ir-slate: #CACAD6;
+  --ir-steel: #26547C;
+}
+
 :root {
   --table-head-bg: var(--green-700);
   --table-head-ink: #FFFFFF;

@@ -1,0 +1,45 @@
+/* Color de marca de la empresa (Company Info). */
+.brand-color { display: flex; flex-direction: column; gap: 10px; }
+
+.brand-color__presets { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; }
+
+.brand-color__preset {
+  background: var(--swatch);
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--line-strong);
+  cursor: pointer;
+  height: 30px;
+  padding: 0;
+  width: 30px;
+}
+.brand-color__preset:hover { box-shadow: 0 0 0 2px var(--ink); }
+.brand-color__preset--active { box-shadow: 0 0 0 3px var(--ink); }
+.brand-color__preset:disabled { cursor: default; }
+
+.brand-color__custom {
+  align-items: center;
+  color: var(--ink);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 0.82rem;
+  font-weight: 600;
+  gap: 6px;
+}
+
+.brand-color__input {
+  background: none;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  height: 30px;
+  min-height: 0;
+  padding: 2px;
+  width: 40px;
+}
+
+.brand-color__scale { border-radius: var(--radius-sm); display: flex; height: 22px; overflow: hidden; }
+
+.brand-color__shade { background: var(--swatch); flex: 1; }
+
+.brand-color__hint { color: var(--muted); font-size: 0.78rem; margin: 0; }

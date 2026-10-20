@@ -1,0 +1,135 @@
+/* Columnas de ingreso mensual. La altura llega como --level (0-100 %). */
+.revenue-monthly {
+  --tick-width: 52px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.revenue-monthly__plot {
+  height: 220px;
+  margin-top: 18px;
+  position: relative;
+}
+
+/* Lineas de la escala: hairline, recesivas. */
+.revenue-monthly__grid {
+  border-top: 1px solid var(--line);
+  bottom: var(--level);
+  left: var(--tick-width);
+  position: absolute;
+  right: 0;
+}
+
+.revenue-monthly__tick {
+  color: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  left: calc(-1 * var(--tick-width));
+  padding-right: 8px;
+  position: absolute;
+  text-align: right;
+  transform: translateY(-50%);
+  width: var(--tick-width);
+}
+
+.revenue-monthly__columns {
+  bottom: 0;
+  display: grid;
+  grid-auto-columns: 1fr;
+  grid-auto-flow: column;
+  left: var(--tick-width);
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
+.revenue-monthly__slot {
+  align-items: flex-end;
+  cursor: default;
+  display: flex;
+  justify-content: center;
+  outline: none;
+  position: relative;
+}
+
+.revenue-monthly__column {
+  background-color: var(--green-600);
+  border-radius: 4px 4px 0 0;
+  height: var(--level);
+  position: relative;
+  transition: background-color 0.15s ease;
+  width: min(24px, 60%);
+}
+
+.revenue-monthly__slot:hover .revenue-monthly__column,
+.revenue-monthly__slot:focus-visible .revenue-monthly__column {
+  background-color: var(--green-800);
+}
+
+/* Valor sobre la columna (solo el mes mas alto y el actual). */
+.revenue-monthly__cap {
+  bottom: 100%;
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 600;
+  left: 50%;
+  margin-bottom: 4px;
+  position: absolute;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.revenue-monthly__tip {
+  background-color: var(--ink);
+  border-radius: 8px;
+  bottom: calc(var(--level) + 24px);
+  box-shadow: var(--shadow);
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  font-size: 12px;
+  gap: 2px;
+  left: 50%;
+  opacity: 0;
+  padding: 8px 10px;
+  pointer-events: none;
+  position: absolute;
+  transform: translateX(-50%);
+  transition: opacity 0.12s ease;
+  white-space: nowrap;
+  z-index: 5;
+}
+
+.revenue-monthly__slot:hover .revenue-monthly__tip,
+.revenue-monthly__slot:focus-visible .revenue-monthly__tip {
+  opacity: 1;
+}
+
+.revenue-monthly__tip-title {
+  font-weight: 700;
+}
+
+.revenue-monthly__tip-muted {
+  opacity: 0.75;
+}
+
+.revenue-monthly__axis {
+  display: grid;
+  grid-auto-columns: 1fr;
+  grid-auto-flow: column;
+  padding-left: var(--tick-width);
+}
+
+.revenue-monthly__label {
+  color: var(--muted);
+  font-size: 11px;
+  text-align: center;
+}
+
+/* En pantallas chicas se rotula un mes si y uno no (el tooltip y la tabla tienen todos). */
+@media (max-width: 620px) {
+  .revenue-monthly__label:nth-child(even) {
+    visibility: hidden;
+  }
+}

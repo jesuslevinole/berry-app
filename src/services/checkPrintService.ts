@@ -140,12 +140,16 @@ export function printCheck(
   .words-dollars { font-size: 10.5px; font-weight: 700; }
   /* Direccion del beneficiario un poco mas abajo (ventana del sobre). */
   .payee-address { margin: 0.52in 0 0 0.9in; font-size: 11.5px; line-height: 1.5; }
-  /* Memo y firma por encima de la franja azul del papel de cheque (antes de la banda MICR). */
-  .bottom { display: flex; justify-content: space-between; align-items: flex-end; margin-top: auto; gap: 20px; padding-bottom: 0.2in; }
-  .memo { flex: 1; font-size: 10px; display: flex; align-items: flex-end; gap: 6px; }
+  /* Memo y firma por encima de la franja azul del papel de cheque (antes de la banda MICR).
+     Las dos lineas son el borde inferior de su caja, asi quedan a la misma altura; la del
+     memo llega hasta la firma. "Signature" cuelga debajo de su linea, en el espacio que
+     deja el padding (la linea de la firma no se movio de lugar). */
+  .bottom { align-items: flex-end; display: flex; gap: 14px; margin-top: auto; padding-bottom: calc(0.2in + 14px); }
+  .memo { align-items: flex-end; display: flex; flex: 1; font-size: 10px; gap: 6px; }
   .memo .lbl { font-weight: 700; }
-  .memo .val { flex: 0 1 260px; border-bottom: 1px solid #111; padding: 0 4px 1px; min-height: 12px; }
-  .sig { width: 240px; border-top: 1px solid #111; text-align: center; font-size: 8.5px; font-weight: 700; padding-top: 3px; }
+  .memo .val { border-bottom: 1px solid #111; flex: 1; min-height: 12px; padding: 0 4px 1px; }
+  .sig { border-bottom: 1px solid #111; flex: 0 0 240px; min-height: 12px; position: relative; }
+  .sig-label { font-size: 8.5px; font-weight: 700; left: 0; padding-top: 3px; position: absolute; right: 0; text-align: center; top: 100%; }
   /* Banda MICR: 5/8in libre al pie del cheque (estandar bancario). */
   /* Datos bancarios centrados en la banda MICR. */
   /* Linea bancaria mas arriba; Memo y firma se quedan en su lugar. */
@@ -209,7 +213,7 @@ export function printCheck(
 
     <div class="bottom">
       <div class="memo"><span class="lbl">Memo:</span><span class="val">${esc(check.MEMO || '')}</span></div>
-      <div class="sig">${signature ? esc(signature) : 'Signature'}</div>
+      <div class="sig"><span class="sig-label">${signature ? esc(signature) : 'Signature'}</span></div>
     </div>
 
     ${showBank && bank?.routing ? `<div class="micr">\u2448${check.CHECK_NUMBER}\u2448&nbsp;&nbsp;\u2446${esc(bank.routing)}\u2446&nbsp;&nbsp;${esc(bank.account)}\u2448</div>` : '<div class="micr"></div>'}

@@ -19,9 +19,9 @@ import {
   type PurchaseOrder,
   type SalesOrder,
   type SalesOrderDetail,
-  type SystemUser,
 } from '../../types/models';
 import './InventoryView.css';
+import { useCompanyUsers } from '../../hooks/useCompanyUsers';
 
 type InventoryTab = 'stock' | 'movements';
 type MovementType = 'all' | 'in' | 'out';
@@ -138,7 +138,7 @@ export function InventoryView() {
   const growers = useCatalog(COLLECTIONS.GROWER, 'NAME_GROWER');
   const customers = useCatalog(COLLECTIONS.CUSTOMER, 'NAME_CUSTOMER');
   const legacyUsers = useCatalog(COLLECTIONS.USERS, 'EMAIL_USERS');
-  const { data: systemUsers } = useCollection<SystemUser>(COLLECTIONS.SYSTEM_USERS);
+  const { data: systemUsers } = useCompanyUsers();
   /* Productos que llevan inventario (los servicios/cargos quedan fuera). */
   const { tracksInventory, showsInInventory, lineDescription } = useInventoryItems();
   const [itemsOpen, setItemsOpen] = useState(false);

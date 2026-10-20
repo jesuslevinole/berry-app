@@ -32,15 +32,31 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/system_users/$(request.auth.uid));
     }
 
+    // 'Pending Approval' = dueno de una empresa recien registrada que la
+    // plataforma aun no aprueba: todavia no entra a los datos de la empresa.
     function isActive() {
-      return myProfileExists() && me().status != 'Inactive';
+      return myProfileExists()
+        && me().status != 'Inactive'
+        && me().status != 'Pending Approval';
     }
 
-    // Administrador de la plataforma (crea empresas y migra datos).
-    // Se reconoce por el flag en su perfil O por email, para que el dueno del
-    // SaaS nunca quede bloqueado fuera de su propia plataforma.
+    // Administrador de la plataforma (Admin Panel: crea empresas, suscripciones).
+    // Por email: los duenos fijos (misma lista que PLATFORM_ADMIN_EMAILS en
+    // services/tenant.ts) o los agregados en platform_admins/{email}. Exige el
+    // email verificado: si no, cualquiera podria crear una cuenta con ese correo.
+    function isPlatformOwner() {
+      return signedIn()
+        && request.auth.token.email_verified == true
+        && request.auth.token.email in ['jesuslevinole@gmail.com', 'mdo.cesar@gmail.com'];
+    }
+
     function isPlatformAdminEmail() {
-      return signedIn() && request.auth.token.email in ['jesuslevinole@gmail.com'];
+      return isPlatformOwner()
+        || (
+          signedIn()
+          && request.auth.token.email_verified == true
+          && exists(/databases/$(database)/documents/platform_admins/$(request.auth.token.email))
+        );
     }
 
     function isPlatformAdmin() {
@@ -57,7 +73,8 @@ service cloud.firestore {
     function hasMembership(companyId) {
       return signedIn()
         && exists(membershipPath(companyId))
-        && get(membershipPath(companyId)).data.status != 'Inactive';
+        && get(membershipPath(companyId)).data.status != 'Inactive'
+        && get(membershipPath(companyId)).data.status != 'Pending Approval';
     }
 
     // El usuario pertenece a esa empresa: por su perfil principal o por una
@@ -66,22 +83,37 @@ service cloud.firestore {
       return (isActive() && me().companyId == companyId) || hasMembership(companyId);
     }
 
+    function companyCard(companyId) {
+      return get(/databases/$(database)/documents/companies/$(companyId)).data;
+    }
+
+    // Quien registro la empresa, mientras la plataforma no la aprueba.
+    function isPendingOwner(companyId) {
+      return signedIn()
+        && companyCard(companyId).status == 'Pending'
+        && companyCard(companyId).get('ownerUid', '') == request.auth.uid;
+    }
+
     // ---- Empresas ---------------------------------------------------------
 
     match /companies/{companyId} {
       // La ficha (incluida la suscripcion: trial, pagos, exempt) la LEE quien
       // pertenece a la empresa, pero solo la plataforma la crea o modifica:
       // ninguna empresa puede extenderse su propia prueba ni marcarse pagada.
-      allow read: if belongsTo(companyId) || isPlatformAdmin();
+      // Su dueno tambien la lee mientras espera la aprobacion.
+      allow read: if belongsTo(companyId)
+        || isPlatformAdmin()
+        || (signedIn() && resource.data.get('ownerUid', '') == request.auth.uid);
 
-      // Auto-registro: cualquier usuario autenticado puede crear SU empresa,
-      // pero nunca exenta ni con periodo pagado: eso solo lo otorga la plataforma.
+      // Auto-registro: cualquier usuario autenticado puede crear SU empresa, pero
+      // nace 'Pending' (la plataforma la aprueba) y nunca exenta ni pagada.
       allow create: if isPlatformAdmin()
         || (
           signedIn()
-          && request.resource.data.exempt != true
+          && request.resource.data.ownerUid == request.auth.uid
+          && request.resource.data.status == 'Pending'
+          && request.resource.data.get('exempt', false) != true
           && !('paidThrough' in request.resource.data)
-          && request.resource.data.status == 'Active'
         );
 
       // La suscripcion (trial, pagos, exencion) solo la modifica la plataforma.
@@ -92,6 +124,14 @@ service cloud.firestore {
       // historial de actividad y papelera cuelgan de aqui.
       match /{document=**} {
         allow read, write: if belongsTo(companyId) || isPlatformAdmin();
+      }
+
+      // Empresa pendiente: el dueno solo prepara su rol y su ficha (registro).
+      match /settings_roles/{roleId} {
+        allow read, write: if isPendingOwner(companyId);
+      }
+      match /settings_company/{docId} {
+        allow read, write: if isPendingOwner(companyId);
       }
     }
 
@@ -108,15 +148,17 @@ service cloud.firestore {
         );
 
       // Alta de usuarios: dentro de la propia empresa, o el perfil propio al
-      // registrarse (auto-registro: el dueno crea su primer usuario).
+      // registrarse (auto-registro: el dueno crea su primer usuario, en espera,
+      // y solo en la empresa pendiente que el mismo acaba de crear).
       allow create: if isPlatformAdmin()
         || (isActive() && request.resource.data.companyId == me().companyId)
         || (isActive() && hasMembership(request.resource.data.companyId))
         || (
           signedIn()
           && request.auth.uid == userId
-          && request.resource.data.isPlatformAdmin != true
-          && exists(/databases/$(database)/documents/companies/$(request.resource.data.companyId))
+          && request.resource.data.get('isPlatformAdmin', false) != true
+          && request.resource.data.status == 'Pending Approval'
+          && isPendingOwner(request.resource.data.companyId)
         );
 
       // Edicion y baja: el usuario no puede cambiarse de empresa a si mismo.
@@ -132,11 +174,28 @@ service cloud.firestore {
           signedIn()
           && request.auth.uid == userId
           && request.resource.data.companyId == resource.data.companyId
-          && request.resource.data.isPlatformAdmin != true
+          && request.resource.data.status == resource.data.status
+          && request.resource.data.get('isPlatformAdmin', false) != true
         );
 
       allow delete: if isPlatformAdmin()
         || (isActive() && resource.data.companyId == me().companyId);
+    }
+
+    // ---- Administradores de la plataforma ----------------------------------
+    // Los ven los administradores; solo los duenos fijos (isPlatformOwner, que
+    // no se pueden quitar) agregan o quitan administradores.
+    match /platform_admins/{email} {
+      // Cada quien puede ver si su propio email fue agregado (para pedirle que lo verifique).
+      allow read: if isPlatformAdmin()
+        || (signedIn() && request.auth.token.email == email);
+      allow write: if isPlatformOwner();
+    }
+
+    // ---- Historial de pagos de suscripcion (dashboard de ingresos) ---------
+    // Global y solo de la plataforma: ninguna empresa ve lo que pagan las demas.
+    match /platform_payments/{paymentId} {
+      allow read, write: if isPlatformAdmin();
     }
 
     // ---- Colecciones legadas en la raiz -----------------------------------

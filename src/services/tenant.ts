@@ -7,19 +7,19 @@
  */
 
 /**
- * Administradores de la plataforma por email. Sirven de llave maestra: entran
- * aunque su perfil todavia no tenga empresa asignada, para poder crear la
- * primera compania y migrar los datos.
+ * Duenos de la plataforma (fijos, no se pueden quitar desde el app). Entran al
+ * Admin Panel y pueden agregar mas administradores (coleccion platform_admins).
+ * La misma lista esta en firestore.rules: si cambia aqui, cambiala alla.
  */
-export const PLATFORM_ADMIN_EMAILS = ['jesuslevinole@gmail.com'];
+export const PLATFORM_ADMIN_EMAILS = ['jesuslevinole@gmail.com', 'mdo.cesar@gmail.com'];
 
-/** true si el email administra la plataforma (independiente del flag en Firestore). */
+/** true si el email es de un dueno fijo de la plataforma. */
 export function isPlatformAdminEmail(email?: string | null): boolean {
   return !!email && PLATFORM_ADMIN_EMAILS.includes(email.trim().toLowerCase());
 }
 
 /** Colecciones globales de la plataforma (viven en la raiz, fuera de toda empresa). */
-export const GLOBAL_COLLECTIONS = new Set<string>(['companies', 'system_users']);
+export const GLOBAL_COLLECTIONS = new Set<string>(['companies', 'system_users', 'platform_admins', 'platform_payments']);
 
 /** Ruta imposible: si no hay empresa activa, las consultas devuelven vacio en vez de leer la raiz. */
 const NO_COMPANY_PATH = 'companies/__none__';

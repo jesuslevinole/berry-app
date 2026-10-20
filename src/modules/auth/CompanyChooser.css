@@ -79,3 +79,20 @@
   cursor: pointer;
 }
 .chooser__back:hover { color: var(--ink); }
+
+/* Logo o inicial de cada empresa. */
+.chooser__option-brand { align-items: center; display: flex; gap: 12px; min-width: 0; }
+.chooser__option-logo { border-radius: 8px; height: 36px; max-width: 72px; object-fit: contain; width: auto; }
+.chooser__option-initial {
+  align-items: center;
+  background: var(--green-100);
+  border-radius: 8px;
+  color: var(--green-700);
+  display: inline-flex;
+  flex-shrink: 0;
+  font-size: 1rem;
+  font-weight: 800;
+  height: 36px;
+  justify-content: center;
+  width: 36px;
+}

@@ -10,6 +10,7 @@ import { initializeApp, deleteApp } from 'firebase/app';
 import {
   createUserWithEmailAndPassword,
   getAuth,
+  sendEmailVerification,
   sendPasswordResetEmail,
   signOut,
   type ActionCodeSettings,
@@ -62,4 +63,21 @@ export async function createUserWithResetEmail(email: string): Promise<CreateUse
 /** Reenvia el email de establecer/restablecer contraseña a una cuenta existente. */
 export async function resendPasswordReset(email: string): Promise<void> {
   await sendPasswordResetEmail(auth, email, actionCodeSettings());
+}
+
+/** Envia al usuario conectado el correo para verificar su email (requisito del Admin Panel). */
+export async function sendMyEmailVerification(): Promise<void> {
+  if (auth.currentUser) await sendEmailVerification(auth.currentUser, actionCodeSettings());
+}
+
+/**
+ * Vuelve a leer la cuenta despues de verificar el email y renueva el token, para
+ * que las reglas de Firestore ya vean email_verified. Devuelve si quedo verificado.
+ */
+export async function refreshEmailVerified(): Promise<boolean> {
+  const user = auth.currentUser;
+  if (!user) return false;
+  await user.reload();
+  await user.getIdToken(true);
+  return user.emailVerified;
 }

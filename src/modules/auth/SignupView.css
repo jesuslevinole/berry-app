@@ -1,106 +1,232 @@
+/* Registro de empresa con la linea visual de la landing: azul marino, Sora y
+   verde lima (colores --ir-* de brand.css). */
 .signup {
+  align-items: center;
+  animation: signup-fade 0.5s ease both;
+  background-color: var(--ir-navy);
+  display: flex;
+  flex-direction: column;
+  font-family: 'Sora', var(--f-body);
+  gap: 22px;
+  justify-content: center;
   min-height: 100vh;
-  display: grid;
-  place-items: center;
-  background: var(--canvas);
-  padding: 28px 16px;
+  padding: 32px 16px;
 }
 
 .signup__card {
+  animation: signup-rise 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  background-color: #ffffff;
+  border-radius: 20px;
+  box-shadow: 0 30px 70px -30px rgba(0, 0, 0, 0.7);
+  color: var(--ir-navy);
+  max-width: 640px;
+  padding: 34px 36px;
   width: 100%;
-  max-width: 620px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  padding: 30px 32px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08);
 }
 
-.signup__title { margin: 0 0 6px; font-size: 1.5rem; color: var(--ink); }
-.signup__hint { margin: 0 0 22px; font-size: 0.88rem; color: var(--muted); line-height: 1.5; }
+/* Logo blanco de la plataforma, arriba de la tarjeta (lleva a la landing). */
+.signup__brand {
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: block;
+  padding: 0;
+  transition: transform 0.2s ease;
+}
+
+.signup__brand:hover {
+  transform: translateY(-2px);
+}
+
+.signup__brand-logo {
+  display: block;
+  height: 72px;
+  width: auto;
+}
+
+/* Paso actual del registro (1 de 2, 2 de 2). */
+.signup__step {
+  color: var(--ir-green);
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  margin: 0 0 8px;
+  text-transform: uppercase;
+}
+
+.signup__title {
+  color: var(--ir-navy);
+  font-size: 1.7rem;
+  font-weight: 300;
+  margin: 0 0 6px;
+}
+
+.signup__hint {
+  color: var(--ir-navy-soft);
+  font-size: 0.88rem;
+  line-height: 1.5;
+  margin: 0 0 22px;
+}
 
 .signup__grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
   gap: 14px;
+  grid-template-columns: 1fr 1fr;
 }
 
-.signup__field { display: flex; flex-direction: column; gap: 6px; }
-.signup__field--wide { grid-column: 1 / -1; }
+.signup__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.signup__field--wide {
+  grid-column: 1 / -1;
+}
 
 .signup__label {
-  font-size: 0.74rem;
-  font-weight: 700;
+  color: var(--ir-navy);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--muted);
 }
 
 .signup__input {
-  border: 1px solid var(--line-strong);
-  border-radius: 9px;
-  padding: 10px 12px;
+  background-color: var(--ir-mist);
+  border: 1px solid var(--ir-slate);
+  border-radius: 8px;
+  color: var(--ir-navy);
   font-family: inherit;
   font-size: 0.92rem;
-  color: var(--ink);
-  background: var(--surface);
+  padding: 10px 12px;
+  transition: border-color 0.15s, box-shadow 0.15s, background-color 0.15s;
 }
-.signup__input:focus { outline: none; border-color: var(--green-500); }
-.signup__input--file { padding: 8px 10px; font-size: 0.82rem; }
+
+.signup__input:focus {
+  background-color: #ffffff;
+  border-color: var(--ir-steel);
+  box-shadow: 0 0 0 3px rgba(207, 242, 126, 0.6);
+  outline: none;
+}
+
+.signup__input--file {
+  font-size: 0.82rem;
+  padding: 8px 10px;
+}
 
 .signup__logo-preview {
-  grid-column: 1 / -1;
-  display: flex;
   align-items: center;
-  justify-content: center;
-  border: 1px dashed var(--line-strong);
+  border: 1px dashed var(--ir-slate);
   border-radius: 10px;
+  display: flex;
+  grid-column: 1 / -1;
+  justify-content: center;
   padding: 10px;
 }
-.signup__logo-preview img { max-height: 64px; max-width: 180px; object-fit: contain; }
+
+.signup__logo-preview img {
+  max-height: 64px;
+  max-width: 180px;
+  object-fit: contain;
+}
 
 .signup__message {
-  margin-top: 16px;
-  border-radius: 9px;
-  padding: 10px 12px;
-  font-size: 0.85rem;
-  background: var(--bad-bg);
+  background-color: var(--bad-bg);
+  border-radius: 8px;
   color: var(--bad);
+  font-size: 0.85rem;
+  margin-top: 16px;
+  padding: 10px 12px;
 }
 
+/* Boton principal: el verde lima de la landing. */
 .signup__submit {
-  width: 100%;
-  margin-top: 20px;
+  background-color: var(--ir-lime);
   border: 0;
-  border-radius: 10px;
-  background: var(--green-600);
-  color: #ffffff;
+  border-radius: 999px;
+  color: var(--ir-navy);
+  cursor: pointer;
   font-family: inherit;
   font-size: 0.95rem;
-  font-weight: 700;
+  font-weight: 600;
+  margin-top: 22px;
   padding: 13px 16px;
-  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+  width: 100%;
 }
-.signup__submit:hover:not(:disabled) { background: var(--green-700); }
-.signup__submit:disabled { opacity: 0.6; cursor: default; }
+
+.signup__submit:hover:not(:disabled) {
+  background-color: var(--ir-navy);
+  color: #ffffff;
+  transform: translateY(-2px);
+}
+
+.signup__submit:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
 
 .signup__back {
-  width: 100%;
-  margin-top: 10px;
-  border: 0;
   background: transparent;
-  color: var(--green-600);
+  border: 0;
+  color: var(--ir-navy);
+  cursor: pointer;
   font-family: inherit;
   font-size: 0.86rem;
   font-weight: 600;
+  margin-top: 10px;
   padding: 8px;
-  cursor: pointer;
+  width: 100%;
 }
-.signup__back:hover { text-decoration: underline; }
 
-.signup__note { margin: 16px 0 0; font-size: 0.78rem; color: var(--muted); line-height: 1.5; }
+.signup__back:hover {
+  color: var(--ir-green);
+  text-decoration: underline;
+}
+
+.signup__back:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.signup__note {
+  color: var(--ir-navy-soft);
+  font-size: 0.78rem;
+  line-height: 1.5;
+  margin: 16px 0 0;
+}
+
+@keyframes signup-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes signup-rise {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+}
 
 @media (max-width: 620px) {
-  .signup__grid { grid-template-columns: 1fr; }
-  .signup__card { padding: 24px 20px; }
+  .signup__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .signup__card {
+    padding: 24px 20px;
+  }
+
+  .signup__brand-logo {
+    height: 56px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .signup,
+  .signup__card {
+    animation: none;
+  }
 }

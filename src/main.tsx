@@ -4,6 +4,10 @@ import ReactDOM from 'react-dom/client';
 // que los CSS de cada componente sobrescriben despues.
 import './styles/brand.css';
 import App from './App';
+import { applyBrandTheme, readCachedBrand } from './utils/brandTheme';
+
+/* Antes del primer render: el login ya sale con el color de la ultima empresa usada. */
+applyBrandTheme(readCachedBrand()?.color);
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>

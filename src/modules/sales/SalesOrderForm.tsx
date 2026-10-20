@@ -6,7 +6,7 @@ import { useCatalog, type CatalogOption } from '../../hooks/useCatalog';
 import { useInventoryItems } from '../../hooks/useInventoryItems';
 import { useCollection } from '../../hooks/useCollection';
 import { createDocument, deleteDocument, listDocuments, replaceChildren, updateDocument } from '../../services/firestore';
-import { COLLECTIONS, SALES_STATUSES, type PurchaseDetail, type SalesOrder, type SalesOrderDetail, type SalesStatus, type SystemUser } from '../../types/models';
+import { COLLECTIONS, SALES_STATUSES, type PurchaseDetail, type SalesOrder, type SalesOrderDetail, type SalesStatus } from '../../types/models';
 import { fmtMoney, round2, todayISO } from '../../utils/format';
 import { confirmClose, Modal } from '../../components/ui/Modal';
 import { ConfigurableGrid, FormField } from '../../components/ui/FormField';
@@ -14,6 +14,7 @@ import { CatalogSelect } from '../../components/ui/CatalogSelect';
 import { SearchableSelect } from '../../components/ui/SearchableSelect';
 import { LineItemsEditor, lineTotal, sumLineTotals, type LineDraft } from '../../components/ui/LineItemsEditor';
 import './SalesOrderForm.css';
+import { useCompanyUsers } from '../../hooks/useCompanyUsers';
 
 /** Suma dias a una fecha ISO (yyyy-mm-dd) sin desfase de zona horaria. */
 const addDaysISO = (iso: string, days: number): string => {
@@ -43,7 +44,7 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
   const { can } = useAuth();
   const { missingRequired } = useAppConfig();
   const customers = useCatalog(COLLECTIONS.CUSTOMER, 'NAME_CUSTOMER');
-  const { data: systemUsers } = useCollection<SystemUser>(COLLECTIONS.SYSTEM_USERS);
+  const { data: systemUsers } = useCompanyUsers();
   const { data: allSalesOrders } = useCollection<SalesOrder>(COLLECTIONS.SALES_ORDER);
   /* Descripcion del catalogo de Commodities (acepta ID de documento o ID_COMMODITIES). */
   const { descriptionOf } = useInventoryItems();

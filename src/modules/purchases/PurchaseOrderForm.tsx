@@ -6,7 +6,6 @@ import { useCatalog } from '../../hooks/useCatalog';
 import { useInventoryItems } from '../../hooks/useInventoryItems';
 import { useCollection } from '../../hooks/useCollection';
 import { isAutoLot, nextLotForGrower } from '../../services/lotNumberService';
-import type { SystemUser } from '../../types/models';
 import { createDocument, listDocuments, replaceChildren, updateDocument, deleteDocument } from '../../services/firestore';
 import { COLLECTIONS, type PurchaseDetail, type PurchaseOrder } from '../../types/models';
 import { fmtMoney, round2, todayISO, toNumber } from '../../utils/format';
@@ -22,6 +21,7 @@ import {
   type LineDraft,
 } from '../../components/ui/LineItemsEditor';
 import './PurchaseOrderForm.css';
+import { useCompanyUsers } from '../../hooks/useCompanyUsers';
 
 interface PurchaseOrderFormProps {
   open: boolean;
@@ -37,7 +37,7 @@ export function PurchaseOrderForm({ open, initial, onClose }: PurchaseOrderFormP
   /* Descripcion del catalogo de Commodities (acepta ID de documento o ID_COMMODITIES). */
   const { descriptionOf } = useInventoryItems();
   const customers = useCatalog(COLLECTIONS.CUSTOMER, 'NAME_CUSTOMER');
-  const { data: systemUsers } = useCollection<SystemUser>(COLLECTIONS.SYSTEM_USERS);
+  const { data: systemUsers } = useCompanyUsers();
   const carriers = useCatalog(COLLECTIONS.CARRIER, 'NAME_CARRIER');
   const paymentTerms = useCatalog(COLLECTIONS.PAYMENTTERM, 'NAME_PAYMENTTERM');
   const locations = useCatalog(COLLECTIONS.LOCATIONS, 'NAME_LOCATIONS');

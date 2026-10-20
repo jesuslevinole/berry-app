@@ -38,6 +38,28 @@
 }
 .companies__empty { padding: 26px 14px; text-align: center; color: var(--muted); font-size: 0.88rem; }
 .companies__denied { padding: 26px 0; color: var(--muted); }
+/* Estado de la empresa (Active, Pending, Suspended). */
+.companies__status {
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 2px 8px;
+}
+
+.companies__status--active {
+  color: var(--ok);
+}
+
+.companies__status--pending {
+  background-color: var(--warn-bg);
+  color: var(--warn);
+}
+
+.companies__status--suspended {
+  background-color: var(--bad-bg);
+  color: var(--bad);
+}
+
 .companies__hint { margin-top: 14px; font-size: 0.82rem; color: var(--muted); }
 .companies__log {
   margin-top: 14px;

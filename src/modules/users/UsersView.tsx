@@ -1,7 +1,13 @@
 import { useMemo, useState } from 'react';
 import { byNewest } from '../../utils/format';
-import { doc, deleteDoc, setDoc, updateDoc, where } from 'firebase/firestore';
-import { db } from '../../firebase/config';
+import { where } from '../../services/firestore';
+import {
+  createPendingUser,
+  deleteSystemUser,
+  moveSystemUser,
+  pendingUserId,
+  updateSystemUser,
+} from '../../services/systemUsersService';
 import { useAuth } from '../../context/AuthContext';
 import { confirmClose } from '../../components/ui/Modal';
 import { useCollection } from '../../hooks/useCollection';
@@ -10,10 +16,6 @@ import { createUserWithResetEmail, resendPasswordReset } from '../../services/us
 import { Toolbar } from '../../components/ui/Toolbar';
 import { SearchableSelect } from '../../components/ui/SearchableSelect';
 import './UsersView.css';
-
-/** Doc ID deterministico basado en email para usuarios aun sin cuenta de Auth. */
-const emailToPendingId = (email: string): string =>
-  `pending_${email.toLowerCase().trim().replace(/[^a-zA-Z0-9]/g, '_')}`;
 
 interface UserDraft {
   id: string;
@@ -26,6 +28,7 @@ interface UserDraft {
 
 const STATUS_META: Record<SystemUserStatus, { label: string; className: string }> = {
   'Pending Invite': { label: 'Pending invite', className: 'pending' },
+  'Pending Approval': { label: 'Pending approval', className: 'pending' },
   Active: { label: 'Active', className: 'active' },
   Inactive: { label: 'Inactive', className: 'inactive' },
 };
@@ -119,14 +122,11 @@ export function UsersView() {
 
         if (emailChanged && editing.id.startsWith('pending_')) {
           /* Sin cuenta de Auth todavia: migrar el doc al nuevo ID deterministico. */
-          const newId = emailToPendingId(email);
-          const { id: _omit, ...base } = editing;
-          void _omit;
-          await setDoc(doc(db, COLLECTIONS.SYSTEM_USERS, newId), { ...base, ...payload, companyId });
-          await deleteDoc(doc(db, COLLECTIONS.SYSTEM_USERS, editing.id));
+          const { id: oldId, ...base } = editing;
+          await moveSystemUser(oldId, pendingUserId(companyId, email), { ...base, ...payload, companyId });
           return;
         }
-        await updateDoc(doc(db, COLLECTIONS.SYSTEM_USERS, editing.id), payload);
+        await updateSystemUser(editing.id, payload);
         if (emailChanged && editing.inviteSent) {
           alert(
             'Email changed for an already-invited user.\n\n' +
@@ -141,16 +141,11 @@ export function UsersView() {
          Lleva la empresa activa: sin companyId el usuario no aparecia en la lista
          (se filtra por empresa) y las reglas lo rechazaban para quien no es admin
          de la plataforma. */
-      const id = emailToPendingId(email);
-      await setDoc(doc(db, COLLECTIONS.SYSTEM_USERS, id), {
-        companyId,
+      await createPendingUser(companyId, {
         firstName,
         lastName: draft.lastName.trim(),
         email,
         roleId: draft.roleId,
-        status: 'Pending Invite',
-        inviteSent: false,
-        createdAt: new Date().toISOString(),
       });
     };
     persist().catch((error: unknown) =>
@@ -173,7 +168,7 @@ export function UsersView() {
       return;
     const id = draft.id;
     setModalOpen(false);
-    deleteDoc(doc(db, COLLECTIONS.SYSTEM_USERS, id)).catch((error: unknown) =>
+    deleteSystemUser(id).catch((error: unknown) =>
       alert(`Failed to delete user: ${(error as Error).message ?? 'Unknown error'}`),
     );
   };
@@ -196,23 +191,19 @@ export function UsersView() {
         const result = await createUserWithResetEmail(user.email);
         /* Migrar el doc pending_ al UID real de Auth para lookups consistentes. */
         if (result.uid && result.uid !== user.id) {
-          const { id: _omit, ...base } = user;
-          void _omit;
-          await setDoc(doc(db, COLLECTIONS.SYSTEM_USERS, result.uid), {
+          /* Cuenta de Auth nueva: su uid no tiene membresias en ninguna otra empresa. */
+          const { id: oldId, ...base } = user;
+          await moveSystemUser(oldId, result.uid, {
             companyId,
             ...base,
             inviteSent: true,
             inviteSentAt: new Date().toISOString(),
           });
-          await deleteDoc(doc(db, COLLECTIONS.SYSTEM_USERS, user.id));
           finalId = result.uid;
         }
       }
       if (finalId === user.id) {
-        await updateDoc(doc(db, COLLECTIONS.SYSTEM_USERS, user.id), {
-          inviteSent: true,
-          inviteSentAt: new Date().toISOString(),
-        });
+        await updateSystemUser(user.id, { inviteSent: true, inviteSentAt: new Date().toISOString() });
       }
       alert(`Invitation email sent to ${user.email}.`);
     } catch (error) {
@@ -229,7 +220,7 @@ export function UsersView() {
       return;
     }
     if (!window.confirm(`Delete ${user.firstName} ${user.lastName}?\n\nIf they were invited, also remove their account in Firebase Console > Authentication to fully revoke access.`)) return;
-    deleteDoc(doc(db, COLLECTIONS.SYSTEM_USERS, user.id)).catch((error: unknown) =>
+    deleteSystemUser(user.id).catch((error: unknown) =>
       alert(`Failed to delete user: ${(error as Error).message ?? 'Unknown error'}`),
     );
   };

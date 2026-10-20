@@ -6,6 +6,9 @@ export const TRIAL_DAYS = 7;
 /** Dias que cubre un pago registrado (mensualidad). */
 export const PAID_PERIOD_DAYS = 30;
 
+/** Dias antes del corte en que el panel Admin la marca "por vencer". */
+export const EXPIRING_SOON_DAYS = 7;
+
 export type BillingState =
   | 'Exempt'
   | 'Trial'
@@ -47,7 +50,7 @@ export function addDays(days: number, fromIso?: string): string {
 
 /**
  * Estado de cobro de una empresa, calculado en el momento:
- * - Exempt: no se le cobra nunca (empresa fundadora).
+ * - Exempt ("No payment required"): via libre, no se le cobra ni se le bloquea nunca.
  * - Suspended: dada de baja manualmente, se bloquea.
  * - Paid: tiene periodo pagado vigente.
  * - Trial: dentro de los dias de prueba.
@@ -60,7 +63,7 @@ export function addDays(days: number, fromIso?: string): string {
  */
 export function billingInfoOf(company: Company): BillingInfo {
   if (company.exempt) {
-    return { state: 'Exempt', daysLeft: null, active: true, label: 'Exempt' };
+    return { state: 'Exempt', daysLeft: null, active: true, label: 'No payment required' };
   }
   if (company.status === 'Suspended') {
     return { state: 'Suspended', daysLeft: null, active: false, label: 'Suspended' };
@@ -111,3 +114,29 @@ export function billingInfoOf(company: Company): BillingInfo {
 export function newCompanyBilling(): Pick<Company, 'trialStartsAt' | 'trialEndsAt'> {
   return { trialStartsAt: addDays(0), trialEndsAt: addDays(TRIAL_DAYS) };
 }
+
+/** Grupo de una empresa en el panel Admin de la plataforma. */
+export type SubscriptionGroup = 'pending' | 'active' | 'expiring' | 'expired' | 'suspended' | 'exempt' | 'noPlan';
+
+export const subscriptionGroupOf = (company: Company): SubscriptionGroup => {
+  if (company.status === 'Pending') return 'pending';
+  const billing = billingInfoOf(company);
+  if (billing.state === 'Exempt') return 'exempt';
+  if (billing.state === 'Suspended') return 'suspended';
+  if (!billing.active) return 'expired';
+  if (billing.daysLeft === null) return 'noPlan';
+  return billing.daysLeft <= EXPIRING_SOON_DAYS ? 'expiring' : 'active';
+};
+
+/** Ultimo dia con acceso: el periodo pagado manda sobre la prueba. */
+export const accessEndsOf = (company: Company): string => company.paidThrough ?? company.trialEndsAt ?? '';
+
+/**
+ * Nuevo fin del periodo pagado al registrar un pago. Si todavia tiene dias pagados
+ * se suman al final (no pierde lo que ya pago); si esta vencida, cuenta desde hoy.
+ */
+export const nextPaidThrough = (company: Company, periods: number): string => {
+  const left = daysUntil(company.paidThrough);
+  const from = left !== null && left >= 0 ? company.paidThrough : undefined;
+  return addDays(PAID_PERIOD_DAYS * periods, from);
+};

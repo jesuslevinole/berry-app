@@ -4,7 +4,7 @@ import { useCollection } from '../../hooks/useCollection';
 import { useCatalog, type CatalogOption } from '../../hooks/useCatalog';
 import { useInventoryItems } from '../../hooks/useInventoryItems';
 import { deleteDocument, listDocuments, updateDocument, where } from '../../services/firestore';
-import { COLLECTIONS, type PurchaseOrder, type SalesOrder, type SystemUser, type SalesOrderDetail, type PaymentSales } from '../../types/models';
+import { COLLECTIONS, type PurchaseOrder, type SalesOrder, type SalesOrderDetail, type PaymentSales } from '../../types/models';
 import { byNewest, fmtDate, fmtMoney, round2 } from '../../utils/format';
 import { DataTable, type Column } from '../../components/ui/DataTable';
 import { ViewTabs } from '../../components/ui/ViewTabs';
@@ -42,6 +42,7 @@ import { DocumentPicker } from '../../components/ui/DocumentPicker';
 import { syncAllSalesOrderTotals } from '../../services/orderTotalsService';
 import { SalesExcelModal } from './SalesExcelModal';
 import './SalesDeskView.css';
+import { useCompanyUsers } from '../../hooks/useCompanyUsers';
 
 export function SalesDeskView() {
   const { can } = useAuth();
@@ -49,7 +50,7 @@ export function SalesDeskView() {
   const { data: purchaseOrders } = useCollection<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER);
   const customers = useCatalog(COLLECTIONS.CUSTOMER, 'NAME_CUSTOMER');
   const legacyUsers = useCatalog(COLLECTIONS.USERS, 'EMAIL_USERS');
-  const { data: systemUsers } = useCollection<SystemUser>(COLLECTIONS.SYSTEM_USERS);
+  const { data: systemUsers } = useCompanyUsers();
   const suppliers = useCatalog(COLLECTIONS.SUPPLIERS, 'NAME_SUPPLIERS');
   const locations = useCatalog(COLLECTIONS.LOCATIONS, 'NAME_LOCATIONS');
   const carriers = useCatalog(COLLECTIONS.CARRIER, 'NAME_CARRIER');

@@ -1,0 +1,78 @@
+.platform-admins {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.platform-admins__add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.platform-admins__input {
+  flex: 1 1 260px;
+  max-width: 420px;
+}
+
+.platform-admins__error {
+  background-color: var(--bad-bg);
+  border-radius: 9px;
+  color: var(--bad);
+  font-size: 0.85rem;
+  padding: 10px 12px;
+}
+
+.platform-admins__card {
+  background-color: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.platform-admins__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.platform-admins__item {
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px 16px;
+}
+
+.platform-admins__item:last-child {
+  border-bottom: none;
+}
+
+.platform-admins__email {
+  color: var(--ink);
+  flex: 1 1 220px;
+  font-weight: 600;
+}
+
+.platform-admins__meta {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.platform-admins__badge {
+  background-color: var(--green-100);
+  border-radius: 8px;
+  color: var(--green-700);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 2px 8px;
+  text-transform: uppercase;
+}
+
+.platform-admins__hint {
+  color: var(--muted);
+  font-size: 0.82rem;
+  margin: 0;
+}

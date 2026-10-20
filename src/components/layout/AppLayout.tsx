@@ -3,12 +3,12 @@ import { useAuth } from '../../context/AuthContext';
 import { useAppConfig } from '../../context/AppConfigContext';
 import { APP_VERSION, APP_AUTHOR } from '../../config/version';
 import { NotificationsBell } from './NotificationsBell';
-import { CompanySwitcher } from './CompanySwitcher';
 import { billingInfoOf } from '../../services/billingService';
 import { useCompany } from '../../hooks/useCompany';
+import { PLATFORM_BRAND } from '../../config/platformBrand';
 import './AppLayout.css';
 
-export type ViewKey = 'dashboard' | 'purchases' | 'sales' | 'expenses' | 'catalogs' | 'lots' | 'inventory' | 'queue' | 'apgrowers' | 'ap' | 'ar' | 'expensesreport' | 'activity' | 'trash' | 'checks' | 'emails' | 'company' | 'users' | 'roles' | 'config' | 'companies';
+export type ViewKey = 'dashboard' | 'purchases' | 'sales' | 'expenses' | 'catalogs' | 'lots' | 'inventory' | 'queue' | 'apgrowers' | 'ap' | 'ar' | 'expensesreport' | 'activity' | 'trash' | 'checks' | 'emails' | 'company' | 'users' | 'roles' | 'config';
 
 export const VIEW_TITLES: Record<ViewKey, string> = {
   dashboard: 'Dashboard',
@@ -31,7 +31,6 @@ export const VIEW_TITLES: Record<ViewKey, string> = {
   users: 'System Users',
   roles: 'Roles & Permissions',
   config: 'Configurator',
-  companies: 'Companies',
 };
 
 const NAV_ITEMS: Array<{ key: ViewKey; label: string; icon: ReactNode }> = [
@@ -219,16 +218,6 @@ const NAV_ITEMS: Array<{ key: ViewKey; label: string; icon: ReactNode }> = [
       </svg>
     ),
   },
-  {
-    key: 'companies',
-    label: 'Companies',
-    icon: (
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8">
-        <path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-5h6v5" />
-        <path d="M9 10h1M14 10h1M9 13h1M14 13h1" />
-      </svg>
-    ),
-  },
 ];
 
 interface AppLayoutProps {
@@ -243,15 +232,20 @@ export function AppLayout({ view, onNavigate, children }: AppLayoutProps) {
   const { can, profile, firebaseUser, bypass, logout, viewAsProfile, setViewAs, isPlatformAdmin, company: subscription } = useAuth();
   /* Aviso de prueba gratuita o vencimiento proximo. */
   const billing = subscription ? billingInfoOf(subscription) : null;
+  /* "Subscription not set" (sin datos de cobro) solo le interesa a la plataforma. */
+  const subscriptionNotSet = !!billing && billing.state === 'Trial' && billing.daysLeft === null;
   const showTrialNotice =
-    !!billing && (billing.state === 'Trial' || (billing.state === 'Paid' && (billing.daysLeft ?? 99) <= 5));
+    !!billing &&
+    (subscriptionNotSet
+      ? isPlatformAdmin
+      : billing.state === 'Trial' || (billing.state === 'Paid' && (billing.daysLeft ?? 99) <= 5));
 
   const { sortNav, navLabel, navParentOf, navGroups, navOrderList } = useAppConfig();
   const { company } = useCompany();
   const visibleItems = sortNav(
     NAV_ITEMS.filter((item) =>
       /* Companies es de la plataforma, no de las empresas cliente. */
-      item.key === 'companies' ? isPlatformAdmin : can(item.key, 'view'),
+      can(item.key, 'view'),
     ),
   );
 
@@ -323,7 +317,7 @@ export function AppLayout({ view, onNavigate, children }: AppLayoutProps) {
             <span className="sidebar__logo" aria-hidden="true">{(company.name || 'B').charAt(0)}</span>
           )}
           <span className="sidebar__brand-text">
-            <strong>{company.name || 'Berry Source'}</strong>
+            <strong>{company.name || PLATFORM_BRAND.name}</strong>
             <small>Operations</small>
           </span>
         </div>
@@ -487,7 +481,6 @@ export function AppLayout({ view, onNavigate, children }: AppLayoutProps) {
               {billing.label}
             </span>
           )}
-          {isPlatformAdmin && <CompanySwitcher />}
           <NotificationsBell />
           <div className="topbar__user">
             <span className="topbar__avatar">{initials}</span>

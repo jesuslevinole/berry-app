@@ -4,6 +4,7 @@ import { useEmailTemplates, type TemplateContent } from '../../hooks/useEmailTem
 import { defaultTemplate } from '../../services/emailTemplates';
 import { CUSTOMER_TARGETS, bundleDocsLabel } from '../../config/emailDocs';
 import { useEmailBundles } from '../../hooks/useEmailBundles';
+import { useCompany } from '../../hooks/useCompany';
 import type { CustomerEmailTarget, EmailKey } from '../../types/models';
 import './EmailTemplatesPanel.css';
 
@@ -21,7 +22,7 @@ const SAMPLE: Record<string, string> = {
   total: '$6,000.00',
   date: '9/16/2026',
   due_date: '10/1/2026',
-  company: 'Berry Source, LC',
+  company: 'Your Company, LLC',
   count: '2',
   start_date: '4/1/2026',
   end_date: '9/28/2026',
@@ -34,6 +35,9 @@ const SAMPLE: Record<string, string> = {
 export function EmailTemplatesPanel({ canEdit, initialKey = 'invoice' }: Props) {
   const { templateFor, saveTemplate, saveCustomerTo, saveWarehouseTo, loading } = useEmailTemplates();
   const { targets } = useEmailBundles();
+  const { company } = useCompany();
+  /* La vista previa usa el nombre real de la empresa activa. */
+  const previewValues = { ...SAMPLE, company: company.name || SAMPLE.company };
   const [doc, setDoc] = useState<EmailKey>(initialKey);
   const target = targets.find((t) => t.key === doc);
   const docLabel = target?.label ?? doc;
@@ -166,7 +170,7 @@ export function EmailTemplatesPanel({ canEdit, initialKey = 'invoice' }: Props) 
               onSubjectChange={(subject) => update({ subject })}
               onBodyChange={(body) => update({ body })}
               editorKey={`${doc}-${version}`}
-              previewValues={SAMPLE}
+              previewValues={previewValues}
               disabled={!canEdit || busy}
             />
             {canEdit && (

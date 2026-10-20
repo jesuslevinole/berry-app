@@ -1,0 +1,153 @@
+.platform {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ---- Tarjetas por estado ---- */
+.platform__kpis {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.platform__kpi {
+  background-color: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--green-600);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  font-family: var(--f-body);
+  gap: 4px;
+  padding: 16px 18px;
+  text-align: left;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.platform__kpi:hover {
+  border-color: var(--green-400);
+  transform: translateY(-1px);
+}
+
+.platform__kpi--expiring {
+  border-left-color: var(--warn);
+}
+
+.platform__kpi--expired {
+  border-left-color: var(--bad);
+}
+
+.platform__kpi--pending {
+  border-left-color: var(--muted);
+}
+
+.platform__kpi--exempt {
+  border-left-color: var(--green-400);
+}
+
+.platform__kpi-label {
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.platform__kpi-count {
+  color: var(--green-800);
+  font-family: var(--f-display);
+  font-size: 27px;
+}
+
+.platform__kpi-hint {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* ---- Tabla ---- */
+.platform__actions {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+}
+
+/* Botones de fila mas compactos: caben los tres en una linea. */
+.platform__action {
+  font-size: 12px;
+  padding: 6px 10px;
+}
+
+.platform__company,
+.platform__state-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.platform__muted {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.platform__state {
+  align-self: flex-start;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 2px 8px;
+}
+
+.platform__state--active {
+  background-color: var(--ok-bg);
+  color: var(--ok);
+}
+
+.platform__state--expiring {
+  background-color: var(--warn-bg);
+  color: var(--warn);
+}
+
+.platform__state--expired,
+.platform__state--suspended {
+  background-color: var(--bad-bg);
+  color: var(--bad);
+}
+
+.platform__state--pending,
+.platform__state--noPlan {
+  background-color: var(--green-50);
+  color: var(--muted);
+}
+
+.platform__state--exempt {
+  background-color: var(--green-100);
+  color: var(--green-700);
+}
+
+.platform__hint,
+.platform__denied {
+  color: var(--muted);
+  font-size: 0.82rem;
+  margin: 0;
+}
+
+@media (max-width: 1100px) {
+  .platform__kpis {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .platform__kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .platform__kpis {
+    grid-template-columns: 1fr;
+  }
+}

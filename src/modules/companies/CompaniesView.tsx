@@ -1,47 +1,31 @@
 import { useEffect, useMemo, useState } from 'react';
-import { collection, doc, getDocs, serverTimestamp, setDoc, writeBatch } from 'firebase/firestore';
-import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import { useCollection } from '../../hooks/useCollection';
 import { Toolbar } from '../../components/ui/Toolbar';
 import { confirmClose, Modal } from '../../components/ui/Modal';
 import { FormField, FormGrid } from '../../components/ui/FormField';
+import { ToggleSwitch } from '../../components/ui/ToggleSwitch';
 import { createDocument, updateDocument } from '../../services/firestore';
-import { pathForCompany } from '../../services/tenant';
+import { copyLegacyCollection, LEGACY_TENANT_COLLECTIONS } from '../../services/legacyMigrationService';
+import { updateSystemUser } from '../../services/systemUsersService';
+import { approveCompany } from '../../services/companyAdminService';
 import { COLLECTIONS, type Company, type SystemUser } from '../../types/models';
 import './CompaniesView.css';
 
-/** Colecciones de negocio que viven dentro de cada empresa (para migrar datos legados). */
-const TENANT_COLLECTIONS: string[] = [
-  COLLECTIONS.PURCHASE_ORDER,
-  COLLECTIONS.PURCHASE_DETAILS,
-  COLLECTIONS.SALES_ORDER,
-  COLLECTIONS.SALES_ORDER_DETAIL,
-  COLLECTIONS.EXPENSES,
-  COLLECTIONS.PAYMENT_SALES,
-  COLLECTIONS.PAYMENT_BILL,
-  COLLECTIONS.CUSTOMER,
-  COLLECTIONS.USERS,
-  COLLECTIONS.CATEGORY_BILL,
-  COLLECTIONS.GROWER,
-  COLLECTIONS.CARRIER,
-  COLLECTIONS.LOCATIONS,
-  COLLECTIONS.COMMODITIES,
-  COLLECTIONS.SUPPLIERS,
-  COLLECTIONS.SHIPVIA,
-  COLLECTIONS.TERMSHIPPING,
-  COLLECTIONS.PAYMENT_METHOD,
-  COLLECTIONS.PAYMENTTERM,
-  COLLECTIONS.CHECKS,
-  COLLECTIONS.ROLES,
-  COLLECTIONS.APP_SETTINGS,
-  COLLECTIONS.COMPANY,
-];
+const emptyDraft = (): Omit<Company, 'id'> => ({ name: '', code: '', status: 'Active', notes: '', exempt: false });
 
-const emptyDraft = (): Omit<Company, 'id'> => ({ name: '', code: '', status: 'Active', notes: '' });
+const STATUS_LABELS: Record<Company['status'], string> = {
+  Active: 'Active',
+  Pending: 'Pending approval',
+  Suspended: 'Suspended',
+};
+
+/** Pendientes de aprobacion primero; despues por nombre. */
+const byPendingThenName = (a: Company, b: Company): number =>
+  Number(b.status === 'Pending') - Number(a.status === 'Pending') || a.name.localeCompare(b.name);
 
 export function CompaniesView() {
-  const { isPlatformAdmin, companyId, switchCompany, profile, needsCompanySetup } = useAuth();
+  const { isPlatformAdmin, companyId, firebaseUser } = useAuth();
   const { data: companies, loading } = useCollection<Company>(COLLECTIONS.COMPANIES);
   const { data: users } = useCollection<SystemUser>(COLLECTIONS.SYSTEM_USERS);
 
@@ -51,11 +35,12 @@ export function CompaniesView() {
   const [draft, setDraft] = useState<Omit<Company, 'id'>>(emptyDraft());
   const [saving, setSaving] = useState(false);
   const [migrating, setMigrating] = useState('');
+  const [approving, setApproving] = useState('');
   const [migrationLog, setMigrationLog] = useState<string[]>([]);
 
   useEffect(() => {
     if (!formOpen) return;
-    setDraft(editing ? { name: editing.name, code: editing.code ?? '', status: editing.status, notes: editing.notes ?? '' } : emptyDraft());
+    setDraft(editing ? { name: editing.name, code: editing.code ?? '', status: editing.status, notes: editing.notes ?? '', exempt: editing.exempt ?? false } : emptyDraft());
   }, [formOpen, editing]);
 
   const usersPerCompany = useMemo(() => {
@@ -71,7 +56,7 @@ export function CompaniesView() {
     const term = search.trim().toLowerCase();
     return companies
       .filter((c) => !term || [c.name, c.code ?? ''].join(' ').toLowerCase().includes(term))
-      .sort((a, b) => a.name.localeCompare(b.name));
+      .sort(byPendingThenName);
   }, [companies, search]);
 
   const save = async () => {
@@ -92,6 +77,21 @@ export function CompaniesView() {
     }
   };
 
+  /* Empresa registrada sola: se activa con su prueba gratuita. */
+  const handleApprove = async (company: Company) => {
+    if (!window.confirm(`Approve "${company.name}"? Its owner can start working right away.`)) return;
+    setApproving(company.id);
+    try {
+      await approveCompany(company, users);
+    } catch {
+      alert('The company could not be approved. Try again.');
+    } finally {
+      setApproving('');
+    }
+  };
+
+  const handleExemptToggle = () => setDraft((d) => ({ ...d, exempt: !d.exempt }));
+
   /**
    * Migracion unica: copia los datos que estan en la raiz de Firestore (modelo
    * de una sola empresa) al subarbol companies/{id}. No borra el original, asi
@@ -109,19 +109,9 @@ export function CompaniesView() {
     setMigrationLog([]);
     const log: string[] = [];
     try {
-      for (const colName of TENANT_COLLECTIONS) {
-        const snap = await getDocs(collection(db, colName));
-        if (snap.empty) continue;
-        let written = 0;
-        const docs = snap.docs;
-        for (let start = 0; start < docs.length; start += 400) {
-          const batch = writeBatch(db);
-          for (const d of docs.slice(start, start + 400)) {
-            batch.set(doc(db, pathForCompany(company.id, colName), d.id), { ...d.data(), updatedAt: serverTimestamp() }, { merge: true });
-            written += 1;
-          }
-          await batch.commit();
-        }
+      for (const colName of LEGACY_TENANT_COLLECTIONS) {
+        const written = await copyLegacyCollection(company.id, colName);
+        if (written === 0) continue;
         log.push(`${colName}: ${written}`);
         setMigrationLog([...log]);
       }
@@ -129,7 +119,7 @@ export function CompaniesView() {
       let claimed = 0;
       for (const u of users) {
         if (u.companyId) continue;
-        await setDoc(doc(db, COLLECTIONS.SYSTEM_USERS, u.id), { companyId: company.id }, { merge: true });
+        await updateSystemUser(u.id, { companyId: company.id });
         claimed += 1;
       }
       if (claimed > 0) log.push(`system_users assigned: ${claimed}`);
@@ -164,14 +154,14 @@ export function CompaniesView() {
         </button>
       </Toolbar>
 
-      {needsCompanySetup && (
+      {!loading && companies.length === 0 && (
         <div className="companies__onboarding">
           <h4 className="companies__onboarding-title">Set up your first company</h4>
           <ol className="companies__steps">
             <li>Create the company (for the current data, use <b>Berry Source, LC</b>).</li>
             <li>Press <b>Import legacy data</b> on that company: it copies every existing record
               into it and assigns the users. Nothing is deleted.</li>
-            <li>Press <b>Open</b> to work inside it. From then on the app behaves exactly as before.</li>
+            <li>Sign out and choose it when you sign in. From then on the app behaves exactly as before.</li>
           </ol>
         </div>
       )}
@@ -195,14 +185,19 @@ export function CompaniesView() {
             {rows.map((company) => (
               <tr key={company.id} className={company.id === companyId ? 'companies__row--current' : undefined}>
                 <td className="companies__td companies__td--actions">
+                  {company.status === 'Pending' && (
+                    <button
+                      type="button"
+                      className="btn btn--primary"
+                      disabled={approving === company.id}
+                      onClick={() => void handleApprove(company)}
+                    >
+                      {approving === company.id ? 'Approving\u2026' : 'Approve'}
+                    </button>
+                  )}
                   <button type="button" className="btn btn--secondary" onClick={() => { setEditing(company); setFormOpen(true); }}>
                     Edit
                   </button>
-                  {company.id !== companyId && (
-                    <button type="button" className="btn btn--secondary" onClick={() => switchCompany(company.id)}>
-                      Open
-                    </button>
-                  )}
                   <button
                     type="button"
                     className="btn btn--secondary"
@@ -218,7 +213,12 @@ export function CompaniesView() {
                   {company.id === companyId && <span className="companies__badge">Current</span>}
                 </td>
                 <td className="companies__td companies__td--muted">{company.code || '\u2014'}</td>
-                <td className="companies__td">{company.status}</td>
+                <td className="companies__td">
+                  <span className={`companies__status companies__status--${company.status.toLowerCase()}`}>
+                    {STATUS_LABELS[company.status] ?? company.status}
+                  </span>
+                  {company.exempt && <span className="companies__badge">No payment required</span>}
+                </td>
                 <td className="companies__td companies__td--num">{usersPerCompany.get(company.id) ?? 0}</td>
               </tr>
             ))}
@@ -238,8 +238,8 @@ export function CompaniesView() {
       )}
 
       <p className="companies__hint">
-        Signed in as <b>{profile?.email ?? 'platform admin'}</b>. Switching company reloads the app so
-        no data from the previous company stays in memory.
+        Signed in as <b>{firebaseUser?.email ?? 'platform admin'}</b>. To work inside a company, sign out
+        and choose it when you sign in.
       </p>
 
       <Modal
@@ -267,8 +267,12 @@ export function CompaniesView() {
           <FormField label="Status">
             <select className="input" value={draft.status} onChange={(e) => setDraft((d) => ({ ...d, status: e.target.value as Company['status'] }))}>
               <option value="Active">Active</option>
+              <option value="Pending">Pending approval</option>
               <option value="Suspended">Suspended</option>
             </select>
+          </FormField>
+          <FormField label="No payment required (free access)">
+            <ToggleSwitch on={!!draft.exempt} onToggle={handleExemptToggle} label="No payment required" />
           </FormField>
           <FormField label="Notes" span2>
             <input className="input" value={draft.notes} onChange={(e) => setDraft((d) => ({ ...d, notes: e.target.value }))} />

@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState, type DragEvent } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useAppConfig } from '../../context/AppConfigContext';
-import { useCollection } from '../../hooks/useCollection';
 import { MODULE_DEFS } from '../../config/modules';
 import { FORM_DEFS, isReportDef } from '../../config/formDefs';
-import { COLLECTIONS, type CheckSettings, type FormFieldConfig, type SystemUser } from '../../types/models';
+import type { CheckSettings, FormFieldConfig } from '../../types/models';
 import { SearchableSelect } from '../../components/ui/SearchableSelect';
 import { Toolbar } from '../../components/ui/Toolbar';
 import './ConfigView.css';
+import { useCompanyUsers } from '../../hooks/useCompanyUsers';
 
 
 type Section = 'nav' | 'viewas' | string;
@@ -15,7 +15,7 @@ type Section = 'nav' | 'viewas' | string;
 export function ConfigView() {
   const { canAdmin, viewAsProfile, setViewAs } = useAuth();
   const { sortNav, navLabel, navParentOf, navGroups, navOrderList, saveNavigation, fieldsFor, saveFormFields, checkSettings, saveCheckSettings } = useAppConfig();
-  const { data: systemUsers } = useCollection<SystemUser>(COLLECTIONS.SYSTEM_USERS);
+  const { data: systemUsers } = useCompanyUsers();
 
   const canNav = canAdmin('navOrder');
   const canLabels = canAdmin('formLabels');

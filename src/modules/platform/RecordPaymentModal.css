@@ -1,0 +1,21 @@
+.record-payment__result {
+  background-color: var(--green-50);
+  border-radius: 9px;
+  color: var(--ink);
+  font-size: 0.9rem;
+  margin: 16px 0 0;
+  padding: 10px 12px;
+}
+
+.record-payment__previous {
+  color: var(--muted);
+}
+
+.record-payment__error {
+  background-color: var(--bad-bg);
+  border-radius: 9px;
+  color: var(--bad);
+  font-size: 0.85rem;
+  margin-top: 12px;
+  padding: 10px 12px;
+}

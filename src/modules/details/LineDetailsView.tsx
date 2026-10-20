@@ -18,9 +18,9 @@ import {
   type PurchaseOrder,
   type SalesOrder,
   type SalesOrderDetail,
-  type SystemUser,
 } from '../../types/models';
 import './LineDetailsView.css';
+import { useCompanyUsers } from '../../hooks/useCompanyUsers';
 
 const fmtDate = (iso?: string): string => {
   if (!iso) return '\u2014';
@@ -49,7 +49,7 @@ export function PurchaseDetailsView({ embedded = false }: { embedded?: boolean }
   const { can } = useAuth();
   const { data: lines, loading } = useCollection<PurchaseDetail>(COLLECTIONS.PURCHASE_DETAILS);
   const { data: orders } = useCollection<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER);
-  const { data: systemUsers } = useCollection<SystemUser>(COLLECTIONS.SYSTEM_USERS);
+  const { data: systemUsers } = useCompanyUsers();
   const commodities = useCatalog(COLLECTIONS.COMMODITIES, 'NAME_COMMODITIES');
   const { lineDescription } = useInventoryItems();
   const growers = useCatalog(COLLECTIONS.GROWER, 'NAME_GROWER');
@@ -207,7 +207,7 @@ export function SalesDetailsView({ embedded = false }: { embedded?: boolean }) {
   const { data: lines, loading } = useCollection<SalesOrderDetail>(COLLECTIONS.SALES_ORDER_DETAIL);
   const { data: orders } = useCollection<SalesOrder>(COLLECTIONS.SALES_ORDER);
   const { data: purchaseOrders } = useCollection<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER);
-  const { data: systemUsers } = useCollection<SystemUser>(COLLECTIONS.SYSTEM_USERS);
+  const { data: systemUsers } = useCompanyUsers();
   const commodities = useCatalog(COLLECTIONS.COMMODITIES, 'NAME_COMMODITIES');
   const { lineDescription } = useInventoryItems();
   const customers = useCatalog(COLLECTIONS.CUSTOMER, 'NAME_CUSTOMER');

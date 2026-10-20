@@ -1,0 +1,220 @@
+/* Admin Panel: layout propio, sin el menu de ninguna empresa. */
+.console {
+  background-color: var(--canvas);
+  min-height: 100vh;
+  min-height: 100dvh;
+  text-align: left;
+}
+
+.console__bar {
+  align-items: center;
+  background-color: var(--green-950);
+  color: #ffffff;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  padding: 12px 24px;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.console__brand {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+
+.console__logo {
+  background-color: #ffffff;
+  border-radius: 8px;
+  display: inline-flex;
+  padding: 4px 8px;
+}
+
+.console__logo-img {
+  display: block;
+  height: 30px;
+  width: auto;
+}
+
+.console__brand-sub {
+  border-left: 1px solid rgba(255, 255, 255, 0.25);
+  color: var(--green-100);
+  font-size: 0.86rem;
+  font-weight: 600;
+  padding-left: 10px;
+}
+
+.console__user {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+
+.console__email {
+  color: var(--green-100);
+  font-size: 0.86rem;
+}
+
+/* ---- Menu lateral + contenido ---- */
+.console__body {
+  align-items: start;
+  display: grid;
+  grid-template-columns: 228px minmax(0, 1fr);
+}
+
+.console__nav {
+  background-color: var(--green-950);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  height: calc(100dvh - 60px);
+  padding: 16px 12px;
+  position: sticky;
+  top: 60px;
+}
+
+.console__nav-item {
+  align-items: center;
+  background: none;
+  border: none;
+  border-radius: 10px;
+  color: var(--green-100);
+  cursor: pointer;
+  display: flex;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  gap: 10px;
+  padding: 10px 12px;
+  text-align: left;
+  transition: background-color 0.15s ease;
+}
+
+.console__nav-item:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.console__nav-item--active {
+  background-color: var(--green-700);
+  color: #ffffff;
+}
+
+.console__nav-item--active:hover {
+  background-color: var(--green-700);
+}
+
+.console__nav-icon {
+  display: inline-flex;
+}
+
+.console__nav-label {
+  flex: 1;
+}
+
+.console__nav-badge {
+  background-color: var(--warn-bg);
+  border-radius: 999px;
+  color: var(--warn);
+  font-size: 11px;
+  font-weight: 700;
+  min-width: 20px;
+  padding: 1px 7px;
+  text-align: center;
+}
+
+.console__content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 0 auto;
+  max-width: 1280px;
+  min-width: 0;
+  padding: 22px 24px 40px;
+  width: 100%;
+}
+
+.console__denied {
+  color: var(--muted);
+}
+
+/* ---- Verificacion de email ---- */
+.console__verify {
+  background-color: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  margin: 40px auto 0;
+  max-width: 520px;
+  padding: 28px;
+}
+
+.console__verify-title {
+  color: var(--ink);
+  font-size: 1.3rem;
+  margin: 0 0 8px;
+}
+
+.console__verify-text {
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin: 0 0 16px;
+}
+
+.console__verify-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.console__message {
+  border-radius: 9px;
+  font-size: 0.85rem;
+  margin-bottom: 14px;
+  padding: 10px 12px;
+}
+
+.console__message--ok {
+  background-color: var(--ok-bg);
+  color: var(--ok);
+}
+
+.console__message--error {
+  background-color: var(--bad-bg);
+  color: var(--bad);
+}
+
+@media (max-width: 900px) {
+  .console__body {
+    grid-template-columns: 1fr;
+  }
+
+  .console__nav {
+    flex-direction: row;
+    height: auto;
+    overflow-x: auto;
+    padding: 8px 12px;
+    top: 60px;
+    z-index: 15;
+  }
+
+  .console__nav-item {
+    flex: 0 0 auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .console__bar {
+    padding: 10px 16px;
+  }
+
+  .console__email {
+    display: none;
+  }
+
+  .console__content {
+    padding: 16px;
+  }
+}

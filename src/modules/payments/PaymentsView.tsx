@@ -20,9 +20,9 @@ import {
   type PaymentSales,
   type PurchaseOrder,
   type SalesOrder,
-  type SystemUser,
 } from '../../types/models';
 import './PaymentsView.css';
+import { useCompanyUsers } from '../../hooks/useCompanyUsers';
 
 type Tab = 'in' | 'out' | 'po';
 
@@ -78,7 +78,7 @@ export function PaymentsView({ kind = 'in', embedded = false, moduleId }: Props)
   const { data: salesOrders } = useCollection<SalesOrder>(COLLECTIONS.SALES_ORDER);
   const { data: expenses } = useCollection<Expense>(COLLECTIONS.EXPENSES);
   const { data: purchaseOrders } = useCollection<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER);
-  const { data: systemUsers } = useCollection<SystemUser>(COLLECTIONS.SYSTEM_USERS);
+  const { data: systemUsers } = useCompanyUsers();
   const customers = useCatalog(COLLECTIONS.CUSTOMER, 'NAME_CUSTOMER');
   const suppliers = useCatalog(COLLECTIONS.SUPPLIERS, 'NAME_SUPPLIERS');
   const methods = useCatalog(COLLECTIONS.PAYMENT_METHOD, 'NAME');

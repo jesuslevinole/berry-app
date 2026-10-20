@@ -1,99 +1,108 @@
+/* Login con la misma linea visual de la landing (itgresults.com): azul marino,
+   Sora y verde lima. Colores --ir-* de brand.css (no cambian por empresa). */
 .login {
+  align-items: center;
+  animation: login-fade 0.5s ease both;
+  background-color: var(--ir-navy);
+  box-sizing: border-box;
+  display: flex;
+  font-family: 'Sora', var(--f-body);
+  justify-content: center;
   min-height: 100vh;
   min-height: 100dvh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: var(--green-950);
   padding: 24px;
-  box-sizing: border-box;
 }
 
 .login__card {
+  animation: login-rise 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  box-shadow: 0 30px 70px -30px rgba(0, 0, 0, 0.7);
   display: grid;
   grid-template-columns: 1fr 1fr;
-  width: 100%;
-  max-width: 900px;
-  min-height: 520px;
-  border-radius: 24px;
+  max-width: 940px;
+  min-height: 540px;
   overflow: hidden;
-  box-shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.55);
+  width: 100%;
 }
 
 /* ---- Panel del formulario ---- */
 .login__form-panel {
-  background-color: var(--surface);
-  padding: 56px 48px;
+  background-color: #ffffff;
+  color: var(--ir-navy);
   display: flex;
   flex-direction: column;
   justify-content: center;
+  padding: 56px 48px;
 }
 
 .login__title {
-  margin: 0 0 6px 0;
+  color: var(--ir-navy);
   font-size: 2rem;
-  font-weight: 800;
-  color: var(--ink);
+  font-weight: 300;
+  margin: 0 0 6px 0;
   text-align: center;
 }
 
 .login__hint {
+  color: var(--ir-navy-soft);
+  font-size: 0.9rem;
   margin: 0 0 28px 0;
   text-align: center;
-  color: var(--muted);
-  font-size: 0.9rem;
 }
 
 .login__label {
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: var(--green-700);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  color: var(--ir-navy);
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
   margin-bottom: 6px;
+  text-transform: uppercase;
 }
 
 .login__input {
-  width: 100%;
+  background-color: var(--ir-mist);
+  border: 1px solid var(--ir-slate);
+  border-radius: 8px;
   box-sizing: border-box;
-  padding: 12px 14px;
-  margin-bottom: 16px;
-  border-radius: 10px;
-  border: 1px solid var(--line-strong);
-  background-color: var(--green-50);
-  color: var(--ink);
+  color: var(--ir-navy);
+  font-family: inherit;
   font-size: 0.95rem;
+  margin-bottom: 16px;
   outline: none;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  padding: 12px 14px;
+  transition: border-color 0.15s, box-shadow 0.15s, background-color 0.15s;
+  width: 100%;
 }
 
 .login__input:focus {
-  border-color: var(--green-500);
-  box-shadow: 0 0 0 3px var(--green-100);
-  background-color: var(--surface);
+  background-color: #ffffff;
+  border-color: var(--ir-steel);
+  box-shadow: 0 0 0 3px rgba(207, 242, 126, 0.6);
 }
 
 .login__forgot {
+  align-self: center;
   background: none;
   border: none;
-  align-self: center;
-  color: var(--muted);
-  font-size: 0.85rem;
+  color: var(--ir-navy-soft);
   cursor: pointer;
+  font-family: inherit;
+  font-size: 0.85rem;
   margin: 4px 0 16px 0;
   padding: 4px;
 }
 
 .login__forgot:hover {
-  color: var(--green-600);
+  color: var(--ir-green);
   text-decoration: underline;
 }
 
 .login__message {
   border-radius: 8px;
-  padding: 10px 12px;
   font-size: 0.85rem;
   margin-bottom: 14px;
+  padding: 10px 12px;
   text-align: center;
 }
 
@@ -107,24 +116,26 @@
   color: var(--ok);
 }
 
+/* Boton principal: el verde lima de la landing. */
 .login__submit {
   align-self: center;
-  min-width: 180px;
-  background-color: var(--green-600);
-  color: #ffffff;
+  background-color: var(--ir-lime);
   border: none;
-  padding: 13px 32px;
-  border-radius: 10px;
-  font-size: 0.95rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  border-radius: 999px;
+  color: var(--ir-navy);
   cursor: pointer;
-  transition: background-color 0.15s, transform 0.1s;
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  min-width: 200px;
+  padding: 13px 32px;
+  transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
 }
 
 .login__submit:hover {
-  background-color: var(--green-700);
+  background-color: var(--ir-navy);
+  color: #ffffff;
+  transform: translateY(-2px);
 }
 
 .login__submit:active {
@@ -134,66 +145,143 @@
 .login__submit:disabled {
   cursor: wait;
   opacity: 0.7;
+  transform: none;
+}
+
+/* Alta publica de empresas. */
+.login__signup {
+  background: transparent;
+  border: 1px solid var(--ir-navy);
+  border-radius: 999px;
+  color: var(--ir-navy);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.86rem;
+  font-weight: 600;
+  margin-top: 12px;
+  padding: 11px 14px;
+  transition: background-color 0.2s ease, color 0.2s ease;
+  width: 100%;
+}
+
+.login__signup:hover {
+  background-color: var(--ir-navy);
+  color: #ffffff;
+}
+
+/* Volver a la landing page. */
+.login__home {
+  align-self: center;
+  background: none;
+  border: none;
+  color: var(--ir-navy-soft);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.85rem;
+  margin-top: 14px;
+  padding: 4px;
+}
+
+.login__home:hover {
+  color: var(--ir-green);
 }
 
 /* ---- Panel de marca ---- */
 .login__brand-panel {
-  background: linear-gradient(160deg, var(--green-600) 0%, var(--green-800) 55%, var(--green-950) 100%);
+  align-items: center;
+  background: linear-gradient(160deg, var(--ir-steel) 0%, var(--ir-navy) 72%);
   color: #ffffff;
-  padding: 56px 48px;
   display: flex;
   flex-direction: column;
-  align-items: center;
   justify-content: center;
+  overflow: hidden;
+  padding: 56px 48px;
+  position: relative;
   text-align: center;
 }
 
-.login__logo {
-  width: 64px;
-  height: 64px;
-  border-radius: 18px;
-  background-color: rgba(255, 255, 255, 0.14);
-  border: 1px solid rgba(255, 255, 255, 0.25);
+/* Columnas de la landing, detras del logo. */
+.login__pillars {
   display: flex;
-  align-items: center;
+  gap: 10px;
+  inset: 0;
   justify-content: center;
-  font-size: 1.8rem;
-  font-weight: 800;
-  margin-bottom: 20px;
+  opacity: 0.3;
+  padding-top: 40px;
+  pointer-events: none;
+  position: absolute;
 }
 
-.login__brand-title {
-  margin: 0;
-  font-size: 2.1rem;
-  font-weight: 800;
-  letter-spacing: 0.01em;
+.login__pillar {
+  animation: login-pillar 3.2s ease-in-out infinite;
+  animation-delay: calc(var(--i) * 0.18s);
+  border: 1px solid var(--ir-steel);
+  height: 180px;
+  width: 52px;
 }
 
-.login__brand-sub {
-  margin: 2px 0 20px 0;
-  font-size: 0.85rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.28em;
-  color: var(--green-100);
+.login__pillar:nth-child(2),
+.login__pillar:nth-child(5) {
+  border-color: var(--ir-lime);
+}
+
+.login__platform-logo {
+  display: block;
+  height: auto;
+  margin-bottom: 28px;
+  max-width: 260px;
+  position: relative;
+  width: 100%;
 }
 
 .login__brand-text {
-  margin: 0 0 26px 0;
-  max-width: 300px;
-  font-size: 0.95rem;
-  line-height: 1.6;
   color: rgba(255, 255, 255, 0.9);
+  font-size: 1.05rem;
+  font-weight: 300;
+  line-height: 1.55;
+  margin: 0 0 26px 0;
+  max-width: 320px;
+  position: relative;
+}
+
+.login__lime {
+  color: var(--ir-lime);
 }
 
 .login__brand-note {
-  margin: 0;
-  max-width: 300px;
+  border-top: 1px solid rgba(255, 255, 255, 0.18);
+  color: rgba(255, 255, 255, 0.6);
   font-size: 0.78rem;
   line-height: 1.5;
-  color: rgba(255, 255, 255, 0.6);
-  border-top: 1px solid rgba(255, 255, 255, 0.18);
+  margin: 0;
+  max-width: 320px;
   padding-top: 18px;
+  position: relative;
+}
+
+@keyframes login-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes login-rise {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+}
+
+@keyframes login-pillar {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scaleY(0.9);
+  }
+  50% {
+    opacity: 1;
+    transform: scaleY(1);
+  }
 }
 
 /* ---- Responsive ---- */
@@ -208,8 +296,15 @@
     padding: 36px 32px;
   }
 
-  .login__brand-text {
+  .login__brand-text,
+  .login__brand-note,
+  .login__pillars {
     display: none;
+  }
+
+  .login__platform-logo {
+    margin-bottom: 0;
+    max-width: 200px;
   }
 
   .login__form-panel {
@@ -217,53 +312,10 @@
   }
 }
 
-/* ---- Bypass de desarrollo ---- */
-.login__bypass {
-  align-self: center;
-  margin-top: 14px;
-  background: none;
-  border: 1px dashed var(--line-strong);
-  color: var(--muted);
-  padding: 8px 18px;
-  border-radius: 8px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: color 0.15s, border-color 0.15s;
+@media (prefers-reduced-motion: reduce) {
+  .login,
+  .login__card,
+  .login__pillar {
+    animation: none;
+  }
 }
-
-.login__bypass:hover {
-  color: var(--green-600);
-  border-color: var(--green-400);
-}
-
-
-/* Logo real de la empresa en el login */
-.login__logo--img {
-  background-color: #ffffff;
-  overflow: hidden;
-  padding: 8px;
-}
-
-.login__logo-img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  display: block;
-}
-
-/* Enlace al alta publica de empresas. */
-.login__signup {
-  width: 100%;
-  margin-top: 12px;
-  border: 1px solid var(--green-500);
-  border-radius: 10px;
-  background: transparent;
-  color: var(--green-600);
-  font-family: inherit;
-  font-size: 0.86rem;
-  font-weight: 700;
-  padding: 11px 14px;
-  cursor: pointer;
-}
-.login__signup:hover { background: var(--green-50); }

@@ -55,6 +55,8 @@ export async function logActivity(
   label = '',
 ): Promise<void> {
   if (INTERNAL_COLLECTIONS.has(colName)) return;
+  /* Sin empresa activa (Admin Panel) no hay historial de empresa donde escribir. */
+  if (!getActiveCompanyId()) return;
   try {
     await addDoc(collection(db, tenantPath(ACTIVITY_COLLECTION)), {
       USER_EMAIL: currentUserEmail(),

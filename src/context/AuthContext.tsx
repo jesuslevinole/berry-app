@@ -8,6 +8,7 @@ import {
 import { collection, deleteDoc, doc, getDocs, limit, onSnapshot, query, setDoc, updateDoc, where } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
 import { resendPasswordReset } from '../services/userAuthService';
+import { isAddedPlatformAdmin } from '../services/platformAdminService';
 import { getActiveCompanyId, isPlatformAdminEmail, setActiveCompanyId, tenantPath } from '../services/tenant';
 import { COLLECTIONS, type Company, type AdminCapability, type AppRole, type PermissionAction, type SystemUser } from '../types/models';
 
@@ -31,26 +32,38 @@ interface AuthContextValue {
   setViewAs: (userId: string | null) => void;
   /** Empresa activa de la sesion (SaaS). */
   companyId: string;
-  /** true si el usuario administra la plataforma (crea empresas, cambia entre ellas). */
+  /** true si el usuario administra la plataforma (Admin Panel), con su email ya verificado. */
   isPlatformAdmin: boolean;
-  /** true cuando el admin de plataforma aun no tiene empresa activa: debe elegir una. */
-  needsCompanySetup: boolean;
+  /** Administrador de la plataforma cuyo email aun no esta verificado: el Admin Panel le pide verificarlo. */
+  platformNeedsVerification: boolean;
+  /** Sesion abierta en el Admin Panel (fuera de toda empresa). */
+  consoleMode: boolean;
   /** Ficha de la empresa activa (suscripcion, nombre); null mientras carga. */
   company: Company | null;
-  /** Cambia de empresa (solo admin de plataforma). */
-  switchCompany: (companyId: string) => void;
   /** Empresas en las que este email tiene acceso (una membresia por empresa). */
   memberships: SystemUser[];
-  /** true cuando el email pertenece a varias empresas y aun no elige una. */
+  /** true mientras el login espera que confirme la empresa (paso "Company"). */
   needsCompanyChoice: boolean;
-  /** Entra a una de sus empresas. */
+  /** Entra a una de sus empresas (paso "Company" del login). */
   chooseCompany: (companyId: string) => void;
+  /** Entra al Admin Panel de la plataforma (paso "Company" del login). */
+  chooseConsole: () => void;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+const COMPANY_OVERRIDE_KEY = 'berry-company-override';
+/** Valor de la eleccion del login que abre el Admin Panel en vez de una empresa. */
+const PLATFORM_CONSOLE_ID = '__platform__';
+
+/** Resultado de buscar el email en platform_admins (se guarda con el email consultado). */
+interface AdminLookup {
+  email: string;
+  isAdmin: boolean;
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
@@ -65,9 +78,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [company, setCompany] = useState<Company | null>(null);
   /* Todas las membresias del email conectado (una por empresa). */
   const [memberships, setMemberships] = useState<SystemUser[]>([]);
+  /* Empresa confirmada en el login. Se guarda para que recargar no la vuelva a
+     pedir y se borra al cerrar sesion: la empresa solo se cambia desde el login. */
   const [overrideCompanyId, setOverrideCompanyId] = useState<string>(
-    () => localStorage.getItem('berry-company-override') ?? '',
+    () => localStorage.getItem(COMPANY_OVERRIDE_KEY) ?? '',
   );
+  const [adminLookup, setAdminLookup] = useState<AdminLookup>({ email: '', isAdmin: false });
   const [viewAsUserId, setViewAsUserId] = useState<string | null>(
     () => sessionStorage.getItem('berry-view-as') || null,
   );
@@ -90,11 +106,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(null);
     setIsBootstrapAdmin(false);
     if (!firebaseUser?.email) {
+      /* Sin sesion: no queda ninguna empresa de la cuenta anterior. */
+      setMemberships([]);
+      setCompanyId('');
       setProfileReady(true);
       return;
     }
     setProfileReady(false);
     const email = firebaseUser.email.toLowerCase();
+    /* El Admin Panel no abre ninguna empresa. */
+    const companyOverride = overrideCompanyId === PLATFORM_CONSOLE_ID ? '' : overrideCompanyId;
+    const isListedAdmin = isPlatformAdminEmail(email) || (adminLookup.email === email && adminLookup.isAdmin);
     const q = query(collection(db, COLLECTIONS.SYSTEM_USERS), where('email', '==', email));
     const unsubscribe = onSnapshot(
       q,
@@ -118,13 +140,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               .catch(() => undefined);
           }
 
-          const canOverride = found.some((m) => m.isPlatformAdmin) || isPlatformAdminEmail(email);
-          /* Empresa elegida antes, la unica que tiene, o ninguna si debe escoger. */
-          const chosen =
-            found.find((m) => m.companyId && m.companyId === overrideCompanyId) ??
-            (found.length === 1 ? found[0] : undefined);
+          const canOverride = found.some((m) => m.isPlatformAdmin) || isListedAdmin;
+          /* Solo la empresa confirmada en el login; sin ella, el login pide el paso "Company".
+             El admin de plataforma puede confirmar cualquier empresa. */
+          const chosen = found.find((m) => m.companyId && m.companyId === companyOverride);
           const nextProfile = chosen ?? (canOverride ? found[0] : undefined);
-          const nextCompany = chosen?.companyId ?? (canOverride ? overrideCompanyId || found[0]?.companyId || '' : '');
+          const nextCompany = chosen?.companyId ?? (canOverride ? companyOverride : '');
 
           if (getActiveCompanyId() !== nextCompany) setActiveCompanyId(nextCompany);
           setCompanyId(nextCompany);
@@ -134,6 +155,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
         setMemberships([]);
+        /* Admin de plataforma por email, sin membresia propia: usa la empresa confirmada. */
+        const adminCompany = isListedAdmin ? companyOverride : '';
+        if (getActiveCompanyId() !== adminCompany) setActiveCompanyId(adminCompany);
+        setCompanyId(adminCompany);
         /* Sin perfil: si la coleccion esta vacia, es el primer usuario (bootstrap). */
         void getDocs(query(collection(db, COLLECTIONS.SYSTEM_USERS), limit(1)))
           .then((all) => setIsBootstrapAdmin(all.empty))
@@ -142,7 +167,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       () => setProfileReady(true),
     );
     return unsubscribe;
-  }, [firebaseUser, overrideCompanyId]);
+  }, [firebaseUser, overrideCompanyId, adminLookup]);
+
+  /* Administradores agregados desde el Admin Panel (platform_admins/{email}). */
+  useEffect(() => {
+    const email = firebaseUser?.email?.toLowerCase();
+    if (!email || isPlatformAdminEmail(email)) return;
+    let cancelled = false;
+    const lookup = async () => {
+      const isAdmin = await isAddedPlatformAdmin(email);
+      if (!cancelled) setAdminLookup({ email, isAdmin });
+    };
+    void lookup();
+    return () => {
+      cancelled = true;
+    };
+  }, [firebaseUser]);
 
   /* Primer inicio de sesion: pasa de "Pending Invite" a "Active" */
   useEffect(() => {
@@ -157,9 +197,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     setCompany(null);
     if (!companyId) return;
+    let lastStatus = '';
     const unsubscribe = onSnapshot(
       doc(db, COLLECTIONS.COMPANIES, companyId),
-      (snap) => setCompany(snap.exists() ? ({ id: snap.id, ...snap.data() } as Company) : null),
+      (snap) => {
+        const next = snap.exists() ? ({ id: snap.id, ...snap.data() } as Company) : null;
+        /* Recien aprobada: se recarga para abrir las suscripciones que las reglas
+           negaban mientras estaba pendiente (Configurator, catalogos...). */
+        if (lastStatus === 'Pending' && next && next.status !== 'Pending') {
+          window.location.reload();
+          return;
+        }
+        lastStatus = next?.status ?? '';
+        setCompany(next);
+      },
       () => setCompany(null),
     );
     return unsubscribe;
@@ -206,12 +257,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
   }, [viewAsProfile?.roleId]);
 
-  const loading = !authReady || (!!firebaseUser && (!profileReady || !roleReady));
+  const currentEmail = firebaseUser?.email?.toLowerCase() ?? '';
+  /* Los duenos fijos no se buscan; los demas esperan la respuesta de platform_admins. */
+  const adminLookupReady = !currentEmail || isPlatformAdminEmail(currentEmail) || adminLookup.email === currentEmail;
+  const loading = !authReady || (!!firebaseUser && (!profileReady || !roleReady || !adminLookupReady));
+  const consoleMode = overrideCompanyId === PLATFORM_CONSOLE_ID;
 
   const value = useMemo<AuthContextValue>(() => {
     /* Dueno del SaaS: por flag en su perfil o por email (llave maestra). */
+    /* Por email (dueno fijo o agregado) solo cuenta con el email verificado, como en las reglas. */
+    const listedByEmail =
+      isPlatformAdminEmail(currentEmail) || (adminLookup.email === currentEmail && adminLookup.isAdmin);
+    const emailVerified = !!firebaseUser?.emailVerified;
     const platformAdmin =
-      bypass || isBootstrapAdmin || !!profile?.isPlatformAdmin || isPlatformAdminEmail(firebaseUser?.email);
+      bypass || isBootstrapAdmin || !!profile?.isPlatformAdmin || (listedByEmail && emailVerified);
     const viewingAs = !!viewAsUserId && !!viewAsProfile;
     const can = (moduleId: string, action: PermissionAction): boolean => {
       /* Suplantacion activa: evaluar EXACTAMENTE lo que ve el otro usuario. */
@@ -259,22 +318,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       companyId,
       company,
       memberships,
-      needsCompanyChoice: !!firebaseUser && !companyId && memberships.length > 1,
+      /* Sin empresa confirmada se queda en el login (aunque el perfil aun cargue);
+         con una confirmada que ya no es valida, vuelve al login al terminar de cargar. */
+      needsCompanyChoice:
+        !!firebaseUser && !bypass && !consoleMode && (!overrideCompanyId || (!loading && !companyId)),
       chooseCompany: (next: string) => {
-        localStorage.setItem('berry-company-override', next);
+        localStorage.setItem(COMPANY_OVERRIDE_KEY, next);
         setOverrideCompanyId(next);
         setActiveCompanyId(next);
+      },
+      chooseConsole: () => {
+        localStorage.setItem(COMPANY_OVERRIDE_KEY, PLATFORM_CONSOLE_ID);
+        setOverrideCompanyId(PLATFORM_CONSOLE_ID);
+        setActiveCompanyId('');
       },
       isPlatformAdmin: platformAdmin,
-      needsCompanySetup: !companyId && platformAdmin,
-      switchCompany: (next: string) => {
-        /* El admin de plataforma cambia de empresa; se recarga para limpiar suscripciones. */
-        if (next) localStorage.setItem('berry-company-override', next);
-        else localStorage.removeItem('berry-company-override');
-        setOverrideCompanyId(next);
-        setActiveCompanyId(next);
-        window.location.reload();
-      },
+      platformNeedsVerification: listedByEmail && !emailVerified && !platformAdmin,
+      consoleMode,
       loading: bypass ? false : loading,
       isBootstrapAdmin,
       bypass,
@@ -295,11 +355,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setViewAsUserId(userId);
       },
       login: async (email, password) => {
+        /* Cada inicio de sesion confirma la empresa, aunque haya quedado una guardada. */
+        localStorage.removeItem(COMPANY_OVERRIDE_KEY);
+        setOverrideCompanyId('');
         await signInWithEmailAndPassword(auth, email.trim(), password);
       },
       logout: async () => {
         sessionStorage.removeItem('berry-dev-bypass');
         sessionStorage.removeItem('berry-view-as');
+        /* La proxima entrada vuelve a confirmar la empresa en el login. */
+        localStorage.removeItem(COMPANY_OVERRIDE_KEY);
+        setOverrideCompanyId('');
         setViewAsUserId(null);
         setBypass(false);
         await signOut(auth);
@@ -308,7 +374,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await resendPasswordReset(email.trim());
       },
     };
-  }, [firebaseUser, profile, role, loading, isBootstrapAdmin, bypass, companyId, company, memberships, viewAsUserId, viewAsProfile, viewAsRole]);
+  }, [firebaseUser, profile, role, loading, isBootstrapAdmin, bypass, companyId, company, memberships, overrideCompanyId, consoleMode, currentEmail, adminLookup, viewAsUserId, viewAsProfile, viewAsRole]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

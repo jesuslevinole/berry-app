@@ -54,6 +54,10 @@ export const COLLECTIONS = {
   COMPANY: 'settings_company',
   /** Global: catalogo de empresas del SaaS. */
   COMPANIES: 'companies',
+  /** Administradores de la plataforma agregados desde el Admin Panel (id = email). */
+  PLATFORM_ADMINS: 'platform_admins',
+  /** Historial de pagos de suscripcion de todas las empresas (Admin Panel). */
+  PLATFORM_PAYMENTS: 'platform_payments',
 } as const;
 
 export type CollectionName = (typeof COLLECTIONS)[keyof typeof COLLECTIONS];
@@ -187,7 +191,8 @@ export interface AppUser extends BaseDoc {
 }
 
 /* ---------- Seguridad: usuarios del sistema y roles ---------- */
-export type SystemUserStatus = 'Pending Invite' | 'Active' | 'Inactive';
+/** 'Pending Approval': dueno de una empresa registrada que la plataforma aun no aprueba. */
+export type SystemUserStatus = 'Pending Invite' | 'Pending Approval' | 'Active' | 'Inactive';
 
 export interface SystemUser extends BaseDoc {
   firstName: string;
@@ -280,6 +285,15 @@ export interface CompanyInfo extends BaseDoc {
   /** Logo en data URL base64 (png/jpg pequeño). */
   logo: string;
   banks: CompanyBank[];
+  /** Color de marca (tono 600, #RRGGBB). Vacio = paleta original. */
+  brandColor?: string;
+}
+
+/** Nombre y logo de una empresa para el selector de empresa. */
+export interface CompanyBrand {
+  companyId: string;
+  name: string;
+  logo: string;
 }
 
 /* ---------- Cheques ---------- */
@@ -345,7 +359,10 @@ export interface Company extends BaseDoc {
   name: string;
   /** Identificador corto visible (ej. BERRY, GATOR). */
   code?: string;
-  status: 'Active' | 'Suspended';
+  /** 'Pending': se registro sola y espera la aprobacion de la plataforma. */
+  status: 'Active' | 'Suspended' | 'Pending';
+  /** Uid de quien la registro (auto-registro). */
+  ownerUid?: string;
   notes?: string;
 
   /* ---- Suscripcion (pasarela de pago pendiente: por ahora se registra a mano) ---- */
@@ -361,6 +378,36 @@ export interface Company extends BaseDoc {
   lastPaymentAmount?: number;
   /** Contacto de facturacion. */
   billingEmail?: string;
+}
+
+/** Administrador de la plataforma agregado desde el Admin Panel (id del documento = email). */
+export interface PlatformAdmin {
+  id: string;
+  email: string;
+  addedBy: string;
+  addedAt: string;
+}
+
+/** Pago de suscripcion guardado en el historial de la plataforma (base del dashboard de ingresos). */
+export interface PlatformPayment extends BaseDoc {
+  companyId: string;
+  companyName: string;
+  amount: number;
+  periods: number;
+  /** Fecha del pago (AAAA-MM-DD). */
+  paidOn: string;
+  /** Fin del acceso que dejo este pago (AAAA-MM-DD). */
+  paidThrough: string;
+  recordedBy: string;
+}
+
+/** Pago de suscripcion registrado a mano en el panel Admin (hasta tener pasarela). */
+export interface CompanyPayment {
+  amount: number;
+  /** Mensualidades que cubre el pago. */
+  periods: number;
+  /** Fecha del pago (AAAA-MM-DD). */
+  paidOn: string;
 }
 
 /** Documentos de una orden de venta (Sales Desk). */

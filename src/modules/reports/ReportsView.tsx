@@ -22,9 +22,9 @@ import {
   type PaymentSales,
   type PurchaseOrder,
   type SalesOrder,
-  type SystemUser,
 } from '../../types/models';
 import './ReportsView.css';
+import { useCompanyUsers } from '../../hooks/useCompanyUsers';
 
 export type ReportId = 'queue' | 'apgrowers' | 'ap' | 'ar' | 'expenses';
 
@@ -165,7 +165,7 @@ export function ReportsView({ report }: ReportsViewProps) {
   const categories = useCatalog(COLLECTIONS.CATEGORY_BILL, 'NAME');
   const legacyUsers = useCatalog(COLLECTIONS.USERS, 'EMAIL_USERS');
   const paymentTerms = useCatalog(COLLECTIONS.PAYMENTTERM, 'NAME_PAYMENTTERM');
-  const { data: systemUsers } = useCollection<SystemUser>(COLLECTIONS.SYSTEM_USERS);
+  const { data: systemUsers } = useCompanyUsers();
 
   const term = search.trim().toLowerCase();
   const matches = (...values: string[]): boolean =>

@@ -17,6 +17,16 @@ export const fmtDate = (iso?: string): string => {
   return `${m}/${d}/${y}`;
 };
 
+/** Dinero compacto para ejes y tarjetas: $950, $1.2K, $12K, $1.5M. */
+export const fmtMoneyCompact = (n?: number | null): string => {
+  const value = n ?? 0;
+  const abs = Math.abs(value);
+  const sign = value < 0 ? '-' : '';
+  if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(abs >= 10_000_000 ? 0 : 1).replace(/\.0$/, '')}M`;
+  if (abs >= 1_000) return `${sign}$${(abs / 1_000).toFixed(abs >= 10_000 ? 0 : 1).replace(/\.0$/, '')}K`;
+  return `${sign}$${Math.round(abs)}`;
+};
+
 export const todayISO = (): string => new Date().toISOString().slice(0, 10);
 
 export const round2 = (n: number): number => Math.round(n * 100) / 100;

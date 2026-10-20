@@ -1,7 +1,14 @@
-import { useState } from 'react';
-import { useCompany } from '../../hooks/useCompany';
+import { useState, type CSSProperties } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { PLATFORM_BRAND } from '../../config/platformBrand';
+import { LoginCompanyStep } from './LoginCompanyStep';
 import './LoginView.css';
+
+/** Columnas decorativas del panel de marca (las mismas de la landing). */
+const BRAND_PILLARS = [0, 1, 2, 3, 4, 5];
+
+/** Orden de cada columna: escalona su animacion (valor en tiempo de ejecucion). */
+const pillarStyle = (index: number): CSSProperties => ({ '--i': index }) as CSSProperties;
 
 const ERROR_MESSAGES: Record<string, string> = {
   'auth/invalid-credential': 'Incorrect email or password.',
@@ -12,9 +19,21 @@ const ERROR_MESSAGES: Record<string, string> = {
   'auth/user-disabled': 'This account has been disabled. Contact your administrator.',
 };
 
-export function LoginView() {
-  const { company } = useCompany();
-  const { login, resetPassword } = useAuth();
+interface LoginViewProps {
+  /** Va al registro de empresa ("Register your company"). */
+  onRegister: () => void;
+  /** Vuelve a la landing page. */
+  onHome: () => void;
+}
+
+/**
+ * Login con la marca de la plataforma (Integrated Results). El logo de la empresa
+ * aparece al entrar a ella (menu lateral), no aqui.
+ */
+export function LoginView({ onRegister, onHome }: LoginViewProps) {
+  const { firebaseUser, login, resetPassword } = useAuth();
+  /* Email y contrasena ya validados: falta confirmar la empresa. */
+  const companyStep = !!firebaseUser;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -36,8 +55,9 @@ export function LoginView() {
     }, 15000);
     try {
       await login(email, password);
-      /* Exito: el componente se desmonta al entrar; se limpia por si acaso. */
+      /* Exito: el login pasa al paso "Company". */
       window.clearTimeout(watchdog);
+      setBusy(false);
     } catch (err) {
       window.clearTimeout(watchdog);
       const code = (err as { code?: string }).code ?? '';
@@ -61,69 +81,84 @@ export function LoginView() {
     }
   };
 
+
   return (
     <div className="login">
       <div className="login__card">
         <section className="login__form-panel">
           <h1 className="login__title">Sign In</h1>
-          <p className="login__hint">Sign in with your email &amp; password</p>
+          <p className="login__hint">
+            {companyStep ? 'Confirm the company you are signing in to' : 'Sign in with your email & password'}
+          </p>
 
-          <label className="login__label" htmlFor="login-email">Email</label>
-          <input
-            id="login-email"
-            className="login__input"
-            type="email"
-            autoComplete="email"
-            placeholder="Enter e-mail"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && void handleSubmit()}
-          />
+          {companyStep ? (
+            <LoginCompanyStep />
+          ) : (
+            <>
+            <label className="login__label" htmlFor="login-email">Email</label>
+            <input
+              id="login-email"
+              className="login__input"
+              type="email"
+              autoComplete="email"
+              placeholder="Enter e-mail"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && void handleSubmit()}
+            />
 
-          <label className="login__label" htmlFor="login-password">Password</label>
-          <input
-            id="login-password"
-            className="login__input"
-            type="password"
-            autoComplete="current-password"
-            placeholder="Enter password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && void handleSubmit()}
-          />
+            <label className="login__label" htmlFor="login-password">Password</label>
+            <input
+              id="login-password"
+              className="login__input"
+              type="password"
+              autoComplete="current-password"
+              placeholder="Enter password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && void handleSubmit()}
+            />
 
-          <button type="button" className="login__forgot" onClick={() => void handleForgot()}>
-            Forgot password?
-          </button>
+            <button type="button" className="login__forgot" onClick={() => void handleForgot()}>
+              Forgot password?
+            </button>
 
-          {error && <div className="login__message login__message--error">{error}</div>}
-          {notice && <div className="login__message login__message--ok">{notice}</div>}
+            {error && <div className="login__message login__message--error">{error}</div>}
+            {notice && <div className="login__message login__message--ok">{notice}</div>}
 
-          <button
-            type="button"
-            className="login__submit"
-            disabled={busy}
-            onClick={() => void handleSubmit()}
-          >
-            {busy ? 'Signing in…' : 'Sign In'}
-          </button>
+            <button
+              type="button"
+              className="login__submit"
+              disabled={busy}
+              onClick={() => void handleSubmit()}
+            >
+              {busy ? 'Checking…' : 'Continue'}
+            </button>
+
+            <button type="button" className="login__signup" onClick={onRegister}>
+              Register your company
+            </button>
+
+            <button type="button" className="login__home" onClick={onHome}>
+              &larr; Back to home
+            </button>
+            </>
+          )}
         </section>
 
         <section className="login__brand-panel">
-          {company.logo ? (
-            <span className="login__logo login__logo--img" aria-hidden="true">
-              <img className="login__logo-img" src={company.logo} alt="" />
-            </span>
-          ) : (
-            <span className="login__logo" aria-hidden="true">{(company.name || 'B').charAt(0)}</span>
-          )}
-          <h2 className="login__brand-title">{company.name || 'Berry Source'}</h2>
-          <p className="login__brand-sub">Operations</p>
+          <span className="login__pillars" aria-hidden="true">
+            {BRAND_PILLARS.map((index) => (
+              <span key={index} className="login__pillar" style={pillarStyle(index)} />
+            ))}
+          </span>
+          <img className="login__platform-logo" src={PLATFORM_BRAND.logoWhite} alt={PLATFORM_BRAND.name} />
           <p className="login__brand-text">
-            Purchase orders, sales desk, expenses and catalogs — all in one place.
+            Purchases, sales, invoices and accounting in one secure system
+            <span className="login__lime"> {'\u2014'} without spreadsheets or paperwork chaos.</span>
           </p>
           <p className="login__brand-note">
-            Access is by invitation. If you need an account, contact your administrator.
+            Joining a team? Ask your administrator for an invitation. New company? Register it here.
           </p>
         </section>
       </div>

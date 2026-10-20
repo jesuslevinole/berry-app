@@ -2,11 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { limit, orderBy, where } from 'firebase/firestore';
 import { getDocumentsById, listDocuments, subscribeToCollection } from '../../services/firestore';
 import { moduleLabel, recordLabel } from '../../services/recordLabels';
-import { useCollection } from '../../hooks/useCollection';
 import { Toolbar } from '../../components/ui/Toolbar';
 import { PAGE_SIZE } from '../../config/limits';
-import { COLLECTIONS, type ActivityLog, type BaseDoc, type SystemUser, type TrashItem } from '../../types/models';
+import { COLLECTIONS, type ActivityLog, type BaseDoc, type TrashItem } from '../../types/models';
 import './ActivityLogView.css';
+import { useCompanyUsers } from '../../hooks/useCompanyUsers';
 
 /** Maximo de registros por consulta (control de lecturas). */
 const MAX_ROWS = 1000;
@@ -102,7 +102,7 @@ export function ActivityLogView() {
   /* Nombres ya resueltos de registros viejos (sin LABEL). */
   const [labels, setLabels] = useState<Map<string, string>>(new Map());
 
-  const { data: systemUsers } = useCollection<SystemUser>(COLLECTIONS.SYSTEM_USERS);
+  const { data: systemUsers } = useCompanyUsers();
   const users = useMemo(
     () => [...new Set(systemUsers.map((u) => (u.email ?? '').trim()).filter(Boolean))].sort(),
     [systemUsers],

@@ -4,10 +4,11 @@ import { useAuth } from '../../context/AuthContext';
 import { confirmClose } from '../../components/ui/Modal';
 import { useCollection } from '../../hooks/useCollection';
 import { createDocument, deleteDocument, updateDocument } from '../../services/firestore';
-import { ADMIN_CAPABILITIES, COLLECTIONS, type AdminCapability, type AdminPerms, type AppRole, type ModulePermission, type SystemUser } from '../../types/models';
+import { ADMIN_CAPABILITIES, COLLECTIONS, type AdminCapability, type AdminPerms, type AppRole, type ModulePermission } from '../../types/models';
 import { MODULE_DEFS, buildEmptyPermissions, mergePermissions } from '../../config/modules';
 import { Toolbar } from '../../components/ui/Toolbar';
 import './RolesView.css';
+import { useCompanyUsers } from '../../hooks/useCompanyUsers';
 
 interface RoleDraft {
   id: string;
@@ -28,7 +29,7 @@ const EMPTY_DRAFT = (): RoleDraft => ({
 export function RolesView() {
   const { can } = useAuth();
   const { data: roles, loading } = useCollection<AppRole>(COLLECTIONS.ROLES);
-  const { data: users } = useCollection<SystemUser>(COLLECTIONS.SYSTEM_USERS);
+  const { data: users } = useCompanyUsers();
   const [modalOpen, setModalOpen] = useState(false);
   const [draft, setDraft] = useState<RoleDraft>(EMPTY_DRAFT());
 

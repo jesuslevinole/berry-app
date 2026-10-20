@@ -1,0 +1,37 @@
+/* Paso "Company" del login. Reusa .login__label / .login__input / .login__submit
+   de LoginView.css: es parte de la misma tarjeta (linea visual de la landing). */
+
+.login-company__input--locked {
+  background-color: #ffffff;
+  color: var(--ir-navy);
+  cursor: default;
+  font-weight: 600;
+}
+
+.login-company__input--locked:focus {
+  border-color: var(--ir-slate);
+  box-shadow: none;
+}
+
+.login-company__select {
+  appearance: auto;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.login-company__back {
+  align-self: center;
+  background: none;
+  border: none;
+  color: var(--ir-navy-soft);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.85rem;
+  margin-top: 14px;
+  padding: 4px;
+}
+
+.login-company__back:hover {
+  color: var(--ir-green);
+  text-decoration: underline;
+}
