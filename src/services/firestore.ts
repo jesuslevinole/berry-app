@@ -9,6 +9,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  getCountFromServer,
   getDocFromCache,
   getDocsFromCache,
   Timestamp,
@@ -29,6 +30,7 @@ import { auth, db } from '../firebase/config';
 import type { BaseDoc } from '../types/models';
 import { GLOBAL_COLLECTIONS, getActiveCompanyId, onCompanyChange, tenantPath } from './tenant';
 import { recordLabel } from './recordLabels';
+import { isTrialLimited, TRIAL_LIMIT_EVENT, TRIAL_RECORD_LIMIT, TrialLimitError } from './trialLimits';
 
 
 /* ---------- Registro de actividad + papelera (intercepcion central) ---------- */
@@ -485,10 +487,23 @@ export async function getDocumentsById<T extends BaseDoc>(colName: string, ids: 
   return map;
 }
 
+/**
+ * Prueba gratuita: cada formulario principal admite TRIAL_RECORD_LIMIT registros.
+ * Cuenta en el servidor (1 lectura por consulta) y avisa al app si ya no cabe.
+ */
+async function assertTrialCapacity(colName: string, adding = 1): Promise<void> {
+  if (!isTrialLimited(colName)) return;
+  const snap = await getCountFromServer(collection(db, tenantPath(colName)));
+  if (snap.data().count + adding <= TRIAL_RECORD_LIMIT) return;
+  window.dispatchEvent(new CustomEvent(TRIAL_LIMIT_EVENT, { detail: { colName } }));
+  throw new TrialLimitError();
+}
+
 export async function createDocument<T extends BaseDoc>(
   colName: string,
   data: Omit<T, 'id'>,
 ): Promise<string> {
+  await assertTrialCapacity(colName);
   const ref = await addDoc(collection(db, tenantPath(colName)), {
     ...data,
     createdAt: serverTimestamp(),
@@ -587,6 +602,8 @@ export async function bulkUpsert(
   rows: Array<{ id?: string } & Record<string, unknown>>,
   chunkSize = 400,
 ): Promise<number> {
+  /* Importar tambien cuenta para el limite de la prueba (cada fila cuenta, aunque traiga id). */
+  await assertTrialCapacity(colName, rows.length);
   let written = 0;
 
   for (let start = 0; start < rows.length; start += chunkSize) {
@@ -605,6 +622,16 @@ export async function bulkUpsert(
   }
 
   return written;
+}
+
+/**
+ * Borra un documento global (empresas, usuarios del sistema) sin papelera: lo usa el
+ * borrado definitivo de una empresa. Refresca las pantallas abiertas de este equipo.
+ */
+export async function deleteGlobalDocument(colName: string, id: string): Promise<void> {
+  const removing = deleteDoc(doc(db, tenantPath(colName), id));
+  touchLocal(colName, [id]);
+  await removing;
 }
 
 /** Crea o reemplaza un documento con un ID conocido (por ejemplo, el de AppSheet). */
@@ -628,9 +655,11 @@ export function createDocumentLocalFirst(
   onError?: (error: Error) => void,
 ): string {
   const ref = doc(collection(db, tenantPath(colName)));
-  setDoc(ref, { ...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp() }).catch(
-    (error: Error) => onError?.(error),
-  );
+  /* En prueba se revisa el limite antes de escribir (la escritura ya iba en segundo plano). */
+  const capacity = isTrialLimited(colName) ? assertTrialCapacity(colName) : Promise.resolve();
+  capacity
+    .then(() => setDoc(ref, { ...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp() }))
+    .catch((error: Error) => onError?.(error));
   touchLocal(colName, [ref.id]);
   return ref.id;
 }

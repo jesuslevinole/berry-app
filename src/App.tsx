@@ -13,7 +13,7 @@ import { InventoryView } from './modules/inventory/InventoryView';
 import { ActivityLogView } from './modules/activity/ActivityLogView';
 import { TrashView } from './modules/trash/TrashView';
 import { PlatformConsole } from './modules/platform/PlatformConsole';
-import { accessEndsOf, billingInfoOf } from './services/billingService';
+import { accessEndsOf, billingInfoOf, trialPurgeDate } from './services/billingService';
 import { fmtDate } from './utils/format';
 import { ReportsView } from './modules/reports/ReportsView';
 import { ChecksView } from './modules/checks/ChecksView';
@@ -95,12 +95,17 @@ function Shell() {
   if (billing && !billing.active && !isPlatformAdmin) {
     const endedOn = company ? fmtDate(accessEndsOf(company)) : '';
     const reason = billing.state === 'Suspended' ? 'The account was suspended' : `Access ended on ${endedOn}`;
+    /* Prueba gratuita sin pago: se avisa la fecha en que se borra todo (regla informada al registrarse). */
+    const dataNote =
+      billing.state === 'Trial ended' && company
+        ? `Subscribe before ${fmtDate(trialPurgeDate(company))} to keep your data: after that date every record of this company is permanently deleted.`
+        : 'Your data is safe and will be here when the account is reactivated.';
     return (
       <div className="app-gate">
         <h2 className="app-gate__title">Subscription inactive</h2>
         <p className="app-gate__text">
           {reason} for <b>{company?.name}</b> ({billing.label}). Renew the subscription to restore
-          access. Your data is safe and will be here when the account is reactivated.
+          access. {dataNote}
         </p>
         <button type="button" className="btn btn--secondary" onClick={() => void logout()}>Sign out</button>
       </div>

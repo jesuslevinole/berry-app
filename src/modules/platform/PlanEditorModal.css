@@ -1,0 +1,51 @@
+.plan-editor {
+  align-items: start;
+  display: grid;
+  gap: 22px;
+  grid-template-columns: minmax(0, 1.5fr) minmax(260px, 1fr);
+}
+
+.plan-editor__features {
+  font-family: inherit;
+  resize: vertical;
+}
+
+.plan-editor__error {
+  background-color: var(--bad-bg);
+  border-radius: 9px;
+  color: var(--bad);
+  font-size: 0.85rem;
+  margin-top: 12px;
+  padding: 10px 12px;
+}
+
+/* Vista previa sobre el azul marino de la landing. */
+.plan-editor__preview {
+  background-color: var(--ir-navy);
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 26px 20px 20px;
+  position: sticky;
+  top: 0;
+}
+
+.plan-editor__preview-label {
+  color: var(--ir-slate);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+@media (max-width: 900px) {
+  .plan-editor {
+    grid-template-columns: 1fr;
+  }
+
+  .plan-editor__preview {
+    position: static;
+  }
+}

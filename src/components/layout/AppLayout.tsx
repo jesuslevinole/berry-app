@@ -6,6 +6,8 @@ import { NotificationsBell } from './NotificationsBell';
 import { billingInfoOf } from '../../services/billingService';
 import { useCompany } from '../../hooks/useCompany';
 import { PLATFORM_BRAND } from '../../config/platformBrand';
+import { TrialLimitNotice } from './TrialLimitNotice';
+import { TRIAL_RECORD_LIMIT } from '../../services/trialLimits';
 import './AppLayout.css';
 
 export type ViewKey = 'dashboard' | 'purchases' | 'sales' | 'expenses' | 'catalogs' | 'lots' | 'inventory' | 'queue' | 'apgrowers' | 'ap' | 'ar' | 'expensesreport' | 'activity' | 'trash' | 'checks' | 'emails' | 'company' | 'users' | 'roles' | 'config';
@@ -477,7 +479,10 @@ export function AppLayout({ view, onNavigate, children }: AppLayoutProps) {
           </button>
           <h1 className="topbar__title">{navLabel(view, VIEW_TITLES[view])}</h1>
           {showTrialNotice && billing && (
-            <span className={`topbar__billing topbar__billing--${billing.state === 'Trial' ? 'trial' : 'soon'}`}>
+            <span
+              className={`topbar__billing topbar__billing--${billing.state === 'Trial' ? 'trial' : 'soon'}`}
+              title={billing.state === 'Trial' ? `Free trial: up to ${TRIAL_RECORD_LIMIT} records per form` : undefined}
+            >
               {billing.label}
             </span>
           )}
@@ -499,6 +504,7 @@ export function AppLayout({ view, onNavigate, children }: AppLayoutProps) {
           </div>
         </header>
         <main className="content">{children}</main>
+        <TrialLimitNotice />
       </div>
     </div>
     </>

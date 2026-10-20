@@ -1,6 +1,20 @@
-/* Admin Panel: layout propio, sin el menu de ninguna empresa. */
+/* Admin Panel: layout propio, sin el menu de ninguna empresa, con la marca de
+   Integrated Results (azul marino, azul acero, verde lima y Sora, como la landing).
+   La paleta --green-* se redefine aqui: botones, tablas y graficas del panel toman
+   los azules de la plataforma sin tocar los componentes. */
 .console {
-  background-color: var(--canvas);
+  --green-50: #eef3f8;
+  --green-100: #dce6f0;
+  --green-400: #6f90b2;
+  --green-500: #3f6a95;
+  --green-600: #26547c;
+  --green-700: #1e4566;
+  --green-800: #15344f;
+  --green-900: #0b2340;
+  --green-950: #011636;
+  --table-head-bg: var(--ir-navy);
+  background-color: var(--ir-mist);
+  font-family: 'Sora', var(--f-body);
   min-height: 100vh;
   min-height: 100dvh;
   text-align: left;
@@ -8,12 +22,12 @@
 
 .console__bar {
   align-items: center;
-  background-color: var(--green-950);
+  background-color: var(--ir-navy);
   color: #ffffff;
   display: flex;
   gap: 14px;
   justify-content: space-between;
-  padding: 12px 24px;
+  padding: 9px 24px;
   position: sticky;
   top: 0;
   z-index: 20;
@@ -26,24 +40,19 @@
 }
 
 .console__logo {
-  background-color: #ffffff;
-  border-radius: 8px;
-  display: inline-flex;
-  padding: 4px 8px;
-}
-
-.console__logo-img {
   display: block;
-  height: 30px;
+  height: 46px;
   width: auto;
 }
 
 .console__brand-sub {
   border-left: 1px solid rgba(255, 255, 255, 0.25);
-  color: var(--green-100);
+  color: var(--ir-lime);
   font-size: 0.86rem;
   font-weight: 600;
-  padding-left: 10px;
+  letter-spacing: 0.04em;
+  padding-left: 12px;
+  text-transform: uppercase;
 }
 
 .console__user {
@@ -53,7 +62,7 @@
 }
 
 .console__email {
-  color: var(--green-100);
+  color: var(--ir-slate);
   font-size: 0.86rem;
 }
 
@@ -65,14 +74,15 @@
 }
 
 .console__nav {
-  background-color: var(--green-950);
+  background-color: var(--ir-navy);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   flex-direction: column;
   gap: 4px;
-  height: calc(100dvh - 60px);
+  height: calc(100dvh - 64px);
   padding: 16px 12px;
   position: sticky;
-  top: 60px;
+  top: 64px;
 }
 
 .console__nav-item {
@@ -80,7 +90,7 @@
   background: none;
   border: none;
   border-radius: 10px;
-  color: var(--green-100);
+  color: var(--ir-slate);
   cursor: pointer;
   display: flex;
   font-family: inherit;
@@ -89,20 +99,23 @@
   gap: 10px;
   padding: 10px 12px;
   text-align: left;
-  transition: background-color 0.15s ease;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .console__nav-item:hover {
-  background-color: rgba(255, 255, 255, 0.08);
-}
-
-.console__nav-item--active {
-  background-color: var(--green-700);
+  background-color: rgba(255, 255, 255, 0.06);
   color: #ffffff;
 }
 
+/* Activo: verde lima de la landing, con texto azul marino. */
+.console__nav-item--active {
+  background-color: var(--ir-lime);
+  color: var(--ir-navy);
+}
+
 .console__nav-item--active:hover {
-  background-color: var(--green-700);
+  background-color: var(--ir-lime);
+  color: var(--ir-navy);
 }
 
 .console__nav-icon {
@@ -114,9 +127,9 @@
 }
 
 .console__nav-badge {
-  background-color: var(--warn-bg);
+  background-color: var(--ir-steel);
   border-radius: 999px;
-  color: var(--warn);
+  color: #ffffff;
   font-size: 11px;
   font-weight: 700;
   min-width: 20px;
@@ -196,7 +209,7 @@
     height: auto;
     overflow-x: auto;
     padding: 8px 12px;
-    top: 60px;
+    top: 64px;
     z-index: 15;
   }
 

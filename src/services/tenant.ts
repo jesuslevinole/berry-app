@@ -19,7 +19,7 @@ export function isPlatformAdminEmail(email?: string | null): boolean {
 }
 
 /** Colecciones globales de la plataforma (viven en la raiz, fuera de toda empresa). */
-export const GLOBAL_COLLECTIONS = new Set<string>(['companies', 'system_users', 'platform_admins', 'platform_payments']);
+export const GLOBAL_COLLECTIONS = new Set<string>(['companies', 'system_users', 'platform_admins', 'platform_payments', 'platform_plans']);
 
 /** Ruta imposible: si no hay empresa activa, las consultas devuelven vacio en vez de leer la raiz. */
 const NO_COMPANY_PATH = 'companies/__none__';

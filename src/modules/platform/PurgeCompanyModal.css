@@ -1,0 +1,30 @@
+.purge {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.purge__warning {
+  background-color: var(--bad-bg);
+  border-radius: 9px;
+  color: var(--bad);
+  font-size: 0.88rem;
+  line-height: 1.5;
+  margin: 0;
+  padding: 12px 14px;
+}
+
+.purge__meta,
+.purge__progress {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.purge__error {
+  background-color: var(--bad-bg);
+  border-radius: 9px;
+  color: var(--bad);
+  font-size: 0.85rem;
+  padding: 10px 12px;
+}

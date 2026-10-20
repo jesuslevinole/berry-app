@@ -17,6 +17,7 @@ import { approveCompany, setCompanyExempt, setCompanySuspended } from '../../ser
 import { fmtDate, fmtMoney } from '../../utils/format';
 import { COLLECTIONS, type Company, type SystemUser } from '../../types/models';
 import { RecordPaymentModal } from './RecordPaymentModal';
+import { PurgeCompanyModal } from './PurgeCompanyModal';
 import './PlatformView.css';
 
 type PanelTab = SubscriptionGroup | 'all';
@@ -34,6 +35,7 @@ const GROUP_LABELS: Record<SubscriptionGroup, string> = {
   active: 'Active',
   expiring: 'Expiring soon',
   expired: 'Expired',
+  purgeDue: 'Data deletion due',
   pending: 'Pending approval',
   suspended: 'Suspended',
   exempt: 'No payment required',
@@ -41,7 +43,7 @@ const GROUP_LABELS: Record<SubscriptionGroup, string> = {
 };
 
 /** Orden de las pestanas: primero lo que pide accion. */
-const TAB_ORDER: SubscriptionGroup[] = ['expiring', 'expired', 'pending', 'active', 'suspended', 'noPlan', 'exempt'];
+const TAB_ORDER: SubscriptionGroup[] = ['purgeDue', 'expiring', 'expired', 'pending', 'active', 'suspended', 'noPlan', 'exempt'];
 
 /** Tarjetas de arriba: los estados que pidio el dueno de la plataforma. */
 const KPI_GROUPS: SubscriptionGroup[] = ['active', 'expiring', 'expired', 'pending', 'exempt'];
@@ -86,9 +88,18 @@ interface CompanyActionsProps {
   onRecordPayment: (company: Company) => void;
   onToggleSuspended: (company: Company) => void;
   onToggleFreeAccess: (company: Company) => void;
+  onPurge: (company: Company) => void;
 }
 
-const CompanyActions = ({ row, busy, onApprove, onRecordPayment, onToggleSuspended, onToggleFreeAccess }: CompanyActionsProps) => {
+const CompanyActions = ({
+  row,
+  busy,
+  onApprove,
+  onRecordPayment,
+  onToggleSuspended,
+  onToggleFreeAccess,
+  onPurge,
+}: CompanyActionsProps) => {
   const { company, group } = row;
   const canPay = group !== 'pending' && group !== 'exempt';
   /* "No payment required" nunca se bloquea (billingInfoOf la revisa primero): suspenderla no haria nada. */
@@ -109,6 +120,11 @@ const CompanyActions = ({ row, busy, onApprove, onRecordPayment, onToggleSuspend
       {canSuspend && (
         <button type="button" className="btn btn--secondary platform__action" disabled={busy} onClick={() => onToggleSuspended(company)}>
           {company.status === 'Suspended' ? 'Reactivate' : 'Suspend'}
+        </button>
+      )}
+      {group === 'purgeDue' && (
+        <button type="button" className="btn btn--danger platform__action" disabled={busy} onClick={() => onPurge(company)}>
+          Delete data
         </button>
       )}
       {canToggleFree && (
@@ -133,6 +149,7 @@ export const PlatformView = () => {
   const [tab, setTab] = useState<PanelTab>('all');
   const [search, setSearch] = useState('');
   const [payingCompany, setPayingCompany] = useState<Company | null>(null);
+  const [purgingCompany, setPurgingCompany] = useState<Company | null>(null);
   const [busyId, setBusyId] = useState('');
 
   /* Se recalcula al cambiar el dia (today): lo que vence hoy pasa solo a "Expired". */
@@ -219,6 +236,7 @@ export const PlatformView = () => {
           onRecordPayment={setPayingCompany}
           onToggleSuspended={handleToggleSuspended}
           onToggleFreeAccess={handleToggleFreeAccess}
+          onPurge={setPurgingCompany}
         />
       ),
     },
@@ -289,6 +307,9 @@ export const PlatformView = () => {
       </p>
 
       {payingCompany && <RecordPaymentModal company={payingCompany} onClose={() => setPayingCompany(null)} />}
+      {purgingCompany && (
+        <PurgeCompanyModal company={purgingCompany} users={users} onClose={() => setPurgingCompany(null)} />
+      )}
     </div>
   );
 };

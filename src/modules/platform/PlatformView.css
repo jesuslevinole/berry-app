@@ -111,6 +111,7 @@
 }
 
 .platform__state--expired,
+.platform__state--purgeDue,
 .platform__state--suspended {
   background-color: var(--bad-bg);
   color: var(--bad);

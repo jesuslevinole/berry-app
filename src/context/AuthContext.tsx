@@ -9,6 +9,8 @@ import { collection, deleteDoc, doc, getDocs, limit, onSnapshot, query, setDoc, 
 import { auth, db } from '../firebase/config';
 import { resendPasswordReset } from '../services/userAuthService';
 import { isAddedPlatformAdmin } from '../services/platformAdminService';
+import { isOnFreeTrial } from '../services/billingService';
+import { setTrialLimitsActive } from '../services/trialLimits';
 import { getActiveCompanyId, isPlatformAdminEmail, setActiveCompanyId, tenantPath } from '../services/tenant';
 import { COLLECTIONS, type Company, type AdminCapability, type AppRole, type PermissionAction, type SystemUser } from '../types/models';
 
@@ -209,11 +211,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
         lastStatus = next?.status ?? '';
+        /* En prueba gratuita, los formularios admiten un numero limitado de registros. */
+        setTrialLimitsActive(!!next && isOnFreeTrial(next));
         setCompany(next);
       },
       () => setCompany(null),
     );
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+      setTrialLimitsActive(false);
+    };
   }, [companyId]);
 
   /* Rol del perfil (en tiempo real) */

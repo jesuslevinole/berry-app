@@ -11,6 +11,7 @@ import {
   LANDING_REPORT_BARS,
 } from './landingContent';
 import { Reveal } from './Reveal';
+import { LandingPricing } from './LandingPricing';
 import './LandingView.css';
 
 /** "01", "02"... para las listas numeradas. */
@@ -38,6 +39,7 @@ const LandingHeader = () => (
       <img className="landing__header-logo" src={PLATFORM_BRAND.logoWhite} alt={PLATFORM_BRAND.name} />
       <nav className="landing__nav" aria-label="Main">
         <a className="landing__nav-link" href={PLATFORM_BRAND.website} target="_blank" rel="noreferrer">Company</a>
+        <a className="landing__nav-link" href="#pricing">Pricing</a>
         <a className="landing__nav-link" href={`mailto:${PLATFORM_BRAND.email}`}>Support</a>
         <a className="landing__nav-link landing__nav-link--boxed" href={DEMO_REQUEST_URL}>Request a demo</a>
       </nav>
@@ -312,6 +314,7 @@ export const LandingView = () => (
       <LandingHighlights />
       <LandingFeatures />
       <LandingBenefits />
+      <LandingPricing />
       <LandingCta />
     </main>
     <LandingFooter />

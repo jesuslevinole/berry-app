@@ -10,10 +10,11 @@ import { applyBrandTheme } from '../../utils/brandTheme';
 import { PLATFORM_BRAND } from '../../config/platformBrand';
 import { PlatformAdminsView } from './PlatformAdminsView';
 import { PlatformDashboard } from './PlatformDashboard';
+import { PlatformPlansView } from './PlatformPlansView';
 import { PlatformView } from './PlatformView';
 import './PlatformConsole.css';
 
-type ConsoleSection = 'dashboard' | 'subscriptions' | 'companies' | 'admins';
+type ConsoleSection = 'dashboard' | 'subscriptions' | 'plans' | 'companies' | 'admins';
 
 const ICON_PROPS = { viewBox: '0 0 24 24', width: 18, height: 18, fill: 'none', stroke: 'currentColor', strokeWidth: 1.8 };
 
@@ -34,6 +35,16 @@ const CONSOLE_SECTIONS: Array<{ id: ConsoleSection; label: string; icon: ReactNo
       <svg {...ICON_PROPS}>
         <rect x="3" y="5" width="18" height="14" rx="2" />
         <path d="M3 10h18M7 15h4" />
+      </svg>
+    ),
+  },
+  {
+    id: 'plans',
+    label: 'Plans & pricing',
+    icon: (
+      <svg {...ICON_PROPS}>
+        <path d="M20 12l-8 8-9-9V4h7l10 8z" />
+        <circle cx="7.5" cy="7.5" r="1.5" />
       </svg>
     ),
   },
@@ -79,7 +90,7 @@ const ConsoleSidebar = ({ active, attention, onSelect }: ConsoleSidebarProps) =>
         <span className="console__nav-icon" aria-hidden="true">{section.icon}</span>
         <span className="console__nav-label">{section.label}</span>
         {section.id === 'subscriptions' && attention > 0 && (
-          <span className="console__nav-badge" title="Expiring soon, expired or pending approval">{attention}</span>
+          <span className="console__nav-badge" title="Data deletion due, expiring soon, expired or pending approval">{attention}</span>
         )}
       </button>
     ))}
@@ -157,7 +168,7 @@ export const PlatformConsole = () => {
   const [section, setSection] = useState<ConsoleSection>('dashboard');
 
   const attention = useMemo(
-    () => companies.filter((company) => ['expiring', 'expired', 'pending'].includes(subscriptionGroupOf(company))).length,
+    () => companies.filter((company) => ['purgeDue', 'expiring', 'expired', 'pending'].includes(subscriptionGroupOf(company))).length,
     // eslint-disable-next-line react-hooks/exhaustive-deps -- today fuerza el recalculo diario
     [companies, today],
   );
@@ -182,9 +193,7 @@ export const PlatformConsole = () => {
     <div className="console">
       <header className="console__bar">
         <span className="console__brand">
-          <span className="console__logo">
-            <img className="console__logo-img" src={PLATFORM_BRAND.logo} alt={PLATFORM_BRAND.name} />
-          </span>
+          <img className="console__logo" src={PLATFORM_BRAND.logoWhite} alt={PLATFORM_BRAND.name} />
           <span className="console__brand-sub">Admin Panel</span>
         </span>
         <span className="console__user">
@@ -214,6 +223,7 @@ export const PlatformConsole = () => {
             {section === 'dashboard' && <PlatformDashboard onOpenSubscriptions={() => handleSelectSection('subscriptions')} />}
             {section === 'subscriptions' && <PlatformView />}
             {section === 'companies' && <CompaniesView />}
+            {section === 'plans' && <PlatformPlansView />}
             {section === 'admins' && <PlatformAdminsView />}
           </main>
         </div>

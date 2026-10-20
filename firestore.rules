@@ -198,6 +198,13 @@ service cloud.firestore {
       allow read, write: if isPlatformAdmin();
     }
 
+    // ---- Planes y precios (seccion Pricing de la landing) ------------------
+    // Publicos para leer (la landing los muestra sin sesion); solo la plataforma los edita.
+    match /platform_plans/{planId} {
+      allow read: if true;
+      allow write: if isPlatformAdmin();
+    }
+
     // ---- Colecciones legadas en la raiz -----------------------------------
     // Solo el admin de la plataforma las alcanza, para poder ejecutar la
     // migracion (Companies -> Import legacy data). Ningun usuario de empresa

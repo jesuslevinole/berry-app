@@ -5,7 +5,7 @@ import { signUpCompany, type SignupData } from '../../services/signupService';
 import { applyBrandTheme } from '../../utils/brandTheme';
 import { PLATFORM_BRAND } from '../../config/platformBrand';
 import { clearPublicPage } from '../../hooks/usePublicPage';
-import { TRIAL_DAYS } from '../../services/billingService';
+import { TRIAL_DAYS, TRIAL_GRACE_DAYS, TRIAL_RECORD_LIMIT } from '../../services/trialLimits';
 import './SignupView.css';
 
 type SignupStep = 'company' | 'owner';
@@ -134,6 +134,37 @@ const SignupOwnerFields = ({ form, confirm, onChange, onConfirmChange, onSubmit 
   </div>
 );
 
+/** Lo que la empresa acepta al registrarse (las mismas reglas que aplica el app). */
+const TRIAL_TERMS = [
+  `${TRIAL_DAYS} days free, starting when your company is approved.`,
+  `During the trial each form (purchase orders, sales, expenses, customers, catalogs…) allows up to ${TRIAL_RECORD_LIMIT} records.`,
+  `If you don't subscribe when the trial ends, access is blocked for ${TRIAL_GRACE_DAYS} days so you can still subscribe and keep everything.`,
+  `After that, all the data saved during the trial is permanently deleted and cannot be recovered.`,
+];
+
+interface SignupTrialTermsProps {
+  accepted: boolean;
+  onToggle: () => void;
+}
+
+/** Condiciones de la prueba gratuita, con la casilla que hay que marcar para registrarse. */
+const SignupTrialTerms = ({ accepted, onToggle }: SignupTrialTermsProps) => (
+  <section className="signup__terms">
+    <p className="signup__terms-title">
+      <span className="signup__badge">{TRIAL_DAYS}-day free trial</span> How the free trial works
+    </p>
+    <ul className="signup__terms-list">
+      {TRIAL_TERMS.map((term) => (
+        <li key={term}>{term}</li>
+      ))}
+    </ul>
+    <label className="signup__accept">
+      <input type="checkbox" checked={accepted} onChange={onToggle} />
+      <span>I understand the free trial limits and that unpaid trial data is permanently deleted.</span>
+    </label>
+  </section>
+);
+
 interface SignupViewProps {
   /** "I already have an account": va al login. */
   onBack: () => void;
@@ -153,6 +184,7 @@ export function SignupView({ onBack, onHome }: SignupViewProps) {
   const [step, setStep] = useState<SignupStep>('company');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   const handleFieldChange = (part: Partial<SignupData>) => setForm((current) => ({ ...current, ...part }));
 
@@ -197,6 +229,7 @@ export function SignupView({ onBack, onHome }: SignupViewProps) {
     if (!form.email.trim()) return setError('Enter the owner email.');
     if (form.password.length < MIN_PASSWORD_LENGTH) return setError('The password needs at least 6 characters.');
     if (form.password !== confirm) return setError('The passwords do not match.');
+    if (!termsAccepted) return setError('Please confirm that you understand the free trial terms.');
 
     setError(null);
     setBusy(true);
@@ -211,6 +244,8 @@ export function SignupView({ onBack, onHome }: SignupViewProps) {
       setBusy(false);
     }
   };
+
+  const handleToggleTerms = () => setTermsAccepted((current) => !current);
 
   const isCompanyStep = step === 'company';
 
@@ -227,6 +262,12 @@ export function SignupView({ onBack, onHome }: SignupViewProps) {
             ? 'Your company details. They appear in the app and on your documents.'
             : 'The owner account. You will sign in with this email and password.'}
         </p>
+        {isCompanyStep && (
+          <p className="signup__trial">
+            <span className="signup__badge">{TRIAL_DAYS} days free</span> Up to {TRIAL_RECORD_LIMIT} records per form
+            during the trial.
+          </p>
+        )}
 
         {isCompanyStep && (
           <SignupCompanyFields
@@ -245,6 +286,7 @@ export function SignupView({ onBack, onHome }: SignupViewProps) {
             onSubmit={() => void handleSubmit()}
           />
         )}
+        {!isCompanyStep && <SignupTrialTerms accepted={termsAccepted} onToggle={handleToggleTerms} />}
 
         {error && <div className="signup__message">{error}</div>}
 

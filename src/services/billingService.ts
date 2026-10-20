@@ -115,13 +115,45 @@ export function newCompanyBilling(): Pick<Company, 'trialStartsAt' | 'trialEndsA
   return { trialStartsAt: addDays(0), trialEndsAt: addDays(TRIAL_DAYS) };
 }
 
+/** Dias bloqueada tras la prueba (puede pagar sin perder nada) antes de borrar sus datos. */
+export const TRIAL_GRACE_DAYS = 3;
+
+/** Esta usando la prueba gratuita ahora mismo (sin pago ni exencion): aplica el limite de registros. */
+export const isOnFreeTrial = (company: Company): boolean => {
+  const billing = billingInfoOf(company);
+  return billing.state === 'Trial' && billing.daysLeft !== null;
+};
+
+/** Primer dia en que se pueden borrar los datos de una prueba que no pago (AAAA-MM-DD). */
+export const trialPurgeDate = (company: Company): string =>
+  company.trialEndsAt ? addDays(TRIAL_GRACE_DAYS + 1, company.trialEndsAt) : '';
+
+/**
+ * Prueba vencida, sin pago y ya pasados los dias de bloqueo: sus datos se pueden
+ * borrar (lo hace el admin de plataforma desde Subscriptions).
+ */
+export const isTrialPurgeDue = (company: Company): boolean => {
+  if (company.exempt || company.paidThrough || company.status === 'Pending') return false;
+  const trialLeft = daysUntil(company.trialEndsAt);
+  return trialLeft !== null && trialLeft < -TRIAL_GRACE_DAYS;
+};
+
 /** Grupo de una empresa en el panel Admin de la plataforma. */
-export type SubscriptionGroup = 'pending' | 'active' | 'expiring' | 'expired' | 'suspended' | 'exempt' | 'noPlan';
+export type SubscriptionGroup =
+  | 'pending'
+  | 'active'
+  | 'expiring'
+  | 'expired'
+  | 'purgeDue'
+  | 'suspended'
+  | 'exempt'
+  | 'noPlan';
 
 export const subscriptionGroupOf = (company: Company): SubscriptionGroup => {
   if (company.status === 'Pending') return 'pending';
   const billing = billingInfoOf(company);
   if (billing.state === 'Exempt') return 'exempt';
+  if (isTrialPurgeDue(company)) return 'purgeDue';
   if (billing.state === 'Suspended') return 'suspended';
   if (!billing.active) return 'expired';
   if (billing.daysLeft === null) return 'noPlan';

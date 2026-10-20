@@ -68,6 +68,68 @@
   margin: 0 0 22px;
 }
 
+/* ---- Prueba gratuita ---- */
+.signup__badge {
+  background-color: var(--ir-lime);
+  border-radius: 999px;
+  color: var(--ir-navy);
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  margin-right: 6px;
+  padding: 3px 10px;
+}
+
+.signup__trial {
+  color: var(--ir-navy);
+  font-size: 0.85rem;
+  margin: -8px 0 20px;
+}
+
+.signup__terms {
+  background-color: var(--ir-mist);
+  border: 1px solid var(--ir-slate);
+  border-radius: 12px;
+  margin-top: 18px;
+  padding: 16px 18px;
+}
+
+.signup__terms-title {
+  color: var(--ir-navy);
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin: 0 0 10px;
+}
+
+.signup__terms-list {
+  color: var(--ir-navy-soft);
+  display: flex;
+  flex-direction: column;
+  font-size: 0.83rem;
+  gap: 6px;
+  line-height: 1.45;
+  margin: 0 0 14px;
+  padding-left: 18px;
+}
+
+.signup__accept {
+  align-items: flex-start;
+  color: var(--ir-navy);
+  cursor: pointer;
+  display: flex;
+  font-size: 0.84rem;
+  font-weight: 600;
+  gap: 10px;
+  line-height: 1.4;
+}
+
+.signup__accept input {
+  accent-color: var(--ir-green);
+  height: 16px;
+  margin-top: 2px;
+  width: 16px;
+}
+
 .signup__grid {
   display: grid;
   gap: 14px;

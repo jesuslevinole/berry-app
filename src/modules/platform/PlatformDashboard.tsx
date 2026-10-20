@@ -125,7 +125,7 @@ export const PlatformDashboard = ({ onOpenSubscriptions }: PlatformDashboardProp
     for (const company of companies) {
       const group = subscriptionGroupOf(company);
       if (group === 'exempt') counts.free += 1;
-      if (group === 'expiring' || group === 'expired') counts.attention += 1;
+      if (group === 'expiring' || group === 'expired' || group === 'purgeDue') counts.attention += 1;
       if (billingInfoOf(company).state === 'Paid') counts.paying += 1;
     }
     return counts;
@@ -159,7 +159,7 @@ export const PlatformDashboard = ({ onOpenSubscriptions }: PlatformDashboardProp
         <StatTile
           label="Need attention"
           value={String(groupCounts.attention)}
-          hint="Expiring soon or expired"
+          hint="Expiring, expired or data deletion due"
           onClick={onOpenSubscriptions}
         />
       </div>

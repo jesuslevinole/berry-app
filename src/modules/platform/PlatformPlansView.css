@@ -1,0 +1,102 @@
+.platform-plans {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.platform-plans__error {
+  background-color: var(--bad-bg);
+  border-radius: 9px;
+  color: var(--bad);
+  font-size: 0.85rem;
+  padding: 10px 12px;
+}
+
+.platform-plans__empty {
+  align-items: center;
+  background-color: var(--surface);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 18px 20px;
+}
+
+.platform-plans__empty-text {
+  color: var(--muted);
+  flex: 1 1 320px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.platform-plans__list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.platform-plans__item {
+  align-items: stretch;
+  background-color: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  display: grid;
+  gap: 22px;
+  grid-template-columns: 300px minmax(0, 1fr);
+  padding: 16px;
+}
+
+/* La tarjeta se ve sobre el azul marino, como en la landing. */
+.platform-plans__preview {
+  background-color: var(--ir-navy);
+  border-radius: 14px;
+  display: flex;
+  padding: 22px 16px 16px;
+}
+
+.platform-plans__preview .plan-card {
+  flex: 1;
+}
+
+.platform-plans__info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  justify-content: center;
+}
+
+.platform-plans__name {
+  color: var(--ink);
+  font-size: 1.3rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.platform-plans__price {
+  color: var(--green-700);
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.platform-plans__meta {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.platform-plans__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+@media (max-width: 760px) {
+  .platform-plans__item {
+    grid-template-columns: 1fr;
+  }
+}

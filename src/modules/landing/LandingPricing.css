@@ -1,0 +1,90 @@
+/* Seccion Pricing de la landing (mismos colores y medidas que LandingView). */
+.landing-pricing {
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  padding: 100px 0;
+}
+
+.landing-pricing__container {
+  margin: 0 auto;
+  max-width: 1240px;
+  padding: 0 32px;
+}
+
+.landing-pricing__eyebrow {
+  color: var(--ir-lime);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  margin: 0 0 12px;
+  text-transform: uppercase;
+}
+
+.landing-pricing__title {
+  font-size: clamp(2rem, 4.4vw, 3.4rem);
+  font-weight: 300;
+  line-height: 1.12;
+  margin: 0 0 14px;
+}
+
+.landing-pricing__lime {
+  color: var(--ir-lime);
+}
+
+.landing-pricing__text {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 1rem;
+  margin: 0;
+}
+
+.landing-pricing__toggle {
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+  display: inline-flex;
+  margin-top: 30px;
+  padding: 4px;
+}
+
+.landing-pricing__cycle {
+  background: none;
+  border: none;
+  border-radius: 999px;
+  color: #ffffff;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  padding: 8px 20px;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.landing-pricing__cycle--on {
+  background-color: var(--ir-lime);
+  color: var(--ir-navy);
+}
+
+.landing-pricing__grid {
+  align-items: stretch;
+  display: grid;
+  gap: 26px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  margin-top: 48px;
+}
+
+.landing-pricing__grid > .reveal {
+  display: flex;
+}
+
+.landing-pricing__grid .plan-card {
+  flex: 1;
+}
+
+@media (max-width: 560px) {
+  .landing-pricing {
+    padding: 60px 0;
+  }
+
+  .landing-pricing__container {
+    padding: 0 18px;
+  }
+}

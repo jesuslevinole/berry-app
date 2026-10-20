@@ -58,6 +58,8 @@ export const COLLECTIONS = {
   PLATFORM_ADMINS: 'platform_admins',
   /** Historial de pagos de suscripcion de todas las empresas (Admin Panel). */
   PLATFORM_PAYMENTS: 'platform_payments',
+  /** Planes y precios que muestra la landing (se editan en el Admin Panel). */
+  PLATFORM_PLANS: 'platform_plans',
 } as const;
 
 export type CollectionName = (typeof COLLECTIONS)[keyof typeof COLLECTIONS];
@@ -399,6 +401,31 @@ export interface PlatformPayment extends BaseDoc {
   /** Fin del acceso que dejo este pago (AAAA-MM-DD). */
   paidThrough: string;
   recordedBy: string;
+}
+
+/** Plan de suscripcion que se muestra en la landing (Pricing) y se edita en el Admin Panel. */
+export interface PlatformPlan {
+  id: string;
+  name: string;
+  tagline: string;
+  /** Precio mensual en USD. */
+  monthlyPrice: number;
+  /** Precio por mes pagando un año; 0 = sin opcion anual. */
+  annualMonthlyPrice: number;
+  /** Texto en lugar del precio (p. ej. "Let's talk"); vacio = se muestra el precio. */
+  customPriceLabel: string;
+  /** Texto bajo el precio (p. ej. "per company / month"). */
+  priceNote: string;
+  features: string[];
+  ctaLabel: string;
+  /** Plan destacado (borde lima y etiqueta). */
+  highlighted: boolean;
+  /** Etiqueta del plan destacado (p. ej. "Most popular"). */
+  badge: string;
+  /** Solo los activos salen en la landing. */
+  active: boolean;
+  /** Orden en la landing (menor primero). */
+  order: number;
 }
 
 /** Pago de suscripcion registrado a mano en el panel Admin (hasta tener pasarela). */

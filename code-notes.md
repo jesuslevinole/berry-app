@@ -74,10 +74,18 @@ Formato: `## AAAA-MM-DD — tema` y viñetas cortas. Escribir siempre al final.
 ## 2026-10-21 — Cheque: memo alineado con la firma
 - La línea del memo y la de la firma son ahora el borde inferior de su caja (antes la firma usaba borde superior), así quedan a la misma altura; el memo se estira hasta la firma. "Signature" cuelga debajo de la línea en el padding de `.bottom`, para no mover la línea de la firma sobre el papel preimpreso.
 
+## 2026-10-21 — Prueba gratuita con límite y borrado; planes
+- El borrado de pruebas vencidas es manual (botón en Subscriptions, hay que escribir el nombre de la empresa): decisión del desarrollador para que nada se borre sin confirmación. Automatizarlo requiere una cuenta de servicio de Firebase en el Worker.
+- Bloqueo de 3 días antes del borrado (`TRIAL_GRACE_DAYS`): la pantalla de suscripción vencida avisa la fecha en que se borra.
+- El límite de 10 por formulario cuenta los registros actuales (si borra uno, puede crear otro). Líneas de órdenes, pagos y configuración no cuentan. Es control del app, no de las reglas.
+- El borrado no elimina las cuentas de Firebase Auth (no se puede desde el navegador): ese email no podrá volver a registrarse con el mismo correo hasta borrar la cuenta en la consola de Firebase.
+- Planes en `platform_plans` con lectura pública en las reglas (la landing no tiene sesión). Lecturas puntuales, no por sincronización.
+
 ## Pendientes
 - Pasarela de pago (Stripe propuesto): el webhook en el Worker escribiría `paidThrough` como hoy lo hace "Record payment"; el pago reemplazaría al botón Approve.
 - Registro con un email que ya tiene cuenta: hoy muestra "inicia sesión"; falta crear la empresa desde adentro.
 - Avisar por correo al admin de plataforma cuando se registra una empresa.
+- Automatizar el borrado de pruebas vencidas (Worker + cuenta de servicio) y borrar las cuentas de Auth de esas empresas.
 - Pasar a plan Blaze antes de tener empresas cliente reales (las 50 k lecturas/día son de todo el proyecto).
 - Convertir a services el acceso directo a Firestore de `AuthContext`.
 - `utils/format.ts` `todayISO()` usa `toISOString()` (fecha UTC): en Texas cambia de día a las 6–7 p. m.
