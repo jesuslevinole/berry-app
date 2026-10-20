@@ -22,7 +22,7 @@
   "vars": {
     "FIREBASE_PROJECT_ID": "berry-app-7021e",
     // Remitente (dominio verificado en Resend).
-    "MAIL_FROM": "Berry Source <noreply@berry-source.com>"
+    "MAIL_FROM": "Berry Source <noreply@berrysource.com>"
   }
   // Secret (no va aqui): npx wrangler secret put RESEND_API_KEY
 }
