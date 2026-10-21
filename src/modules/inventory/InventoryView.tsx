@@ -3,6 +3,8 @@ import { useAuth } from '../../context/AuthContext';
 import { useCollection } from '../../hooks/useCollection';
 import { useCatalog } from '../../hooks/useCatalog';
 import { Toolbar } from '../../components/ui/Toolbar';
+import { ColumnPicker } from '../../components/ui/ColumnPicker';
+import { useColumnVisibility, type ColumnOption } from '../../hooks/useColumnVisibility';
 import { SearchableSelect } from '../../components/ui/SearchableSelect';
 import { Modal } from '../../components/ui/Modal';
 import { SalesOrderDetailPanel } from '../sales/SalesOrderDetailPanel';
@@ -128,6 +130,17 @@ async function exportMovements(rows: MovementRow[], commodityName: (id: string) 
   URL.revokeObjectURL(url);
 }
 
+/* Columnas de la tabla de movimientos que el usuario puede ocultar con "Columns". */
+const MOVEMENT_COLUMNS: ColumnOption[] = [
+  { key: 'date', label: 'Date' },
+  { key: 'type', label: 'Type' },
+  { key: 'document', label: 'Lot # / Order #' },
+  { key: 'commodity', label: 'Commodity' },
+  { key: 'description', label: 'Description' },
+  { key: 'party', label: 'From / To' },
+  { key: 'quantity', label: 'Quantity' },
+];
+
 export function InventoryView() {
   const { can } = useAuth();
   const { data: purchaseOrders } = useCollection<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER);
@@ -145,6 +158,8 @@ export function InventoryView() {
 
   const [tab, setTab] = useState<InventoryTab>('stock');
   const [search, setSearch] = useState('');
+  const movementColumns = useColumnVisibility('inventory-movements', MOVEMENT_COLUMNS);
+  const show = movementColumns.isVisible;
   const [typeFilter, setTypeFilter] = useState<MovementType>('all');
   const [commodityFilter, setCommodityFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
@@ -566,6 +581,7 @@ export function InventoryView() {
           <button type="button" className="btn btn--secondary" onClick={() => setItemsOpen(true)}>
             Inventory products
           </button>
+          {tab === 'movements' && <ColumnPicker view={movementColumns} />}
           {tab === 'movements' && can('inventory', 'documents') && (
             <button
               type="button"
@@ -689,44 +705,54 @@ export function InventoryView() {
               <table className="inventory__table">
                 <thead>
                   <tr>
-                    <th className="inventory__th">Date</th>
-                    <th className="inventory__th">Type</th>
-                    <th className="inventory__th">Lot # / Order #</th>
-                    <th className="inventory__th">Commodity</th>
-                    <th className="inventory__th">Description</th>
-                    <th className="inventory__th">From / To</th>
-                    <th className="inventory__th inventory__th--num">Quantity</th>
+                    {show('date') && <th className="inventory__th">Date</th>}
+                    {show('type') && <th className="inventory__th">Type</th>}
+                    {show('document') && <th className="inventory__th">Lot # / Order #</th>}
+                    {show('commodity') && <th className="inventory__th">Commodity</th>}
+                    {show('description') && <th className="inventory__th">Description</th>}
+                    {show('party') && <th className="inventory__th">From / To</th>}
+                    {show('quantity') && <th className="inventory__th inventory__th--num">Quantity</th>}
                   </tr>
                 </thead>
                 <tbody>
                   {movementRows.length === 0 && (
-                    <tr><td className="inventory__empty" colSpan={7}>No movements match the current filters.</td></tr>
+                    <tr><td className="inventory__empty" colSpan={MOVEMENT_COLUMNS.length - movementColumns.hiddenCount}>No movements match the current filters.</td></tr>
                   )}
                   {movementRows.map((row) => (
                     <tr key={row.id}>
-                      <td className="inventory__td inventory__td--muted">{fmtDate(row.date)}</td>
-                      <td className="inventory__td">
-                        <span className={`inventory__badge inventory__badge--${row.type}`}>
-                          {row.type === 'in' ? 'IN' : 'OUT'}
-                        </span>
-                      </td>
-                      <td className="inventory__td inventory__td--mono">
-                        <button
-                          type="button"
-                          className="inventory__doclink"
-                          onClick={() => openDocument(row)}
-                          title={row.type === 'in' ? 'Open purchase order detail' : 'Open sales order detail'}
-                        >
-                          {row.documentNumber}
-                        </button>
-                      </td>
-                      <td className="inventory__td inventory__td--strong">{commodities.labelOf(row.commodityId)}</td>
-                      <td className="inventory__td inventory__td--muted">{row.description || '\u2014'}</td>
-                      <td className="inventory__td">{row.party || '\u2014'}</td>
-                      <td className={`inventory__td inventory__td--num inventory__qty--${row.type}`}>
-                        {row.type === 'in' ? '+' : MINUS}
-                        {fmtQty(row.quantity)}
-                      </td>
+                      {show('date') && <td className="inventory__td inventory__td--muted">{fmtDate(row.date)}</td>}
+                      {show('type') && (
+                        <td className="inventory__td">
+                          <span className={`inventory__badge inventory__badge--${row.type}`}>
+                            {row.type === 'in' ? 'IN' : 'OUT'}
+                          </span>
+                        </td>
+                      )}
+                      {show('document') && (
+                        <td className="inventory__td inventory__td--mono">
+                          <button
+                            type="button"
+                            className="inventory__doclink"
+                            onClick={() => openDocument(row)}
+                            title={row.type === 'in' ? 'Open purchase order detail' : 'Open sales order detail'}
+                          >
+                            {row.documentNumber}
+                          </button>
+                        </td>
+                      )}
+                      {show('commodity') && (
+                        <td className="inventory__td inventory__td--strong">{commodities.labelOf(row.commodityId)}</td>
+                      )}
+                      {show('description') && (
+                        <td className="inventory__td inventory__td--muted">{row.description || '\u2014'}</td>
+                      )}
+                      {show('party') && <td className="inventory__td">{row.party || '\u2014'}</td>}
+                      {show('quantity') && (
+                        <td className={`inventory__td inventory__td--num inventory__qty--${row.type}`}>
+                          {row.type === 'in' ? '+' : MINUS}
+                          {fmtQty(row.quantity)}
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>

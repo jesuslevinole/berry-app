@@ -8,6 +8,8 @@ export interface Column<T> {
   align?: 'left' | 'right' | 'center';
   width?: string;
   render?: (row: T) => ReactNode;
+  /** Nombre en el boton "Columns" cuando el encabezado esta vacio (columnas de iconos). */
+  pickerLabel?: string;
 }
 
 interface DataTableProps<T extends { id: string }> {

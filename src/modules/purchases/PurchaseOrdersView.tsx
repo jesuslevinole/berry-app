@@ -8,6 +8,8 @@ import { byNewest, fmtDate, fmtMoney } from '../../utils/format';
 import { deleteDocument, listDocuments, where } from '../../services/firestore';
 import { syncAllPurchaseOrderTotals } from '../../services/orderTotalsService';
 import { DataTable, type Column } from '../../components/ui/DataTable';
+import { ColumnPicker } from '../../components/ui/ColumnPicker';
+import { useDataTableColumns } from '../../hooks/useColumnVisibility';
 import { ViewTabs } from '../../components/ui/ViewTabs';
 import { Toolbar } from '../../components/ui/Toolbar';
 import { DataPortButtons } from '../../components/ui/DataPortButtons';
@@ -91,6 +93,7 @@ export function PurchaseOrdersView() {
       ? [{
           key: 'pdf',
           header: '',
+          pickerLabel: 'Documents',
           width: '48px',
           align: 'center' as const,
           render: (po: PurchaseOrder) => (
@@ -129,6 +132,7 @@ export function PurchaseOrdersView() {
       ),
     },
   ];
+  const { view: columnView, visibleColumns } = useDataTableColumns('purchase-orders', columns);
 
   /** Datos del documento de la orden (para imprimir o enviar por correo). */
   const poContext = (po: PurchaseOrder): PurchaseOrderPdfContext => {
@@ -211,6 +215,7 @@ export function PurchaseOrdersView() {
         searchValue={search}
         onSearchChange={setSearch}
       >
+        {tab === 'orders' && <ColumnPicker view={columnView} />}
         {can('purchases', 'documents') && <DataPortButtons schemas={PURCHASES_SCHEMAS} fileName="purchase-orders" />}
         {can('purchases', 'edit') && (
           <button
@@ -249,7 +254,7 @@ export function PurchaseOrdersView() {
 
       {tab === 'orders' ? (
         <DataTable
-          columns={columns}
+          columns={visibleColumns}
           rows={rows}
           loading={loading}
           emptyMessage="No purchase orders yet"

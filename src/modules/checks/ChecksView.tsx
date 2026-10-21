@@ -11,6 +11,8 @@ import { createDocument, deleteDocument, updateDocument } from '../../services/f
 import { printCheck } from '../../services/checkPrintService';
 import { COLLECTIONS, type Check } from '../../types/models';
 import { Toolbar } from '../../components/ui/Toolbar';
+import { ColumnPicker } from '../../components/ui/ColumnPicker';
+import { useColumnVisibility, type ColumnOption } from '../../hooks/useColumnVisibility';
 import { DataPortButtons } from '../../components/ui/DataPortButtons';
 import { CHECKS_SCHEMAS } from '../../config/entitySchemas';
 import { confirmClose, Modal } from '../../components/ui/Modal';
@@ -26,6 +28,17 @@ const fmtDate = (iso: string): string => {
   return y && m && d ? `${parseInt(d, 10)}/${parseInt(m, 10)}/${y}` : iso;
 };
 
+/* Columnas que el usuario puede ocultar con "Columns" (Actions siempre se ve). */
+const CHECK_COLUMNS: ColumnOption[] = [
+  { key: 'number', label: '# Check' },
+  { key: 'date', label: 'Date' },
+  { key: 'bank', label: 'Bank account' },
+  { key: 'customer', label: 'Customer' },
+  { key: 'memo', label: 'Memo' },
+  { key: 'ref', label: 'Ref #' },
+  { key: 'amount', label: 'Amount' },
+];
+
 export function ChecksView() {
   const { can } = useAuth();
   const { checkSettings } = useAppConfig();
@@ -40,6 +53,8 @@ export function ChecksView() {
   const [setupOpen, setSetupOpen] = useState(false);
 
   const [search, setSearch] = useState('');
+  const columnView = useColumnVisibility('checks', CHECK_COLUMNS);
+  const show = columnView.isVisible;
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Check | null>(null);
 
@@ -202,6 +217,7 @@ export function ChecksView() {
   return (
     <div className="checks">
       <Toolbar title="Checkbook" subtitle={`${rows.length} checks · ${fmtMoney(total)}`} searchValue={search} onSearchChange={setSearch}>
+        <ColumnPicker view={columnView} />
         <button type="button" className="btn btn--secondary" onClick={() => setSetupOpen(true)}>
           Checking Set-Up
         </button>
@@ -221,19 +237,19 @@ export function ChecksView() {
         <table className="checks__table">
           <thead>
             <tr>
-              <th className="checks__th"># Check</th>
-              <th className="checks__th">Date</th>
-              <th className="checks__th">Bank account</th>
-              <th className="checks__th">Customer</th>
-              <th className="checks__th">Memo</th>
-              <th className="checks__th">Ref #</th>
-              <th className="checks__th checks__th--num">Amount</th>
+              {show('number') && <th className="checks__th"># Check</th>}
+              {show('date') && <th className="checks__th">Date</th>}
+              {show('bank') && <th className="checks__th">Bank account</th>}
+              {show('customer') && <th className="checks__th">Customer</th>}
+              {show('memo') && <th className="checks__th">Memo</th>}
+              {show('ref') && <th className="checks__th">Ref #</th>}
+              {show('amount') && <th className="checks__th checks__th--num">Amount</th>}
               <th className="checks__th checks__th--right">Actions</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 && (
-              <tr><td className="checks__empty" colSpan={8}>No checks yet.</td></tr>
+              <tr><td className="checks__empty" colSpan={CHECK_COLUMNS.length - columnView.hiddenCount + 1}>No checks yet.</td></tr>
             )}
             {rows.map((check) => (
               <tr
@@ -241,13 +257,17 @@ export function ChecksView() {
                 className="checks__row"
                 onClick={() => (can('checks', 'edit') || can('checks', 'view')) && openEdit(check)}
               >
-                <td className="checks__td checks__td--mono">{check.CHECK_NUMBER}</td>
-                <td className="checks__td checks__td--muted">{fmtDate(check.DATE)}</td>
-                <td className="checks__td checks__td--muted">{bankName(check)}</td>
-                <td className="checks__td checks__td--strong">{customers.nameOf(check.ID_CUSTOMER)}</td>
-                <td className="checks__td checks__td--muted checks__td--clip" title={check.MEMO || ''}>{check.MEMO || '—'}</td>
-                <td className="checks__td checks__td--muted checks__td--clip" title={check.REF || ''}>{check.REF || '—'}</td>
-                <td className="checks__td checks__td--num">{fmtMoney(check.AMOUNT ?? 0)}</td>
+                {show('number') && <td className="checks__td checks__td--mono">{check.CHECK_NUMBER}</td>}
+                {show('date') && <td className="checks__td checks__td--muted">{fmtDate(check.DATE)}</td>}
+                {show('bank') && <td className="checks__td checks__td--muted">{bankName(check)}</td>}
+                {show('customer') && <td className="checks__td checks__td--strong">{customers.nameOf(check.ID_CUSTOMER)}</td>}
+                {show('memo') && (
+                  <td className="checks__td checks__td--muted checks__td--clip" title={check.MEMO || ''}>{check.MEMO || '—'}</td>
+                )}
+                {show('ref') && (
+                  <td className="checks__td checks__td--muted checks__td--clip" title={check.REF || ''}>{check.REF || '—'}</td>
+                )}
+                {show('amount') && <td className="checks__td checks__td--num">{fmtMoney(check.AMOUNT ?? 0)}</td>}
                 <td className="checks__td checks__td--right">
                   {can('checks', 'documents') && (
                     <button

@@ -3,6 +3,8 @@ import { limit, orderBy, where } from 'firebase/firestore';
 import { getDocumentsById, listDocuments, subscribeToCollection } from '../../services/firestore';
 import { moduleLabel, recordLabel } from '../../services/recordLabels';
 import { Toolbar } from '../../components/ui/Toolbar';
+import { ColumnPicker } from '../../components/ui/ColumnPicker';
+import { useColumnVisibility, type ColumnOption } from '../../hooks/useColumnVisibility';
 import { PAGE_SIZE } from '../../config/limits';
 import { COLLECTIONS, type ActivityLog, type BaseDoc, type TrashItem } from '../../types/models';
 import './ActivityLogView.css';
@@ -90,7 +92,20 @@ async function resolveLabels(rows: ActivityLog[]): Promise<Map<string, string>> 
   return out;
 }
 
+/* Columnas que el usuario puede ocultar con "Columns". */
+const ACTIVITY_COLUMNS: ColumnOption[] = [
+  { key: 'date', label: 'Date' },
+  { key: 'user', label: 'User' },
+  { key: 'module', label: 'Module' },
+  { key: 'action', label: 'Action' },
+  { key: 'record', label: 'Record' },
+  { key: 'detail', label: 'Detail' },
+];
+
 export function ActivityLogView() {
+  const columnView = useColumnVisibility('activity-log', ACTIVITY_COLUMNS);
+  const show = columnView.isVisible;
+  const visibleColumnCount = ACTIVITY_COLUMNS.length - columnView.hiddenCount;
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   /* Rango cuyas filas ya llegaron (si no coincide con el actual, esta cargando). */
   const [loadedRange, setLoadedRange] = useState('');
@@ -185,7 +200,9 @@ export function ActivityLogView() {
         subtitle="Every create, update, delete and restore, in real time"
         searchValue={search}
         onSearchChange={resetPage(setSearch)}
-      />
+      >
+        <ColumnPicker view={columnView} />
+      </Toolbar>
 
       <div className="activity__filters">
         <div className="activity__filter">
@@ -227,18 +244,18 @@ export function ActivityLogView() {
         <table className="activity__table">
           <thead>
             <tr>
-              <th className="activity__th">Date</th>
-              <th className="activity__th">User</th>
-              <th className="activity__th">Module</th>
-              <th className="activity__th">Action</th>
-              <th className="activity__th">Record</th>
-              <th className="activity__th">Detail</th>
+              {show('date') && <th className="activity__th">Date</th>}
+              {show('user') && <th className="activity__th">User</th>}
+              {show('module') && <th className="activity__th">Module</th>}
+              {show('action') && <th className="activity__th">Action</th>}
+              {show('record') && <th className="activity__th">Record</th>}
+              {show('detail') && <th className="activity__th">Detail</th>}
             </tr>
           </thead>
           <tbody>
             {!ready && (
               <tr>
-                <td className="activity__empty" colSpan={6}>
+                <td className="activity__empty" colSpan={visibleColumnCount}>
                   {fromDate && toDate && fromDate > toDate
                     ? 'The “From” date must be before the “To” date.'
                     : 'Choose the user and the date range (From and To) to see the activity.'}
@@ -246,26 +263,30 @@ export function ActivityLogView() {
               </tr>
             )}
             {ready && loading && (
-              <tr><td className="activity__empty" colSpan={6}>Loading…</td></tr>
+              <tr><td className="activity__empty" colSpan={visibleColumnCount}>Loading…</td></tr>
             )}
             {ready && !loading && visibleRows.length === 0 && (
-              <tr><td className="activity__empty" colSpan={6}>No activity matches the current filters.</td></tr>
+              <tr><td className="activity__empty" colSpan={visibleColumnCount}>No activity matches the current filters.</td></tr>
             )}
             {visibleRows.map((log) => {
               const label = labelOf(log);
               const resolving = !log.LABEL && !labels.has(cacheKey(log.COLLECTION, log.DOC_ID));
               return (
                 <tr key={log.id}>
-                  <td className="activity__td activity__td--muted">{fmtDateTime(log.DATE)}</td>
-                  <td className="activity__td">{log.USER_EMAIL}</td>
-                  <td className="activity__td activity__td--strong">{moduleLabel(log.COLLECTION)}</td>
-                  <td className="activity__td">
-                    <span className={`activity__badge activity__badge--${log.ACTION}`}>{ACTION_LABELS[log.ACTION] ?? log.ACTION}</span>
-                  </td>
-                  <td className="activity__td" title={`Record id: ${log.DOC_ID}`}>
-                    {label || <span className="activity__td--muted">{resolving ? '…' : '(no name)'}</span>}
-                  </td>
-                  <td className="activity__td activity__td--muted">{log.DETAIL || '—'}</td>
+                  {show('date') && <td className="activity__td activity__td--muted">{fmtDateTime(log.DATE)}</td>}
+                  {show('user') && <td className="activity__td">{log.USER_EMAIL}</td>}
+                  {show('module') && <td className="activity__td activity__td--strong">{moduleLabel(log.COLLECTION)}</td>}
+                  {show('action') && (
+                    <td className="activity__td">
+                      <span className={`activity__badge activity__badge--${log.ACTION}`}>{ACTION_LABELS[log.ACTION] ?? log.ACTION}</span>
+                    </td>
+                  )}
+                  {show('record') && (
+                    <td className="activity__td" title={`Record id: ${log.DOC_ID}`}>
+                      {label || <span className="activity__td--muted">{resolving ? '…' : '(no name)'}</span>}
+                    </td>
+                  )}
+                  {show('detail') && <td className="activity__td activity__td--muted">{log.DETAIL || '—'}</td>}
                 </tr>
               );
             })}

@@ -5,6 +5,8 @@ import { useCollection } from '../../hooks/useCollection';
 import { createDocument, deleteDocument, updateDocument } from '../../services/firestore';
 import type { BaseDoc } from '../../types/models';
 import { DataTable, type Column } from '../../components/ui/DataTable';
+import { ColumnPicker } from '../../components/ui/ColumnPicker';
+import { useDataTableColumns } from '../../hooks/useColumnVisibility';
 import { Toolbar } from '../../components/ui/Toolbar';
 import { confirmClose, Modal } from '../../components/ui/Modal';
 import { FormField, FormGrid } from '../../components/ui/FormField';
@@ -158,6 +160,7 @@ export function CatalogsView() {
       ),
     })),
   ];
+  const { view: columnView, visibleColumns } = useDataTableColumns(`catalogs-${def.collection}`, columns);
 
   /** Borrado directo desde la tabla (en segundo plano). */
   /** Borrado masivo desde las casillas de la tabla. */
@@ -197,6 +200,7 @@ export function CatalogsView() {
           searchValue={search}
           onSearchChange={setSearch}
         >
+          <ColumnPicker view={columnView} />
           {can('catalogs', 'documents') && (
             <DataPortButtons schemas={[schema]} fileName={def.collection.toLowerCase()} />
           )}
@@ -205,7 +209,7 @@ export function CatalogsView() {
           )}
         </Toolbar>
         <DataTable
-          columns={columns}
+          columns={visibleColumns}
           rows={rows}
           loading={loading}
           onRowClick={openEdit}

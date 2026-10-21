@@ -3,6 +3,8 @@ import { useAuth } from '../../context/AuthContext';
 import { useCollection } from '../../hooks/useCollection';
 import { useToday } from '../../hooks/useToday';
 import { DataTable, type Column } from '../../components/ui/DataTable';
+import { ColumnPicker } from '../../components/ui/ColumnPicker';
+import { useDataTableColumns } from '../../hooks/useColumnVisibility';
 import { Toolbar } from '../../components/ui/Toolbar';
 import { ViewTabs, type ViewTab } from '../../components/ui/ViewTabs';
 import {
@@ -270,6 +272,7 @@ export const PlatformView = () => {
     },
     { key: 'users', header: 'Users', align: 'right', render: (row) => row.users },
   ];
+  const { view: columnView, visibleColumns } = useDataTableColumns('platform-subscriptions', columns);
 
   if (!isPlatformAdmin) {
     return (
@@ -287,14 +290,16 @@ export const PlatformView = () => {
         subtitle="Subscriptions of every company on the platform"
         searchValue={search}
         onSearchChange={setSearch}
-      />
+      >
+        <ColumnPicker view={columnView} />
+      </Toolbar>
 
       <PlatformKpis counts={counts} onSelect={setTab} />
 
       <ViewTabs tabs={tabs} active={tab} onChange={setTab} />
 
       <DataTable
-        columns={columns}
+        columns={visibleColumns}
         rows={visibleRows}
         loading={loading}
         emptyMessage="No companies in this group."

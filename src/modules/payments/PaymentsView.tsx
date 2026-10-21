@@ -4,6 +4,8 @@ import { useCollection } from '../../hooks/useCollection';
 import { useCatalog } from '../../hooks/useCatalog';
 import { Toolbar } from '../../components/ui/Toolbar';
 import { DataTable, type Column } from '../../components/ui/DataTable';
+import { ColumnPicker } from '../../components/ui/ColumnPicker';
+import { useDataTableColumns } from '../../hooks/useColumnVisibility';
 import { DataPortButtons } from '../../components/ui/DataPortButtons';
 import { PAYMENT_BILL_SCHEMA, PAYMENT_PURCHASE_SCHEMA, PAYMENT_SALES_SCHEMA } from '../../config/entitySchemas';
 import { deleteDocument } from '../../services/firestore';
@@ -190,6 +192,7 @@ export function PaymentsView({ kind = 'in', embedded = false, moduleId }: Props)
     { key: 'ref', header: 'Ref #', render: (r) => r.refNumber || '\u2014' },
     { key: 'amount', header: 'Amount', align: 'right', render: (r) => fmtMoney(r.amount) },
   ];
+  const { view: columnView, visibleColumns } = useDataTableColumns(`payments-${tab}`, columns);
 
   /** Abrir el detalle de la orden permite editar el pago con el editor inline. */
   const openRow = (row: Row) => {
@@ -247,6 +250,7 @@ export function PaymentsView({ kind = 'in', embedded = false, moduleId }: Props)
           searchValue={search}
           onSearchChange={setSearch}
         >
+          <ColumnPicker view={columnView} />
           {checkButton}
           {can(meta.moduleId, 'documents') && <DataPortButtons schemas={meta.schemas} fileName={meta.fileName} />}
         </Toolbar>
@@ -273,6 +277,7 @@ export function PaymentsView({ kind = 'in', embedded = false, moduleId }: Props)
               placeholder="Search…"
               onChange={(e) => setSearch(e.target.value)}
             />
+            <ColumnPicker view={columnView} />
             {checkButton}
             {can(meta.moduleId, 'documents') && <DataPortButtons schemas={meta.schemas} fileName={meta.fileName} />}
           </div>
@@ -281,7 +286,7 @@ export function PaymentsView({ kind = 'in', embedded = false, moduleId }: Props)
 
       <DataTable
         rows={rows}
-        columns={columns}
+        columns={visibleColumns}
         loading={tab === 'in' ? loadingIn : tab === 'po' ? loadingPo : loadingOut}
         emptyMessage="No payments registered yet."
         onRowClick={tab === 'in' ? openRow : undefined}

@@ -89,3 +89,12 @@ Formato: `## AAAA-MM-DD — tema` y viñetas cortas. Escribir siempre al final.
 - Pasar a plan Blaze antes de tener empresas cliente reales (las 50 k lecturas/día son de todo el proyecto).
 - Convertir a services el acceso directo a Firestore de `AuthContext`.
 - `utils/format.ts` `todayISO()` usa `toISOString()` (fecha UTC): en Texas cambia de día a las 6–7 p. m.
+
+## 2026-10-21 — Botón "Columns" en las tablas
+- `hooks/useColumnVisibility.ts` + `components/ui/ColumnPicker.tsx`: cada usuario elige qué columnas ver en cada tabla. Es preferencia personal de vista, guardada en el navegador (`berry-columns:<empresa>:<tabla>`, sin lecturas de Firestore); no reemplaza al Configurator, que define las columnas de la empresa (en AR/AP el botón se aplica encima de lo que deja el Configurator). Se guardan las columnas **ocultas**, así una columna nueva aparece visible. Siempre queda al menos una.
+- El menú es `position: fixed` (coordenadas por variables CSS) para que no lo recorte `.toolbar__actions`, que en pantallas angostas tiene `overflow-x: auto`.
+- En Reports, el Excel exporta solo las columnas visibles.
+- Sin el botón (a propósito): pivote de Stock de Inventory (sus columnas son los commodities), tablas dentro de modales/paneles de detalle, matriz de Roles y tablas de configuración.
+
+## 2026-10-21 — Excel de ventas: Product solo con commodities
+- `SalesExcelModal`: la columna Product omite los productos con `TRACK_INVENTORY: false` (Credit, Freight, Temp Recorder, servicios). Quantity y Total no cambiaron (Quantity sigue sumando todas las líneas).

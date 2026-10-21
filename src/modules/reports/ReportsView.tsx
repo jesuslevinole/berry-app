@@ -5,6 +5,8 @@ import { FORM_DEFS } from '../../config/formDefs';
 import { useCollection } from '../../hooks/useCollection';
 import { useCatalog } from '../../hooks/useCatalog';
 import { Toolbar } from '../../components/ui/Toolbar';
+import { ColumnPicker } from '../../components/ui/ColumnPicker';
+import { useColumnVisibility, type ColumnOption } from '../../hooks/useColumnVisibility';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { SalesOrderDetailPanel } from '../sales/SalesOrderDetailPanel';
 import { PurchaseOrderDetailPanel } from '../purchases/PurchaseOrderDetailPanel';
@@ -36,6 +38,46 @@ const REPORT_META: Record<ReportId, { title: string; moduleId: string }> = {
   ar: { title: 'Accounts Receivable', moduleId: 'ar' },
   expenses: { title: 'Expenses Report', moduleId: 'expensesreport' },
 };
+
+/*
+ * Columnas fijas de cada reporte que el usuario puede ocultar con "Columns" (preferencia
+ * personal). AR y AP las define el Configurator; el boton se aplica encima de esa lista.
+ */
+const QUEUE_COLUMNS: ColumnOption[] = [
+  { key: 'date', label: 'Date' },
+  { key: 'customer', label: 'Customer' },
+  { key: 'number', label: '# Sales Order' },
+  { key: 'total', label: 'Total' },
+  { key: 'dueDate', label: 'Due Date' },
+  { key: 'status', label: 'Status' },
+  { key: 'salesperson', label: 'Salesperson' },
+  { key: 'buyer', label: 'Buyer' },
+];
+
+const AP_GROWERS_COLUMNS: ColumnOption[] = [
+  { key: 'grower', label: 'Grower' },
+  { key: 'vendor', label: 'Vendor' },
+  { key: 'lot', label: 'Lot #' },
+  { key: 'ref', label: '# Ref' },
+  { key: 'total', label: 'Total' },
+  { key: 'paid', label: 'Amount paid' },
+  { key: 'balance', label: 'Balance' },
+  { key: 'arrival', label: 'Arrival date' },
+  { key: 'dueDate', label: 'Due date' },
+];
+
+const EXPENSES_COLUMNS: ColumnOption[] = [
+  { key: 'date', label: 'Date' },
+  { key: 'lot', label: '# Lot' },
+  { key: 'supplier', label: 'Supplier' },
+  { key: 'category', label: 'Category' },
+  { key: 'invoice', label: 'Invoice #' },
+  { key: 'amount', label: 'Amount' },
+  { key: 'paid', label: 'Amount paid' },
+  { key: 'balance', label: 'Balance' },
+  { key: 'paymentDate', label: 'Payment date' },
+  { key: 'status', label: 'Status' },
+];
 
 /** yyyy-mm-dd -> m/d/yyyy (formato de Estados Unidos). */
 const fmtDate = (iso: string): string => {
@@ -503,54 +545,76 @@ export function ReportsView({ report }: ReportsViewProps) {
   const arVisible = fieldsFor('report-ar', arFields).filter((f) => !f.hidden && AR_COLUMNS[f.key]);
   const apVisible = fieldsFor('report-ap', apFields).filter((f) => !f.hidden && AP_COLUMNS[f.key]).map(relabel);
 
+  /* Boton "Columns": una eleccion por reporte; en AR y AP ofrece lo que el Configurator deja visible. */
+  const fixedColumnsOf: Record<ReportId, ColumnOption[]> = {
+    queue: QUEUE_COLUMNS,
+    apgrowers: AP_GROWERS_COLUMNS,
+    ap: apVisible.map((f) => ({ key: f.key, label: f.label })),
+    ar: arVisible.map((f) => ({ key: f.key, label: f.label })),
+    expenses: EXPENSES_COLUMNS,
+  };
+  const columnView = useColumnVisibility(`reports-${report}`, fixedColumnsOf[report]);
+  const show = columnView.isVisible;
+  const shownCount = fixedColumnsOf[report].length - columnView.hiddenCount;
+  const arShown = arVisible.filter((f) => show(f.key));
+  const apShown = apVisible.filter((f) => show(f.key));
+
+  /* El Excel exporta solo las columnas visibles (Overdue de A/P Growers no es columna de la tabla: siempre va). */
+  type KeyedExport = ExportColumn & { key: string };
+  const exportShown = (title: string, columns: KeyedExport[]) =>
+    void exportReport(
+      title,
+      columns.filter((col) => show(col.key)).map(({ header, values }) => ({ header, values })),
+    );
+
   const handleExport = () => {
     if (report === 'queue') {
-      void exportReport('Invoice Queue', [
-        { header: 'Date', values: queueRows.map((so) => fmtDate(so.DATE ?? '')) },
-        { header: 'Customer', values: queueRows.map((so) => customers.nameOf(so.ID_CUSTOMER)) },
-        { header: '# Sales Order', values: queueRows.map((so) => so.SALES_ORDER_NUMBER ?? '') },
-        { header: 'Total', values: queueRows.map((so) => so.TOTAL ?? 0) },
-        { header: 'Due Date', values: queueRows.map((so) => fmtDate(so.DUE_DATE ?? '')) },
-        { header: 'Status', values: queueRows.map((so) => so.STATUS ?? '') },
-        { header: 'Salesperson', values: queueRows.map((so) => buyerName(so.ID_USERS)) },
-        { header: 'Buyer', values: queueRows.map((so) => so.BUYER ?? '') },
+      exportShown('Invoice Queue', [
+        { key: 'date', header: 'Date', values: queueRows.map((so) => fmtDate(so.DATE ?? '')) },
+        { key: 'customer', header: 'Customer', values: queueRows.map((so) => customers.nameOf(so.ID_CUSTOMER)) },
+        { key: 'number', header: '# Sales Order', values: queueRows.map((so) => so.SALES_ORDER_NUMBER ?? '') },
+        { key: 'total', header: 'Total', values: queueRows.map((so) => so.TOTAL ?? 0) },
+        { key: 'dueDate', header: 'Due Date', values: queueRows.map((so) => fmtDate(so.DUE_DATE ?? '')) },
+        { key: 'status', header: 'Status', values: queueRows.map((so) => so.STATUS ?? '') },
+        { key: 'salesperson', header: 'Salesperson', values: queueRows.map((so) => buyerName(so.ID_USERS)) },
+        { key: 'buyer', header: 'Buyer', values: queueRows.map((so) => so.BUYER ?? '') },
       ]);
     } else if (report === 'apgrowers') {
       const flat = apGrowerRows;
-      void exportReport('AP Growers', [
-        { header: 'Grower', values: flat.map((r) => r.growerName) },
-        { header: 'Vendor', values: flat.map((r) => customers.nameOf(r.po.ID_CUSTOMER)) },
-        { header: 'Lot #', values: flat.map((r) => r.po.LOT_NUMBER ?? '') },
-        { header: '# Ref', values: flat.map((r) => r.po.REF_NUMBER ?? '') },
-        { header: 'Total', values: flat.map((r) => r.po.TOTAL ?? 0) },
-        { header: 'Amount paid', values: flat.map((r) => r.po.AMOUNT_PAID ?? 0) },
-        { header: 'Balance', values: flat.map((r) => r.balance) },
-        { header: 'Arrival date', values: flat.map((r) => fmtDate(r.po.ARRIVAL_DATE ?? '')) },
-        { header: 'Due date', values: flat.map((r) => fmtDate(r.dueDate)) },
-        { header: 'Overdue', values: flat.map((r) => (r.overdue ? 'Yes' : 'No')) },
+      exportShown('AP Growers', [
+        { key: 'grower', header: 'Grower', values: flat.map((r) => r.growerName) },
+        { key: 'vendor', header: 'Vendor', values: flat.map((r) => customers.nameOf(r.po.ID_CUSTOMER)) },
+        { key: 'lot', header: 'Lot #', values: flat.map((r) => r.po.LOT_NUMBER ?? '') },
+        { key: 'ref', header: '# Ref', values: flat.map((r) => r.po.REF_NUMBER ?? '') },
+        { key: 'total', header: 'Total', values: flat.map((r) => r.po.TOTAL ?? 0) },
+        { key: 'paid', header: 'Amount paid', values: flat.map((r) => r.po.AMOUNT_PAID ?? 0) },
+        { key: 'balance', header: 'Balance', values: flat.map((r) => r.balance) },
+        { key: 'arrival', header: 'Arrival date', values: flat.map((r) => fmtDate(r.po.ARRIVAL_DATE ?? '')) },
+        { key: 'dueDate', header: 'Due date', values: flat.map((r) => fmtDate(r.dueDate)) },
+        { key: 'overdue', header: 'Overdue', values: flat.map((r) => (r.overdue ? 'Yes' : 'No')) },
       ]);
     } else if (report === 'ap') {
-      void exportReport('Accounts Payable', apVisible.map((f) => ({
+      void exportReport('Accounts Payable', apShown.map((f) => ({
         header: f.label,
         values: apRows.map((r) => AP_COLUMNS[f.key].excel(r)),
       })));
     } else if (report === 'ar') {
-      void exportReport('Accounts Receivable', arVisible.map((f) => ({
+      void exportReport('Accounts Receivable', arShown.map((f) => ({
         header: f.label,
         values: arVisibleRows.map((r) => AR_COLUMNS[f.key].excel(r)),
       })));
     } else {
-      void exportReport('Expenses', [
-        { header: 'Date', values: expenseRows.map((r) => fmtDate(r.e.DATE ?? '')) },
-        { header: '# Lot', values: expenseRows.map((r) => r.lot) },
-        { header: 'Supplier', values: expenseRows.map((r) => suppliers.nameOf(r.e.ID_SUPPLIERS)) },
-        { header: 'Category', values: expenseRows.map((r) => categories.nameOf(r.e.ID_CATEGORYBILL)) },
-        { header: 'Invoice #', values: expenseRows.map((r) => r.e.INVOICE_NUMBER ?? '') },
-        { header: 'Amount', values: expenseRows.map((r) => r.e.AMOUNT ?? 0) },
-        { header: 'Amount paid', values: expenseRows.map((r) => r.paidAmount) },
-        { header: 'Balance', values: expenseRows.map((r) => r.balance) },
-        { header: 'Payment date', values: expenseRows.map((r) => fmtDate(r.paymentDate)) },
-        { header: 'Status', values: expenseRows.map((r) => (r.paid ? 'Paid' : 'Pending')) },
+      exportShown('Expenses', [
+        { key: 'date', header: 'Date', values: expenseRows.map((r) => fmtDate(r.e.DATE ?? '')) },
+        { key: 'lot', header: '# Lot', values: expenseRows.map((r) => r.lot) },
+        { key: 'supplier', header: 'Supplier', values: expenseRows.map((r) => suppliers.nameOf(r.e.ID_SUPPLIERS)) },
+        { key: 'category', header: 'Category', values: expenseRows.map((r) => categories.nameOf(r.e.ID_CATEGORYBILL)) },
+        { key: 'invoice', header: 'Invoice #', values: expenseRows.map((r) => r.e.INVOICE_NUMBER ?? '') },
+        { key: 'amount', header: 'Amount', values: expenseRows.map((r) => r.e.AMOUNT ?? 0) },
+        { key: 'paid', header: 'Amount paid', values: expenseRows.map((r) => r.paidAmount) },
+        { key: 'balance', header: 'Balance', values: expenseRows.map((r) => r.balance) },
+        { key: 'paymentDate', header: 'Payment date', values: expenseRows.map((r) => fmtDate(r.paymentDate)) },
+        { key: 'status', header: 'Status', values: expenseRows.map((r) => (r.paid ? 'Paid' : 'Pending')) },
       ]);
     }
   };
@@ -563,6 +627,7 @@ export function ReportsView({ report }: ReportsViewProps) {
         searchValue={search}
         onSearchChange={setSearch}
       >
+        <ColumnPicker view={columnView} />
         {report === 'ar' && (
           <button
             type="button"
@@ -610,30 +675,34 @@ export function ReportsView({ report }: ReportsViewProps) {
             <table className="reports__table">
               <thead>
                 <tr>
-                  <th className="reports__th">Date</th>
-                  <th className="reports__th">Customer</th>
-                  <th className="reports__th"># Sales Order</th>
-                  <th className="reports__th reports__th--num">Total</th>
-                  <th className="reports__th">Due Date</th>
-                  <th className="reports__th">Status</th>
-                  <th className="reports__th">Salesperson</th>
-                  <th className="reports__th">Buyer</th>
+                  {show('date') && <th className="reports__th">Date</th>}
+                  {show('customer') && <th className="reports__th">Customer</th>}
+                  {show('number') && <th className="reports__th"># Sales Order</th>}
+                  {show('total') && <th className="reports__th reports__th--num">Total</th>}
+                  {show('dueDate') && <th className="reports__th">Due Date</th>}
+                  {show('status') && <th className="reports__th">Status</th>}
+                  {show('salesperson') && <th className="reports__th">Salesperson</th>}
+                  {show('buyer') && <th className="reports__th">Buyer</th>}
                 </tr>
               </thead>
               <tbody>
                 {queueRows.length === 0 && (
-                  <tr><td className="reports__empty" colSpan={8}>No sales orders pending. All caught up.</td></tr>
+                  <tr><td className="reports__empty" colSpan={shownCount}>No sales orders pending. All caught up.</td></tr>
                 )}
                 {paginate(queueRows).map((so) => (
                   <tr key={so.id} className="reports__row--click" onClick={() => setViewingSale(so)} title="Open sales order detail">
-                    <td className="reports__td reports__td--muted">{fmtDate(so.DATE ?? '')}</td>
-                    <td className="reports__td">{customers.nameOf(so.ID_CUSTOMER)}</td>
-                    <td className="reports__td reports__td--mono">{so.SALES_ORDER_NUMBER || '\u2014'}</td>
-                    <td className="reports__td reports__td--num">{fmtMoney(so.TOTAL ?? 0)}</td>
-                    <td className="reports__td reports__td--muted">{fmtDate(so.DUE_DATE ?? '')}</td>
-                    <td className="reports__td"><StatusBadge value={so.STATUS ?? 'Draft'} /></td>
-                    <td className="reports__td">{buyerName(so.ID_USERS)}</td>
-                    <td className="reports__td reports__td--muted">{so.BUYER || '\u2014'}</td>
+                    {show('date') && <td className="reports__td reports__td--muted">{fmtDate(so.DATE ?? '')}</td>}
+                    {show('customer') && <td className="reports__td">{customers.nameOf(so.ID_CUSTOMER)}</td>}
+                    {show('number') && <td className="reports__td reports__td--mono">{so.SALES_ORDER_NUMBER || '\u2014'}</td>}
+                    {show('total') && <td className="reports__td reports__td--num">{fmtMoney(so.TOTAL ?? 0)}</td>}
+                    {show('dueDate') && <td className="reports__td reports__td--muted">{fmtDate(so.DUE_DATE ?? '')}</td>}
+                    {show('status') && (
+                      <td className="reports__td">
+                        <StatusBadge value={so.STATUS ?? 'Draft'} />
+                      </td>
+                    )}
+                    {show('salesperson') && <td className="reports__td">{buyerName(so.ID_USERS)}</td>}
+                    {show('buyer') && <td className="reports__td reports__td--muted">{so.BUYER || '\u2014'}</td>}
                   </tr>
                 ))}
               </tbody>
@@ -686,20 +755,20 @@ export function ReportsView({ report }: ReportsViewProps) {
                 <table className="reports__table">
                   <thead>
                     <tr>
-                      <th className="reports__th">Grower</th>
-                      <th className="reports__th">Vendor</th>
-                      <th className="reports__th">Lot #</th>
-                      <th className="reports__th"># Ref</th>
-                      <th className="reports__th reports__th--num">Total</th>
-                      <th className="reports__th reports__th--num">Amount paid</th>
-                      <th className="reports__th reports__th--num">Balance</th>
-                      <th className="reports__th">Arrival date</th>
-                      <th className="reports__th">Due date</th>
+                      {show('grower') && <th className="reports__th">Grower</th>}
+                      {show('vendor') && <th className="reports__th">Vendor</th>}
+                      {show('lot') && <th className="reports__th">Lot #</th>}
+                      {show('ref') && <th className="reports__th"># Ref</th>}
+                      {show('total') && <th className="reports__th reports__th--num">Total</th>}
+                      {show('paid') && <th className="reports__th reports__th--num">Amount paid</th>}
+                      {show('balance') && <th className="reports__th reports__th--num">Balance</th>}
+                      {show('arrival') && <th className="reports__th">Arrival date</th>}
+                      {show('dueDate') && <th className="reports__th">Due date</th>}
                     </tr>
                   </thead>
                   <tbody>
                     {apGrowerRows.length === 0 && (
-                      <tr><td className="reports__empty" colSpan={9}>Nothing pending to pay growers. All caught up.</td></tr>
+                      <tr><td className="reports__empty" colSpan={shownCount}>Nothing pending to pay growers. All caught up.</td></tr>
                     )}
                     {paginate(apGrowerRows).map((r) => (
                       <tr
@@ -708,15 +777,15 @@ export function ReportsView({ report }: ReportsViewProps) {
                         onClick={() => openPurchase(r.po.id)}
                         title={r.overdue ? 'Past due and not paid — open purchase order' : 'Open purchase order detail'}
                       >
-                        <td className="reports__td">{r.growerName}</td>
-                        <td className="reports__td">{customers.nameOf(r.po.ID_CUSTOMER)}</td>
-                        <td className="reports__td reports__td--mono">{r.po.LOT_NUMBER}</td>
-                        <td className="reports__td">{r.po.REF_NUMBER || '\u2014'}</td>
-                        <td className="reports__td reports__td--num">{fmtMoney(r.po.TOTAL ?? 0)}</td>
-                        <td className="reports__td reports__td--num">{fmtMoney(r.po.AMOUNT_PAID ?? 0)}</td>
-                        <td className="reports__td reports__td--num">{fmtMoney(r.balance)}</td>
-                        <td className="reports__td">{fmtDate(r.po.ARRIVAL_DATE ?? '')}</td>
-                        <td className="reports__td">{fmtDate(r.dueDate)}</td>
+                        {show('grower') && <td className="reports__td">{r.growerName}</td>}
+                        {show('vendor') && <td className="reports__td">{customers.nameOf(r.po.ID_CUSTOMER)}</td>}
+                        {show('lot') && <td className="reports__td reports__td--mono">{r.po.LOT_NUMBER}</td>}
+                        {show('ref') && <td className="reports__td">{r.po.REF_NUMBER || '\u2014'}</td>}
+                        {show('total') && <td className="reports__td reports__td--num">{fmtMoney(r.po.TOTAL ?? 0)}</td>}
+                        {show('paid') && <td className="reports__td reports__td--num">{fmtMoney(r.po.AMOUNT_PAID ?? 0)}</td>}
+                        {show('balance') && <td className="reports__td reports__td--num">{fmtMoney(r.balance)}</td>}
+                        {show('arrival') && <td className="reports__td">{fmtDate(r.po.ARRIVAL_DATE ?? '')}</td>}
+                        {show('dueDate') && <td className="reports__td">{fmtDate(r.dueDate)}</td>}
                       </tr>
                     ))}
                   </tbody>
@@ -765,14 +834,14 @@ export function ReportsView({ report }: ReportsViewProps) {
                   <thead>
                     <tr>
                       <th className="reports__th reports__th--pay" aria-label="Pay bill" />
-                      {apVisible.map((f) => (
+                      {apShown.map((f) => (
                         <th key={f.key} className={`reports__th${AP_COLUMNS[f.key].numeric ? ' reports__th--num' : ''}`}>{f.label}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {apRows.length === 0 && (
-                      <tr><td className="reports__empty" colSpan={apVisible.length + 1}>No pending bills. All caught up.</td></tr>
+                      <tr><td className="reports__empty" colSpan={apShown.length + 1}>No pending bills. All caught up.</td></tr>
                     )}
                     {paginate(apRows).map((r) => (
                       <tr key={r.e.id} className="reports__row--click" onClick={() => openPurchase(r.e.ID_PURCHASEORDER)} title="Open purchase order detail">
@@ -792,7 +861,7 @@ export function ReportsView({ report }: ReportsViewProps) {
                             </svg>
                           </button>
                         </td>
-                        {apVisible.map((f) => (
+                        {apShown.map((f) => (
                           <td key={f.key} className={`reports__td${AP_COLUMNS[f.key].numeric ? ' reports__td--num' : ''}`}>{AP_COLUMNS[f.key].render(r)}</td>
                         ))}
                       </tr>
@@ -860,14 +929,14 @@ export function ReportsView({ report }: ReportsViewProps) {
                   <thead>
                     <tr>
                       <th className="reports__th reports__th--pay" aria-label="Receive payment" />
-                      {arVisible.map((f) => (
+                      {arShown.map((f) => (
                         <th key={f.key} className={`reports__th${AR_COLUMNS[f.key].numeric ? ' reports__th--num' : ''}`}>{f.label}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {arVisibleRows.length === 0 && (
-                      <tr><td className="reports__empty" colSpan={arVisible.length + 1}>Nothing pending to collect. All caught up.</td></tr>
+                      <tr><td className="reports__empty" colSpan={arShown.length + 1}>Nothing pending to collect. All caught up.</td></tr>
                     )}
                     {paginate(arVisibleRows).map((r) => (
                       <tr
@@ -892,7 +961,7 @@ export function ReportsView({ report }: ReportsViewProps) {
                             </svg>
                           </button>
                         </td>
-                        {arVisible.map((f) => (
+                        {arShown.map((f) => (
                           <td key={f.key} className={`reports__td${AR_COLUMNS[f.key].numeric ? ' reports__td--num' : ''}`}>{AR_COLUMNS[f.key].render(r)}</td>
                         ))}
                       </tr>
@@ -930,43 +999,45 @@ export function ReportsView({ report }: ReportsViewProps) {
             <table className="reports__table">
               <thead>
                 <tr>
-                  <th className="reports__th">Date</th>
-                  <th className="reports__th"># Lot</th>
-                  <th className="reports__th">Supplier</th>
-                  <th className="reports__th">Category</th>
-                  <th className="reports__th">Invoice #</th>
-                  <th className="reports__th reports__th--num">Amount</th>
-                  <th className="reports__th reports__th--num">Amount paid</th>
-                  <th className="reports__th reports__th--num">Balance</th>
-                  <th className="reports__th">Payment date</th>
-                  <th className="reports__th">Status</th>
+                  {show('date') && <th className="reports__th">Date</th>}
+                  {show('lot') && <th className="reports__th"># Lot</th>}
+                  {show('supplier') && <th className="reports__th">Supplier</th>}
+                  {show('category') && <th className="reports__th">Category</th>}
+                  {show('invoice') && <th className="reports__th">Invoice #</th>}
+                  {show('amount') && <th className="reports__th reports__th--num">Amount</th>}
+                  {show('paid') && <th className="reports__th reports__th--num">Amount paid</th>}
+                  {show('balance') && <th className="reports__th reports__th--num">Balance</th>}
+                  {show('paymentDate') && <th className="reports__th">Payment date</th>}
+                  {show('status') && <th className="reports__th">Status</th>}
                 </tr>
               </thead>
               <tbody>
                 {expenseRows.length === 0 && (
-                  <tr><td className="reports__empty" colSpan={10}>No expenses recorded.</td></tr>
+                  <tr><td className="reports__empty" colSpan={shownCount}>No expenses recorded.</td></tr>
                 )}
                 {paginate(expenseRows).map((r) => (
                   <tr key={r.e.id} className="reports__row--click" onClick={() => openPurchase(r.e.ID_PURCHASEORDER)} title="Open purchase order detail">
-                    <td className="reports__td reports__td--muted">{fmtDate(r.e.DATE ?? '')}</td>
-                    <td className="reports__td reports__td--mono">{r.lot}</td>
-                    <td className="reports__td">{suppliers.nameOf(r.e.ID_SUPPLIERS)}</td>
-                    <td className="reports__td reports__td--muted">{categories.nameOf(r.e.ID_CATEGORYBILL)}</td>
-                    <td className="reports__td">{r.e.INVOICE_NUMBER || '\u2014'}</td>
-                    <td className="reports__td reports__td--num">{fmtMoney(r.e.AMOUNT ?? 0)}</td>
-                    <td className="reports__td reports__td--num">{fmtMoney(r.paidAmount)}</td>
-                    <td className="reports__td reports__td--num">{fmtMoney(r.balance)}</td>
-                    <td className="reports__td reports__td--muted">{fmtDate(r.paymentDate)}</td>
-                    <td className="reports__td">
-                      {r.paid || isPayableSupplier(suppliers.nameOf(r.e.ID_SUPPLIERS)) ? (
-                        <span className={`reports__status reports__status--${r.paid ? 'paid' : 'pending'}`}>
-                          {r.paid ? 'Paid' : 'Pending'}
-                        </span>
-                      ) : (
-                        /* General Cost no recibe pagos. */
-                        <span className="reports__status reports__status--none">No payment</span>
-                      )}
-                    </td>
+                    {show('date') && <td className="reports__td reports__td--muted">{fmtDate(r.e.DATE ?? '')}</td>}
+                    {show('lot') && <td className="reports__td reports__td--mono">{r.lot}</td>}
+                    {show('supplier') && <td className="reports__td">{suppliers.nameOf(r.e.ID_SUPPLIERS)}</td>}
+                    {show('category') && <td className="reports__td reports__td--muted">{categories.nameOf(r.e.ID_CATEGORYBILL)}</td>}
+                    {show('invoice') && <td className="reports__td">{r.e.INVOICE_NUMBER || '\u2014'}</td>}
+                    {show('amount') && <td className="reports__td reports__td--num">{fmtMoney(r.e.AMOUNT ?? 0)}</td>}
+                    {show('paid') && <td className="reports__td reports__td--num">{fmtMoney(r.paidAmount)}</td>}
+                    {show('balance') && <td className="reports__td reports__td--num">{fmtMoney(r.balance)}</td>}
+                    {show('paymentDate') && <td className="reports__td reports__td--muted">{fmtDate(r.paymentDate)}</td>}
+                    {show('status') && (
+                      <td className="reports__td">
+                        {r.paid || isPayableSupplier(suppliers.nameOf(r.e.ID_SUPPLIERS)) ? (
+                          <span className={`reports__status reports__status--${r.paid ? 'paid' : 'pending'}`}>
+                            {r.paid ? 'Paid' : 'Pending'}
+                          </span>
+                        ) : (
+                          /* General Cost no recibe pagos. */
+                          <span className="reports__status reports__status--none">No payment</span>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

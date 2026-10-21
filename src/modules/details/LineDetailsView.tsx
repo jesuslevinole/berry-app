@@ -5,6 +5,8 @@ import { useCatalog } from '../../hooks/useCatalog';
 import { useInventoryItems } from '../../hooks/useInventoryItems';
 import { Toolbar } from '../../components/ui/Toolbar';
 import { DataTable, type Column } from '../../components/ui/DataTable';
+import { ColumnPicker } from '../../components/ui/ColumnPicker';
+import { useDataTableColumns } from '../../hooks/useColumnVisibility';
 import { SearchableSelect } from '../../components/ui/SearchableSelect';
 import { LineEditModal, type EditableLine } from '../../components/ui/RecordEditModals';
 import { deleteDocument } from '../../services/firestore';
@@ -131,6 +133,7 @@ export function PurchaseDetailsView({ embedded = false }: { embedded?: boolean }
     { key: 'price', header: 'Price', align: 'right', render: (r) => fmtMoney(r.price) },
     { key: 'total', header: 'Total', align: 'right', render: (r) => fmtMoney(r.total) },
   ];
+  const { view: columnView, visibleColumns } = useDataTableColumns('purchase-details', columns);
 
   return (
     <div className="line-details">
@@ -166,11 +169,12 @@ export function PurchaseDetailsView({ embedded = false }: { embedded?: boolean }
             placeholder="All commodities…"
           />
         </div>
+        <ColumnPicker view={columnView} />
       </div>
 
       <DataTable
         rows={rows}
-        columns={columns}
+        columns={visibleColumns}
         loading={loading}
         emptyMessage="No purchase lines yet."
         onRowClick={(row) => {
@@ -303,6 +307,7 @@ export function SalesDetailsView({ embedded = false }: { embedded?: boolean }) {
     { key: 'price', header: 'Price', align: 'right', render: (r) => fmtMoney(r.price) },
     { key: 'total', header: 'Total', align: 'right', render: (r) => fmtMoney(r.total) },
   ];
+  const { view: columnView, visibleColumns } = useDataTableColumns('sales-details', columns);
 
   return (
     <div className="line-details">
@@ -338,11 +343,12 @@ export function SalesDetailsView({ embedded = false }: { embedded?: boolean }) {
             placeholder="All commodities…"
           />
         </div>
+        <ColumnPicker view={columnView} />
       </div>
 
       <DataTable
         rows={rows}
-        columns={columns}
+        columns={visibleColumns}
         loading={loading}
         emptyMessage="No sales lines yet."
         onRowClick={(row) => {

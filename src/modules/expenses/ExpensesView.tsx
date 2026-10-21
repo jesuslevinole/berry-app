@@ -6,6 +6,8 @@ import { deleteDocument, replaceChildren } from '../../services/firestore';
 import { COLLECTIONS, type Expense, type PurchaseOrder } from '../../types/models';
 import { byNewest, fmtDate, fmtMoney } from '../../utils/format';
 import { DataTable, type Column } from '../../components/ui/DataTable';
+import { ColumnPicker } from '../../components/ui/ColumnPicker';
+import { useDataTableColumns } from '../../hooks/useColumnVisibility';
 import { ViewTabs } from '../../components/ui/ViewTabs';
 import { PaymentsView } from '../payments/PaymentsView';
 import { Toolbar } from '../../components/ui/Toolbar';
@@ -79,6 +81,7 @@ export function ExpensesView() {
       ),
     },
   ];
+  const { view: columnView, visibleColumns } = useDataTableColumns('expenses', columns);
 
   /** Borrado desde la tabla: pagos + gasto, en segundo plano. */
   /** Borra un gasto con sus pagos (sin preguntar: quien llama confirma). */
@@ -109,6 +112,7 @@ export function ExpensesView() {
         searchValue={search}
         onSearchChange={setSearch}
       >
+        {tab === 'expenses' && <ColumnPicker view={columnView} />}
         {can('expenses', 'documents') && <DataPortButtons schemas={EXPENSES_SCHEMAS} fileName="expenses" />}
         {can('expenses', 'add') && (
           <button
@@ -135,7 +139,7 @@ export function ExpensesView() {
 
       {tab === 'expenses' ? (
         <DataTable
-          columns={columns}
+          columns={visibleColumns}
           rows={rows}
           loading={loading}
           emptyMessage="No expenses yet"

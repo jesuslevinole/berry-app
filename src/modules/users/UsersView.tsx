@@ -14,6 +14,8 @@ import { useCollection } from '../../hooks/useCollection';
 import { COLLECTIONS, type AppRole, type SystemUser, type SystemUserStatus } from '../../types/models';
 import { createUserWithResetEmail, resendPasswordReset } from '../../services/userAuthService';
 import { Toolbar } from '../../components/ui/Toolbar';
+import { ColumnPicker } from '../../components/ui/ColumnPicker';
+import { useColumnVisibility, type ColumnOption } from '../../hooks/useColumnVisibility';
 import { SearchableSelect } from '../../components/ui/SearchableSelect';
 import './UsersView.css';
 
@@ -33,8 +35,19 @@ const STATUS_META: Record<SystemUserStatus, { label: string; className: string }
   Inactive: { label: 'Inactive', className: 'inactive' },
 };
 
+/* Columnas que el usuario puede ocultar con "Columns" (Actions siempre se ve). */
+const USER_COLUMNS: ColumnOption[] = [
+  { key: 'name', label: 'Name' },
+  { key: 'email', label: 'Email' },
+  { key: 'role', label: 'Role' },
+  { key: 'status', label: 'Status' },
+];
+
 export function UsersView() {
   const { can, firebaseUser, companyId } = useAuth();
+  const columnView = useColumnVisibility('system-users', USER_COLUMNS);
+  const show = columnView.isVisible;
+  const tableColSpan = USER_COLUMNS.length - columnView.hiddenCount + 1;
   /* Usuarios de ESTA empresa: system_users es global, se filtra por companyId. */
   const { data: allUsers, loading } = useCollection<SystemUser>(COLLECTIONS.SYSTEM_USERS, [
     where('companyId', '==', companyId),
@@ -233,6 +246,7 @@ export function UsersView() {
         searchValue={search}
         onSearchChange={setSearch}
       >
+        <ColumnPicker view={columnView} />
         {can('users', 'add') && (
           <button type="button" className="btn btn--primary" onClick={openCreate}>+ Add user</button>
         )}
@@ -243,16 +257,16 @@ export function UsersView() {
           <thead>
             <tr>
               <th className="users__th users__th--actions">Actions</th>
-              <th className="users__th">Name</th>
-              <th className="users__th">Email</th>
-              <th className="users__th">Role</th>
-              <th className="users__th">Status</th>
+              {show('name') && <th className="users__th">Name</th>}
+              {show('email') && <th className="users__th">Email</th>}
+              {show('role') && <th className="users__th">Role</th>}
+              {show('status') && <th className="users__th">Status</th>}
             </tr>
           </thead>
           <tbody>
-            {loading && <tr><td className="users__empty" colSpan={5}>Loading…</td></tr>}
+            {loading && <tr><td className="users__empty" colSpan={tableColSpan}>Loading…</td></tr>}
             {!loading && rows.length === 0 && (
-              <tr><td className="users__empty" colSpan={5}>No users yet. Add the first one.</td></tr>
+              <tr><td className="users__empty" colSpan={tableColSpan}>No users yet. Add the first one.</td></tr>
             )}
             {!loading && rows.map((user) => {
               const meta = STATUS_META[user.status] ?? STATUS_META['Pending Invite'];
@@ -300,17 +314,21 @@ export function UsersView() {
                       )}
                     </span>
                   </td>
-                  <td className="users__td users__td--strong">{user.firstName} {user.lastName}</td>
-                  <td className="users__td users__td--muted">{user.email}</td>
-                  <td className="users__td">
-                    <span className="users__role-badge">{rolesById.get(user.roleId)?.name ?? '—'}</span>
-                  </td>
-                  <td className="users__td">
-                    <span className="users__status">
-                      <span className={`users__status-dot users__status-dot--${meta.className}`} />
-                      <span className={`users__status-text users__status-text--${meta.className}`}>{meta.label}</span>
-                    </span>
-                  </td>
+                  {show('name') && <td className="users__td users__td--strong">{user.firstName} {user.lastName}</td>}
+                  {show('email') && <td className="users__td users__td--muted">{user.email}</td>}
+                  {show('role') && (
+                    <td className="users__td">
+                      <span className="users__role-badge">{rolesById.get(user.roleId)?.name ?? '—'}</span>
+                    </td>
+                  )}
+                  {show('status') && (
+                    <td className="users__td">
+                      <span className="users__status">
+                        <span className={`users__status-dot users__status-dot--${meta.className}`} />
+                        <span className={`users__status-text users__status-text--${meta.className}`}>{meta.label}</span>
+                      </span>
+                    </td>
+                  )}
                 </tr>
               );
             })}

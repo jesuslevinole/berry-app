@@ -24,7 +24,7 @@ export function SalesExcelModal({ customerName, salesPersonName, onClose }: Prop
   const { data: orders, loading: loadingOrders } = useCollection<SalesOrder>(COLLECTIONS.SALES_ORDER);
   const { data: lines, loading: loadingLines } = useCollection<SalesOrderDetail>(COLLECTIONS.SALES_ORDER_DETAIL);
   const commodities = useCatalog(COLLECTIONS.COMMODITIES, 'NAME_COMMODITIES');
-  const { canonicalId } = useInventoryItems();
+  const { canonicalId, tracksInventory } = useInventoryItems();
 
   const [startDate, setStartDate] = useState(startOfYear());
   const [endDate, setEndDate] = useState(todayISO());
@@ -71,9 +71,15 @@ export function SalesExcelModal({ customerName, salesPersonName, onClose }: Prop
       const picked = productId ? orderLines.filter((l) => canonicalId(l.ID_COMMODITIES) === productId) : orderLines;
       if (productId && picked.length === 0) continue;
 
-      const products = [...new Set(picked.map((l) => commodities.labelOf(canonicalId(l.ID_COMMODITIES))))].filter(
-        (n) => n && n !== '—',
-      );
+      /* Product solo lista commodities: servicios y cargos (Credit, Freight, Temp Recorder…,
+         TRACK_INVENTORY false en su ficha) no se nombran, aunque su total sigue contando. */
+      const products = [
+        ...new Set(
+          picked
+            .filter((l) => tracksInventory(l.ID_COMMODITIES))
+            .map((l) => commodities.labelOf(canonicalId(l.ID_COMMODITIES))),
+        ),
+      ].filter((n) => n && n !== '—');
       result.push({
         date,
         invoice: so.SALES_ORDER_NUMBER ?? '',
@@ -88,7 +94,7 @@ export function SalesExcelModal({ customerName, salesPersonName, onClose }: Prop
     }
     /* Mismo orden que el Excel de AppSheet: por # de invoice. */
     return result.sort((a, b) => a.invoice.localeCompare(b.invoice, undefined, { numeric: true }));
-  }, [activeOrders, linesByOrder, startDate, endDate, customerId, productId, salesPersonId, commodities, canonicalId, customerName, salesPersonName]);
+  }, [activeOrders, linesByOrder, startDate, endDate, customerId, productId, salesPersonId, commodities, canonicalId, tracksInventory, customerName, salesPersonName]);
 
   const total = round2(rows.reduce((acc, r) => acc + r.total, 0));
 

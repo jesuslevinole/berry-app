@@ -8,6 +8,8 @@ import { COLLECTIONS, type PurchaseOrder, type SalesOrder, type SalesOrderDetail
 import { byNewest, fmtDate, fmtMoney, round2 } from '../../utils/format';
 import { DataTable, type Column } from '../../components/ui/DataTable';
 import { ViewTabs } from '../../components/ui/ViewTabs';
+import { ColumnPicker } from '../../components/ui/ColumnPicker';
+import { useDataTableColumns } from '../../hooks/useColumnVisibility';
 import { Toolbar } from '../../components/ui/Toolbar';
 import { DataPortButtons } from '../../components/ui/DataPortButtons';
 import { SALES_SCHEMAS } from '../../config/entitySchemas';
@@ -137,6 +139,7 @@ export function SalesDeskView() {
       ? [{
           key: 'docs',
           header: '',
+          pickerLabel: 'Documents',
           width: '48px',
           align: 'center' as const,
           render: (so: SalesOrder) => (
@@ -173,6 +176,7 @@ export function SalesDeskView() {
     {
       key: 'payments',
       header: '',
+      pickerLabel: 'Payments',
       align: 'center',
       width: '52px',
       render: (so) => (
@@ -193,6 +197,7 @@ export function SalesDeskView() {
       ),
     },
   ];
+  const { view: columnView, visibleColumns } = useDataTableColumns('sales-orders', columns);
 
   const handleTotalPaidChange = async (so: SalesOrder, totalPaid: number) => {
     await updateDocument<SalesOrder>(COLLECTIONS.SALES_ORDER, so.id, {
@@ -276,6 +281,7 @@ export function SalesDeskView() {
   return (
     <div className="sales-desk">
       <Toolbar title="Sales Desk" subtitle={`${rows.length} orders`} searchValue={search} onSearchChange={setSearch}>
+        {tab === 'orders' && <ColumnPicker view={columnView} />}
         {can('sales', 'documents') && (
           <button
             type="button"
@@ -324,7 +330,7 @@ export function SalesDeskView() {
 
       {tab === 'orders' ? (
         <DataTable
-          columns={columns}
+          columns={visibleColumns}
           rows={rows}
           loading={loading}
           emptyMessage="No sales orders yet"

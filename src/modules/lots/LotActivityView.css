@@ -144,6 +144,11 @@
   background-color: var(--canvas);
 }
 
+/* Boton "Columns" de cada tabla, al extremo derecho del encabezado. */
+.lot-activity__panel-tools {
+  margin-left: auto;
+}
+
 .lot-activity__panel-title {
   margin: 0;
   font-size: 1rem;

@@ -4,6 +4,8 @@ import { deleteFromTrashForever, emptyTrash, restoreFromTrash, subscribeToCollec
 import { moduleLabel, recordLabel } from '../../services/recordLabels';
 import { useAuth } from '../../context/AuthContext';
 import { Toolbar } from '../../components/ui/Toolbar';
+import { ColumnPicker } from '../../components/ui/ColumnPicker';
+import { useColumnVisibility, type ColumnOption } from '../../hooks/useColumnVisibility';
 import { PAGE_SIZE } from '../../config/limits';
 import { COLLECTIONS, type TrashItem } from '../../types/models';
 import './TrashView.css';
@@ -17,8 +19,18 @@ const fmtDateTime = (iso: string): string => {
 /** Resumen legible del registro borrado (numero de orden, lote, nombre o id). */
 const summarize = (item: TrashItem): string => recordLabel(item.ORIGIN_COLLECTION, item.DATA) || item.ORIGIN_ID;
 
+/* Columnas que el usuario puede ocultar con "Columns" (Actions siempre se ve). */
+const TRASH_COLUMNS: ColumnOption[] = [
+  { key: 'deleted', label: 'Deleted' },
+  { key: 'module', label: 'Module' },
+  { key: 'record', label: 'Record' },
+  { key: 'deletedBy', label: 'Deleted by' },
+];
+
 export function TrashView() {
   const { can } = useAuth();
+  const columnView = useColumnVisibility('recycle-bin', TRASH_COLUMNS);
+  const show = columnView.isVisible;
   const [items, setItems] = useState<TrashItem[]>([]);
   const [search, setSearch] = useState('');
   const [busyId, setBusyId] = useState('');
@@ -100,6 +112,7 @@ export function TrashView() {
         searchValue={search}
         onSearchChange={setSearch}
       >
+        <ColumnPicker view={columnView} />
         {can('trash', 'delete') && (
           <button
             type="button"
@@ -122,15 +135,15 @@ export function TrashView() {
           <thead>
             <tr>
               <th className="trash__th trash__th--actions">Actions</th>
-              <th className="trash__th">Deleted</th>
-              <th className="trash__th">Module</th>
-              <th className="trash__th">Record</th>
-              <th className="trash__th">Deleted by</th>
+              {show('deleted') && <th className="trash__th">Deleted</th>}
+              {show('module') && <th className="trash__th">Module</th>}
+              {show('record') && <th className="trash__th">Record</th>}
+              {show('deletedBy') && <th className="trash__th">Deleted by</th>}
             </tr>
           </thead>
           <tbody>
             {visibleRows.length === 0 && (
-              <tr><td className="trash__empty" colSpan={5}>The recycle bin is empty.</td></tr>
+              <tr><td className="trash__empty" colSpan={TRASH_COLUMNS.length - columnView.hiddenCount + 1}>The recycle bin is empty.</td></tr>
             )}
             {visibleRows.map((item) => (
               <tr key={item.id}>
@@ -156,10 +169,12 @@ export function TrashView() {
                     </button>
                   )}
                 </td>
-                <td className="trash__td trash__td--muted">{fmtDateTime(item.DELETED_AT)}</td>
-                <td className="trash__td trash__td--strong">{moduleLabel(item.ORIGIN_COLLECTION)}</td>
-                <td className="trash__td" title={`Record id: ${item.ORIGIN_ID}`}>{summarize(item)}</td>
-                <td className="trash__td">{item.DELETED_BY || '\u2014'}</td>
+                {show('deleted') && <td className="trash__td trash__td--muted">{fmtDateTime(item.DELETED_AT)}</td>}
+                {show('module') && <td className="trash__td trash__td--strong">{moduleLabel(item.ORIGIN_COLLECTION)}</td>}
+                {show('record') && (
+                  <td className="trash__td" title={`Record id: ${item.ORIGIN_ID}`}>{summarize(item)}</td>
+                )}
+                {show('deletedBy') && <td className="trash__td">{item.DELETED_BY || '\u2014'}</td>}
               </tr>
             ))}
           </tbody>
