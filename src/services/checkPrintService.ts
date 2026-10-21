@@ -141,14 +141,15 @@ export function printCheck(
   /* Direccion del beneficiario un poco mas abajo (ventana del sobre). */
   .payee-address { margin: 0.52in 0 0 0.9in; font-size: 11.5px; line-height: 1.5; }
   /* Memo y firma por encima de la franja azul del papel de cheque (antes de la banda MICR).
-     Las dos lineas son el borde inferior de su caja, asi quedan a la misma altura; la del
-     memo llega hasta la firma. "Signature" cuelga debajo de su linea, en el espacio que
-     deja el padding (la linea de la firma no se movio de lugar). */
-  .bottom { align-items: flex-end; display: flex; gap: 14px; margin-top: auto; padding-bottom: calc(0.2in + 14px); }
-  .memo { align-items: flex-end; display: flex; flex: 1; font-size: 10px; gap: 6px; }
+     Como en el cheque de referencia: dos lineas del mismo largo (2.5in) y grosor (1px, igual
+     que Pay to / Dollars), a la misma altura; memo a la izquierda y firma a la derecha.
+     "Signature" cuelga debajo de su linea, en el espacio que deja el padding. */
+  .bottom { align-items: flex-end; display: flex; justify-content: space-between; margin-top: auto; padding-bottom: calc(0.2in + 14px); }
+  .memo { align-items: flex-end; display: flex; font-size: 10px; gap: 6px; }
   .memo .lbl { font-weight: 700; }
-  .memo .val { border-bottom: 1px solid #111; flex: 1; min-height: 12px; padding: 0 4px 1px; }
-  .sig { border-bottom: 1px solid #111; flex: 0 0 240px; min-height: 12px; position: relative; }
+  .memo .val, .sig { border-bottom: 1px solid #111; flex: 0 0 2.5in; min-height: 12px; }
+  .memo .val { padding: 0 4px 1px; }
+  .sig { position: relative; }
   .sig-label { font-size: 8.5px; font-weight: 700; left: 0; padding-top: 3px; position: absolute; right: 0; text-align: center; top: 100%; }
   /* Banda MICR: 5/8in libre al pie del cheque (estandar bancario). */
   /* Datos bancarios centrados en la banda MICR. */

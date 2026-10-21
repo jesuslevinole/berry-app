@@ -72,7 +72,7 @@ Formato: `## AAAA-MM-DD — tema` y viñetas cortas. Escribir siempre al final.
 - Login, paso "Company" y registro usan los colores `--ir-*` y Sora, igual que la landing. El selector de color del registro sigue con la paleta de la empresa (es la que se está eligiendo).
 
 ## 2026-10-21 — Cheque: memo alineado con la firma
-- La línea del memo y la de la firma son ahora el borde inferior de su caja (antes la firma usaba borde superior), así quedan a la misma altura; el memo se estira hasta la firma. "Signature" cuelga debajo de la línea en el padding de `.bottom`, para no mover la línea de la firma sobre el papel preimpreso.
+- La línea del memo y la de la firma son ahora el borde inferior de su caja (antes la firma usaba borde superior), así quedan a la misma altura; (corrección del mismo día, a pedido del cliente) memo y firma miden lo mismo, 2.5in, con el mismo grosor de 1px; el memo ya no se estira hasta la firma. "Signature" cuelga debajo de la línea en el padding de `.bottom`, para no mover la línea de la firma sobre el papel preimpreso.
 
 ## 2026-10-21 — Prueba gratuita con límite y borrado; planes
 - El borrado de pruebas vencidas es manual (botón en Subscriptions, hay que escribir el nombre de la empresa): decisión del desarrollador para que nada se borre sin confirmación. Automatizarlo requiere una cuenta de servicio de Firebase en el Worker.
