@@ -5,8 +5,12 @@
   "name": "berry-app",
   "main": "worker/index.ts",
   "compatibility_date": "2025-09-01",
-  // Dominio propio de la app (se conserva en cada deploy).
-  "routes": [{ "pattern": "app.berry-source.com", "custom_domain": true }],
+  // Dominios propios de la app (se conservan en cada deploy). La zona de cada dominio
+  // debe estar activa en Cloudflare; itgresults.com raiz sigue siendo la pagina de Wix.
+  "routes": [
+    { "pattern": "app.berry-source.com", "custom_domain": true },
+    { "pattern": "app.itgresults.com", "custom_domain": true }
+  ],
   // Mantener tambien berry-app.jesuslevinole.workers.dev y las URLs de vista previa.
   "workers_dev": true,
   "preview_urls": true,
