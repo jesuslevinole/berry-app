@@ -267,7 +267,7 @@
   .reports__ap-item { flex-shrink: 0; }
 }
 
-/* Columna de cobro ($) en Accounts Receivable. */
+/* Columna de un boton de icono: cobro ($) en Accounts Receivable, correo del invoice en Invoice Queue. */
 .reports__th--pay,
 .reports__td--pay { width: 52px; text-align: center; }
 .reports__pay-btn { color: var(--green-600); }

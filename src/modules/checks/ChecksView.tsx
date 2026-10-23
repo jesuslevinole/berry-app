@@ -4,7 +4,6 @@ import { useAppConfig } from '../../context/AppConfigContext';
 import { limit } from 'firebase/firestore';
 import { READ_LIMIT } from '../../config/limits';
 import { useCollection } from '../../hooks/useCollection';
-import { useCatalog } from '../../hooks/useCatalog';
 import { accountAsCompany, bankLabel as labelOfBank, useCheckAccounts } from '../../hooks/useCheckAccounts';
 import { CheckAccountsManager } from './CheckAccountsManager';
 import { createDocument, deleteDocument, updateDocument } from '../../services/firestore';
@@ -18,6 +17,7 @@ import { CHECKS_SCHEMAS } from '../../config/entitySchemas';
 import { confirmClose, Modal } from '../../components/ui/Modal';
 import { FormField, FormGrid } from '../../components/ui/FormField';
 import { CatalogSelect } from '../../components/ui/CatalogSelect';
+import { useCheckPayees } from './useCheckPayees';
 import { SearchableSelect } from '../../components/ui/SearchableSelect';
 import { fmtMoney, round2, todayISO, toNumber } from '../../utils/format';
 import './ChecksView.css';
@@ -43,11 +43,8 @@ export function ChecksView() {
   const { can } = useAuth();
   const { checkSettings } = useAppConfig();
   const { data: checks } = useCollection<Check>(COLLECTIONS.CHECKS, [limit(READ_LIMIT)]);
-  const customers = useCatalog(COLLECTIONS.CUSTOMER, 'NAME_CUSTOMER');
-  /* Direccion del beneficiario para el cheque (calle y ciudad del catalogo de clientes). */
-  const { data: customerDocs } = useCollection<{ id: string; ADDRESS_CUSTOMER?: string; CITY_CUSTOMER?: string }>(
-    COLLECTIONS.CUSTOMER,
-  );
+  /* Beneficiario: Customers, Suppliers y Growers (nombre y direccion para el cheque). */
+  const payees = useCheckPayees();
   /* Checking Set-Up: cuentas emisoras (empresa) con sus bancos. */
   const { accounts, accountOf, bankOf } = useCheckAccounts();
   const [setupOpen, setSetupOpen] = useState(false);
@@ -103,11 +100,11 @@ export function ChecksView() {
     );
     if (!term) return sorted;
     return sorted.filter((c) =>
-      [String(c.CHECK_NUMBER ?? ''), customers.nameOf(c.ID_CUSTOMER), c.MEMO ?? '', c.REF ?? '', bankName(c), accountName(c)]
+      [String(c.CHECK_NUMBER ?? ''), payees.nameOf(c.ID_CUSTOMER), c.MEMO ?? '', c.REF ?? '', bankName(c), accountName(c)]
         .some((v) => v.toLowerCase().includes(term)),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [checks, search, customers, accountOf, bankOf]);
+  }, [checks, search, payees, accountOf, bankOf]);
 
   const total = round2(rows.reduce((acc, c) => acc + (c.AMOUNT ?? 0), 0));
 
@@ -134,7 +131,7 @@ export function ChecksView() {
     const account = accountOf(check);
     setAccountId(account?.id ?? '');
     setBankId(bankOf(account, check.ID_BANK)?.id ?? '');
-    setCustomerId(check.ID_CUSTOMER ?? '');
+    setCustomerId(payees.canonicalId(check.ID_CUSTOMER));
     setMemo(check.MEMO ?? '');
     setRef(check.REF ?? '');
     setAmount(String(check.AMOUNT ?? ''));
@@ -201,9 +198,14 @@ export function ChecksView() {
       return;
     }
     const bank = bankOf(account, check.ID_BANK) ?? null;
-    const payee = customerDocs.find((c) => c.id === check.ID_CUSTOMER);
-    const payeeAddress = [payee?.ADDRESS_CUSTOMER ?? '', payee?.CITY_CUSTOMER ?? ''].filter((l) => l.trim()).join('\n');
-    printCheck(check, customers.nameOf(check.ID_CUSTOMER), accountAsCompany(account), bank, checkSettings, payeeAddress);
+    printCheck(
+      check,
+      payees.nameOf(check.ID_CUSTOMER),
+      accountAsCompany(account),
+      bank,
+      checkSettings,
+      payees.addressOf(check.ID_CUSTOMER),
+    );
   };
 
   /** Borrado directo desde la tabla (en segundo plano). */
@@ -260,7 +262,7 @@ export function ChecksView() {
                 {show('number') && <td className="checks__td checks__td--mono">{check.CHECK_NUMBER}</td>}
                 {show('date') && <td className="checks__td checks__td--muted">{fmtDate(check.DATE)}</td>}
                 {show('bank') && <td className="checks__td checks__td--muted">{bankName(check)}</td>}
-                {show('customer') && <td className="checks__td checks__td--strong">{customers.nameOf(check.ID_CUSTOMER)}</td>}
+                {show('customer') && <td className="checks__td checks__td--strong">{payees.nameOf(check.ID_CUSTOMER)}</td>}
                 {show('memo') && (
                   <td className="checks__td checks__td--muted checks__td--clip" title={check.MEMO || ''}>{check.MEMO || '—'}</td>
                 )}
@@ -346,7 +348,7 @@ export function ChecksView() {
             <CatalogSelect
               value={customerId}
               onChange={setCustomerId}
-              options={customers.options}
+              options={payees.options}
               collection={COLLECTIONS.CUSTOMER}
               nameField="NAME_CUSTOMER"
               catalogLabel="customer"

@@ -98,3 +98,9 @@ Formato: `## AAAA-MM-DD — tema` y viñetas cortas. Escribir siempre al final.
 
 ## 2026-10-21 — Excel de ventas: Product solo con commodities
 - `SalesExcelModal`: la columna Product omite los productos con `TRACK_INVENTORY: false` (Credit, Freight, Temp Recorder, servicios). Quantity y Total no cambiaron (Quantity sigue sumando todas las líneas).
+
+## 2026-10-23 — Checkbook, Commodities e Invoice Queue
+- Checkbook: el beneficiario ("Customer") se elige entre Customers, Suppliers y Growers (`modules/checks/useCheckPayees.ts`). Se sigue guardando en `ID_CUSTOMER` (los cheques viejos son clientes); el nombre se busca en los tres catálogos en ese orden. Dirección del sobre: la del cliente o la del supplier; los growers no tienen. El "+" sigue creando un Customer. La importación CSV de cheques todavía resuelve solo contra Customers.
+- Commodities: "Need purchase order" es el mismo campo `TRACK_INVENTORY` que Inventory → Inventory products (no son dos interruptores distintos). En No: Sales Desk no pide lote y el producto no cuenta en inventario. `SalesOrderForm` exigía lote en todas las líneas al guardar aunque el producto no lo llevara; ya respeta el interruptor.
+- Invoice Queue: botón de correo por fila (`SalesDocEmailModal`, emailKey `invoice`). Si el correo le llega a por lo menos un destinatario, la orden queda `SENT: true` y sale de la cola (la cola ahora excluye `SENT`). Por decisión del cliente, el correo enviado desde Sales Desk **no** marca Sent.
+- Refactor (commit aparte): el contexto de los documentos de ventas y el correo salieron de `SalesDeskView` a `modules/sales/useSalesDocContext.ts`, `SalesDocEmailModal.tsx` y `salesDocs.ts`.

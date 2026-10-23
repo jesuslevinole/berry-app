@@ -47,7 +47,7 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
   const { data: systemUsers } = useCompanyUsers();
   const { data: allSalesOrders } = useCollection<SalesOrder>(COLLECTIONS.SALES_ORDER);
   /* Descripcion del catalogo de Commodities (acepta ID de documento o ID_COMMODITIES). */
-  const { descriptionOf } = useInventoryItems();
+  const { descriptionOf, tracksInventory } = useInventoryItems();
   const buyerOptions = useMemo(
     () =>
       [...systemUsers]
@@ -175,8 +175,11 @@ export function SalesOrderForm({ open, initial, purchaseOrderOptions, onClose }:
 
   /** Cierre inmediato: encabezado + detalle se guardan en segundo plano (local-first). */
   const handleSave = () => {
-    /* Reglas duras del negocio: cada linea debe tener su # de lote y descripcion. */
-    const lineWithoutLot = lines.find((line) => line.ID_COMMODITIES && !line.ID_PURCHASEORDER);
+    /* Reglas duras del negocio: cada linea debe tener su # de lote y descripcion. Los productos
+       con "Need purchase order" en No (servicios, cargos, Credit…) no llevan lote. */
+    const lineWithoutLot = lines.find(
+      (line) => line.ID_COMMODITIES && tracksInventory(line.ID_COMMODITIES) && !line.ID_PURCHASEORDER,
+    );
     if (lineWithoutLot) {
       alert('Every line item must be linked to a Lot # (purchase order).');
       return;

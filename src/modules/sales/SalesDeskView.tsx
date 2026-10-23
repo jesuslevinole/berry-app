@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useCollection } from '../../hooks/useCollection';
 import { useCatalog, type CatalogOption } from '../../hooks/useCatalog';
-import { useInventoryItems } from '../../hooks/useInventoryItems';
 import { deleteDocument, listDocuments, updateDocument, where } from '../../services/firestore';
 import { COLLECTIONS, type PurchaseOrder, type SalesOrder, type SalesOrderDetail, type PaymentSales } from '../../types/models';
 import { byNewest, fmtDate, fmtMoney, round2 } from '../../utils/format';
@@ -20,26 +19,12 @@ import { SalesOrderForm } from './SalesOrderForm';
 import { SalesOrderDetailPanel } from './SalesOrderDetailPanel';
 import { SalesDetailsView } from '../details/LineDetailsView';
 import { PaymentsView } from '../payments/PaymentsView';
-import {
-  buildBillOfLadingHtml,
-  buildPassingHtml,
-  buildPickTicketHtml,
-  buildSalesInvoiceHtml,
-  buildSalesOrderDocHtml,
-  printBillOfLading,
-  printPassing,
-  printPickTicket,
-  printSalesInvoice,
-  printSalesOrderDoc,
-  type SalesDocContext,
-} from '../../services/salesDocumentsService';
-import { SendEmailModal } from '../../components/ui/SendEmailModal';
-import { htmlToPdfBase64 } from '../../services/htmlToPdf';
-import { usDate } from '../../services/emailTemplates';
-import type { EmailKey, SalesDocType } from '../../types/models';
+import type { EmailKey } from '../../types/models';
 import { useEmailBundles } from '../../hooks/useEmailBundles';
-import { bundleDocsLabel, bundleKey, isBundleKey } from '../../config/emailDocs';
-import { useCompany } from '../../hooks/useCompany';
+import { bundleDocsLabel, bundleKey } from '../../config/emailDocs';
+import { SALES_DOCS } from './salesDocs';
+import { SalesDocEmailModal } from './SalesDocEmailModal';
+import { useSalesDocContext } from './useSalesDocContext';
 import { DocumentPicker } from '../../components/ui/DocumentPicker';
 import { syncAllSalesOrderTotals } from '../../services/orderTotalsService';
 import { SalesExcelModal } from './SalesExcelModal';
@@ -53,26 +38,10 @@ export function SalesDeskView() {
   const customers = useCatalog(COLLECTIONS.CUSTOMER, 'NAME_CUSTOMER');
   const legacyUsers = useCatalog(COLLECTIONS.USERS, 'EMAIL_USERS');
   const { data: systemUsers } = useCompanyUsers();
-  const suppliers = useCatalog(COLLECTIONS.SUPPLIERS, 'NAME_SUPPLIERS');
-  const locations = useCatalog(COLLECTIONS.LOCATIONS, 'NAME_LOCATIONS');
-  const carriers = useCatalog(COLLECTIONS.CARRIER, 'NAME_CARRIER');
-  const shipVia = useCatalog(COLLECTIONS.SHIPVIA, 'NAME_SHIPVIA');
-  const termShipping = useCatalog(COLLECTIONS.TERMSHIPPING, 'NAME_TERMSHIPPING');
-  const paymentTermsCat = useCatalog(COLLECTIONS.PAYMENTTERM, 'NAME_PAYMENTTERM');
-  const commodities = useCatalog(COLLECTIONS.COMMODITIES, 'NAME_COMMODITIES');
-  const { descriptionOf } = useInventoryItems();
-  const { data: customerDocs } = useCollection<{
-    id: string;
-    ADDRESS_CUSTOMER?: string;
-    CITY_CUSTOMER?: string;
-  }>(COLLECTIONS.CUSTOMER);
   /* Documento de una orden que se esta enviando por correo. */
   const [emailing, setEmailing] = useState<{ order: SalesOrder; key: EmailKey } | null>(null);
   /* Envios combinados de Email Settings (ej. Pick Tix and BOL en un mismo correo). */
   const { bundles } = useEmailBundles();
-  const { data: supplierDocs } = useCollection<{ id: string; ADDRESS_SUPPLIERS?: string; PHONE_SUPPLIERS?: string }>(COLLECTIONS.SUPPLIERS);
-  const { data: locationDocs } = useCollection<{ id: string; ADDRESS_LOCATIONS?: string; PHONE_LOCATIONS?: string }>(COLLECTIONS.LOCATIONS);
-  const { company } = useCompany();
   const [docsFor, setDocsFor] = useState<SalesOrder | null>(null);
   /** Resuelve buyer: usuarios del sistema primero, catalogo legado para registros viejos. */
   const buyerName = useMemo(() => {
@@ -81,6 +50,8 @@ export function SalesDeskView() {
     );
   return (id?: string): string => (id ? (map.get(id) ?? legacyUsers.nameOf(id)) : '—');
   }, [systemUsers, legacyUsers]);
+  /* Datos de los documentos imprimibles (Invoice, Pick Ticket, Sales Order, Passing, BOL). */
+  const { docContextOf } = useSalesDocContext(buyerName);
 
   const [search, setSearch] = useState('');
   const [excelOpen, setExcelOpen] = useState(false);
@@ -206,48 +177,6 @@ export function SalesDeskView() {
     });
   };
 
-  /** Contexto compartido de los 4 documentos imprimibles de la orden. */
-  const docContext = (so: SalesOrder): SalesDocContext => {
-    const customerDoc = customerDocs.find((c) => c.id === so.ID_CUSTOMER);
-    const supplierDoc = supplierDocs.find((s) => s.id === so.ID_SUPPLIERS);
-    /* Almacen de la orden; las ordenes viejas caen al supplier legado. */
-    const warehouseDoc = locationDocs.find((l) => l.id === so.ID_WAREHOUSE);
-    const warehouseName = so.ID_WAREHOUSE ? locations.nameOf(so.ID_WAREHOUSE) : suppliers.nameOf(so.ID_SUPPLIERS);
-    const lotMap = new Map(purchaseOrders.map((po) => [po.id, po.LOT_NUMBER ?? '']));
-    return {
-      company,
-      customerName: customers.nameOf(so.ID_CUSTOMER),
-      customerAddress: customerDoc?.ADDRESS_CUSTOMER ?? '',
-      customerCity: customerDoc?.CITY_CUSTOMER ?? '',
-      salesPerson: buyerName(so.ID_USERS),
-      carrierName: carriers.nameOf(so.ID_CARRIER),
-      shipViaName: shipVia.nameOf(so.ID_SHIPVIA),
-      shippingTermsName: termShipping.nameOf(so.ID_TERMSHIPPING),
-      paymentTermName: so.ID_PAYMENTTERM ? paymentTermsCat.nameOf(so.ID_PAYMENTTERM) : '',
-      warehouseName: warehouseName === '—' ? '' : warehouseName,
-      warehouseAddress: warehouseDoc?.ADDRESS_LOCATIONS ?? supplierDoc?.ADDRESS_SUPPLIERS ?? '',
-      warehousePhone: warehouseDoc?.PHONE_LOCATIONS ?? supplierDoc?.PHONE_SUPPLIERS ?? '',
-      lotOf: (id) => lotMap.get(id) ?? '',
-      commodityName: (id) => commodities.nameOf(id),
-      commodityDescription: descriptionOf,
-    };
-  };
-
-  /* Los 4 documentos: imprimir (run), generar el HTML para el PDF del correo (build) y nombre del archivo. */
-  const SALES_DOCS: {
-    id: SalesDocType;
-    label: string;
-    description: string;
-    file: string;
-    run: (so: SalesOrder, ctx: SalesDocContext) => Promise<void>;
-    build: (so: SalesOrder, ctx: SalesDocContext) => Promise<string>;
-  }[] = [
-    { id: 'invoice', label: 'Invoice', description: 'Customer invoice with PACA terms', file: 'Inv', run: printSalesInvoice, build: buildSalesInvoiceHtml },
-    { id: 'pick', label: 'Pick Ticket', description: 'Warehouse picking list with lots and temp', file: 'T', run: printPickTicket, build: buildPickTicketHtml },
-    { id: 'so', label: 'Sales Order', description: 'Order confirmation with pick up info', file: 'SO', run: printSalesOrderDoc, build: buildSalesOrderDocHtml },
-    { id: 'passing', label: 'Passing', description: 'Load confirmation with warehouse and total', file: 'Passing', run: printPassing, build: buildPassingHtml },
-    { id: 'bol', label: 'Bill of Lading', description: 'Straight BOL with carrier contract terms', file: 'Bol', run: printBillOfLading, build: buildBillOfLadingHtml },
-  ];
   /** Borrado desde la tabla: detalle + pagos + encabezado, en segundo plano. */
   /** Borra una orden con sus lineas y pagos (sin preguntar: quien llama confirma). */
   const eliminarOrden = async (so: SalesOrder) => {
@@ -356,7 +285,7 @@ export function SalesDeskView() {
             const target = docsFor;
             setDocsFor(null);
             const docDef = SALES_DOCS.find((d) => d.id === id);
-            if (docDef && target) void docDef.run(target, docContext(target));
+            if (docDef && target) void docDef.run(target, docContextOf(target));
           }}
           onEmail={(id) => {
             const target = docsFor;
@@ -373,46 +302,14 @@ export function SalesDeskView() {
         />
       )}
 
-      {emailing &&
-        (() => {
-          const bundle = isBundleKey(emailing.key) ? bundles.find((b) => bundleKey(b.id) === emailing.key) : undefined;
-          /* Documentos que van en el correo: uno solo o los del combinado. */
-          const docDefs = bundle
-            ? SALES_DOCS.filter((d) => bundle.DOCS.includes(d.id))
-            : SALES_DOCS.filter((d) => d.id === emailing.key);
-          if (docDefs.length === 0) return null;
-          const label = bundle ? bundle.NAME : docDefs[0].label;
-          const so = emailing.order;
-          const number = so.SALES_ORDER_NUMBER || 'order';
-          return (
-            <SendEmailModal
-              emailKey={emailing.key}
-              label={label}
-              docRef={number}
-              customerId={so.ID_CUSTOMER}
-              warehouseId={so.ID_WAREHOUSE || undefined}
-              title={`Email ${label} — ${number}`}
-              values={{
-                number,
-                customer: customers.nameOf(so.ID_CUSTOMER),
-                ref: so.REF ?? '',
-                total: fmtMoney(so.TOTAL ?? 0),
-                date: usDate(so.DATE),
-                due_date: usDate(so.DUE_DATE),
-                company: company.name || '',
-                documents: docDefs.map((d) => d.label).join(' & '),
-              }}
-              attachments={docDefs.map((d) => {
-                const fileName = `${d.file}-${number}.pdf`;
-                return {
-                  name: fileName,
-                  build: async () => ({ filename: fileName, content: await htmlToPdfBase64(await d.build(so, docContext(so))) }),
-                };
-              })}
-              onClose={() => setEmailing(null)}
-            />
-          );
-        })()}
+      {emailing && (
+        <SalesDocEmailModal
+          order={emailing.order}
+          emailKey={emailing.key}
+          buyerName={buyerName}
+          onClose={() => setEmailing(null)}
+        />
+      )}
 
       {viewing && (
         <SalesOrderDetailPanel

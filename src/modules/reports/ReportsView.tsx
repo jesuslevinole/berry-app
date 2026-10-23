@@ -9,6 +9,8 @@ import { ColumnPicker } from '../../components/ui/ColumnPicker';
 import { useColumnVisibility, type ColumnOption } from '../../hooks/useColumnVisibility';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { SalesOrderDetailPanel } from '../sales/SalesOrderDetailPanel';
+import { SalesDocEmailModal } from '../sales/SalesDocEmailModal';
+import { updateDocument } from '../../services/firestore';
 import { PurchaseOrderDetailPanel } from '../purchases/PurchaseOrderDetailPanel';
 import { QuickPayModal } from '../payments/QuickPayModal';
 import { PaymentsAuditPanel } from '../payments/PaymentsAuditPanel';
@@ -229,6 +231,8 @@ export function ReportsView({ report }: ReportsViewProps) {
 
   /* Detalle abierto dentro de Reports (sin salir de la vista). */
   const [viewingSale, setViewingSale] = useState<SalesOrder | null>(null);
+  /* Invoice que se esta enviando por correo desde Invoice Queue. */
+  const [emailingInvoice, setEmailingInvoice] = useState<SalesOrder | null>(null);
   const [viewingPurchase, setViewingPurchase] = useState<PurchaseOrder | null>(null);
 
   /** Abre el detalle del gasto o lote: su Purchase Order asociado. */
@@ -237,13 +241,15 @@ export function ReportsView({ report }: ReportsViewProps) {
     if (po) setViewingPurchase(po);
   };
 
-  /* ---- 1. Invoice Queue: ordenes pendientes de cargar ---- */
+  /* ---- 1. Invoice Queue: ordenes pendientes de cargar o de enviar el invoice ---- */
   const queueRows = useMemo(
     () =>
       salesOrders
-        /* Pendientes de cargar: sin palomeo y con estado anterior a Loaded. */
+        /* Pendientes: sin palomeo, con estado anterior a Loaded y con el invoice sin enviar
+           (al enviarlo por correo desde aqui queda Sent = Yes y sale de la cola). */
         .filter(
           (so) =>
+            !so.SENT &&
             !so.LOADED &&
             so.STATUS !== 'Cancelled' &&
             so.STATUS !== 'Loaded' &&
@@ -265,6 +271,14 @@ export function ReportsView({ report }: ReportsViewProps) {
   );
 
   const queueTotal = round2(queueRows.reduce((acc, so) => acc + (so.TOTAL ?? 0), 0));
+  const canEmailInvoice = can(REPORT_META.queue.moduleId, 'documents');
+
+  /* Solo el correo enviado desde Invoice Queue marca la orden como enviada (decision del cliente). */
+  const handleInvoiceSent = (so: SalesOrder) => {
+    updateDocument<SalesOrder>(COLLECTIONS.SALES_ORDER, so.id, { SENT: true }).catch(() =>
+      alert(`The invoice was sent, but sales order ${so.SALES_ORDER_NUMBER ?? ''} could not be marked as Sent. Mark it in Sales Desk.`),
+    );
+  };
 
   /* ---- 2. A/P Growers: POs con saldo pendiente al grower, agrupadas por grower ---- */
   /* Grower seleccionado en el panel izquierdo ('' = All), como en AppSheet. */
@@ -675,6 +689,7 @@ export function ReportsView({ report }: ReportsViewProps) {
             <table className="reports__table">
               <thead>
                 <tr>
+                  {canEmailInvoice && <th className="reports__th reports__th--pay" aria-label="Email invoice" />}
                   {show('date') && <th className="reports__th">Date</th>}
                   {show('customer') && <th className="reports__th">Customer</th>}
                   {show('number') && <th className="reports__th"># Sales Order</th>}
@@ -687,10 +702,29 @@ export function ReportsView({ report }: ReportsViewProps) {
               </thead>
               <tbody>
                 {queueRows.length === 0 && (
-                  <tr><td className="reports__empty" colSpan={shownCount}>No sales orders pending. All caught up.</td></tr>
+                  <tr><td className="reports__empty" colSpan={shownCount + (canEmailInvoice ? 1 : 0)}>No sales orders pending. All caught up.</td></tr>
                 )}
                 {paginate(queueRows).map((so) => (
                   <tr key={so.id} className="reports__row--click" onClick={() => setViewingSale(so)} title="Open sales order detail">
+                    {canEmailInvoice && (
+                      <td className="reports__td reports__td--pay">
+                        <button
+                          type="button"
+                          className="btn btn--icon reports__pay-btn"
+                          aria-label={`Email invoice of sales order ${so.SALES_ORDER_NUMBER ?? ''}`}
+                          title="Email invoice"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEmailingInvoice(so);
+                          }}
+                        >
+                          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8">
+                            <rect x="3" y="5" width="18" height="14" rx="2" />
+                            <path d="M3 7l9 6 9-6" />
+                          </svg>
+                        </button>
+                      </td>
+                    )}
                     {show('date') && <td className="reports__td reports__td--muted">{fmtDate(so.DATE ?? '')}</td>}
                     {show('customer') && <td className="reports__td">{customers.nameOf(so.ID_CUSTOMER)}</td>}
                     {show('number') && <td className="reports__td reports__td--mono">{so.SALES_ORDER_NUMBER || '\u2014'}</td>}
@@ -1045,6 +1079,16 @@ export function ReportsView({ report }: ReportsViewProps) {
           </div>
           {pagerFor(expenseRows.length)}
         </>
+      )}
+
+      {emailingInvoice && (
+        <SalesDocEmailModal
+          order={emailingInvoice}
+          emailKey="invoice"
+          buyerName={buyerName}
+          onClose={() => setEmailingInvoice(null)}
+          onSent={() => handleInvoiceSent(emailingInvoice)}
+        />
       )}
 
       {viewingSale && (

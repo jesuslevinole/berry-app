@@ -79,6 +79,8 @@ export const CATALOG_DEFS: CatalogDef[] = [
     extraFields: [{ key: 'DESCRIPTION_COMMODITIES', label: 'Description', required: true }],
     toggleFields: [
       { key: 'SHOW_IN_INVENTORY', label: 'Show in inventory', title: 'Show in the Inventory summary', defaultOn: true },
+      /* Mismo campo que Inventory → Inventory products: en No, Sales Desk no pide PO (lote) y el producto no cuenta en inventario. */
+      { key: 'TRACK_INVENTORY', label: 'Need purchase order', title: 'Needs a purchase order (lot) in sales', defaultOn: true },
     ],
   },
   { collection: COLLECTIONS.SHIPVIA, label: 'Ship via', idField: 'ID_SHIPVIA', nameField: 'NAME_SHIPVIA', nameLabel: 'Name', extraFields: [] },

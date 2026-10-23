@@ -39,6 +39,7 @@ interface Props {
   /** Archivos que se adjuntan (uno o varios en un mismo correo). */
   attachments: PendingAttachment[];
   onClose: () => void;
+  /** Se llama cuando el correo le llego a por lo menos un destinatario. */
   onSent?: () => void;
 }
 
@@ -246,7 +247,8 @@ export function SendEmailModal({
         SENT_BY: auth.currentUser?.email ?? '',
         RECIPIENTS: sendResults.map((r) => ({ EMAIL: r.email, RESEND_ID: r.id ?? '', ERROR: r.error ?? '' })),
       });
-      onSent?.();
+      /* Cuenta como enviado si le llego a por lo menos un destinatario. */
+      if (sendResults.some((r) => !r.error)) onSent?.();
       setResults(sendResults);
     } catch (e) {
       setError((e as Error).message || 'The email could not be sent.');
