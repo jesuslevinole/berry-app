@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { byNewest } from '../../utils/format';
 import { where } from '../../services/firestore';
 import {
@@ -15,7 +15,7 @@ import { COLLECTIONS, type AppRole, type SystemUser, type SystemUserStatus } fro
 import { createUserWithResetEmail, resendPasswordReset } from '../../services/userAuthService';
 import { Toolbar } from '../../components/ui/Toolbar';
 import { ColumnPicker } from '../../components/ui/ColumnPicker';
-import { useColumnVisibility, type ColumnOption } from '../../hooks/useColumnVisibility';
+import { useColumnVisibility, type ColumnOption, type OrderedColumn } from '../../hooks/useColumnVisibility';
 import { SearchableSelect } from '../../components/ui/SearchableSelect';
 import './UsersView.css';
 
@@ -46,8 +46,6 @@ const USER_COLUMNS: ColumnOption[] = [
 export function UsersView() {
   const { can, firebaseUser, companyId } = useAuth();
   const columnView = useColumnVisibility('system-users', USER_COLUMNS);
-  const show = columnView.isVisible;
-  const tableColSpan = USER_COLUMNS.length - columnView.hiddenCount + 1;
   /* Usuarios de ESTA empresa: system_users es global, se filtra por companyId. */
   const { data: allUsers, loading } = useCollection<SystemUser>(COLLECTIONS.SYSTEM_USERS, [
     where('companyId', '==', companyId),
@@ -238,6 +236,38 @@ export function UsersView() {
     );
   };
 
+  /* Columnas en el orden y con la visibilidad que eligio el usuario; Actions siempre primero. */
+  const tableColumns: OrderedColumn<SystemUser>[] = [
+    { key: 'name', th: <th className="users__th">Name</th>, td: (user) => <td className="users__td users__td--strong">{user.firstName} {user.lastName}</td> },
+    { key: 'email', th: <th className="users__th">Email</th>, td: (user) => <td className="users__td users__td--muted">{user.email}</td> },
+    {
+      key: 'role',
+      th: <th className="users__th">Role</th>,
+      td: (user) => (
+        <td className="users__td">
+          <span className="users__role-badge">{rolesById.get(user.roleId)?.name ?? '—'}</span>
+        </td>
+      ),
+    },
+    {
+      key: 'status',
+      th: <th className="users__th">Status</th>,
+      td: (user) => {
+        const meta = STATUS_META[user.status] ?? STATUS_META['Pending Invite'];
+        return (
+          <td className="users__td">
+            <span className="users__status">
+              <span className={`users__status-dot users__status-dot--${meta.className}`} />
+              <span className={`users__status-text users__status-text--${meta.className}`}>{meta.label}</span>
+            </span>
+          </td>
+        );
+      },
+    },
+  ];
+  const shownColumns = columnView.arrange(tableColumns);
+  const tableColSpan = shownColumns.length + 1;
+
   return (
     <div className="users">
       <Toolbar
@@ -257,10 +287,7 @@ export function UsersView() {
           <thead>
             <tr>
               <th className="users__th users__th--actions">Actions</th>
-              {show('name') && <th className="users__th">Name</th>}
-              {show('email') && <th className="users__th">Email</th>}
-              {show('role') && <th className="users__th">Role</th>}
-              {show('status') && <th className="users__th">Status</th>}
+              {shownColumns.map((col) => <Fragment key={col.key}>{col.th}</Fragment>)}
             </tr>
           </thead>
           <tbody>
@@ -269,7 +296,6 @@ export function UsersView() {
               <tr><td className="users__empty" colSpan={tableColSpan}>No users yet. Add the first one.</td></tr>
             )}
             {!loading && rows.map((user) => {
-              const meta = STATUS_META[user.status] ?? STATUS_META['Pending Invite'];
               const sending = sendingId === user.id;
               return (
                 <tr key={user.id} className="users__row">
@@ -314,21 +340,7 @@ export function UsersView() {
                       )}
                     </span>
                   </td>
-                  {show('name') && <td className="users__td users__td--strong">{user.firstName} {user.lastName}</td>}
-                  {show('email') && <td className="users__td users__td--muted">{user.email}</td>}
-                  {show('role') && (
-                    <td className="users__td">
-                      <span className="users__role-badge">{rolesById.get(user.roleId)?.name ?? '—'}</span>
-                    </td>
-                  )}
-                  {show('status') && (
-                    <td className="users__td">
-                      <span className="users__status">
-                        <span className={`users__status-dot users__status-dot--${meta.className}`} />
-                        <span className={`users__status-text users__status-text--${meta.className}`}>{meta.label}</span>
-                      </span>
-                    </td>
-                  )}
+                  {shownColumns.map((col) => <Fragment key={col.key}>{col.td(user)}</Fragment>)}
                 </tr>
               );
             })}

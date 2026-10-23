@@ -42,19 +42,73 @@
   padding: 0;
 }
 
+.column-picker__row {
+  align-items: center;
+  border-top: 2px solid transparent;
+  display: flex;
+  padding: 0 8px 0 0;
+}
+
+.column-picker__row:hover {
+  background: var(--green-50);
+}
+
+.column-picker__row--dragging {
+  opacity: 0.45;
+}
+
+/* Linea donde cae la columna al soltarla. */
+.column-picker__row--drop {
+  border-top-color: var(--green-600);
+}
+
+.column-picker__handle {
+  color: var(--muted);
+  cursor: grab;
+  display: inline-flex;
+  padding: 0 0 0 10px;
+}
+
 .column-picker__option {
   align-items: center;
   color: var(--ink);
   cursor: pointer;
   display: flex;
+  flex: 1;
   font-size: 0.86rem;
   gap: 9px;
   padding: 7px 14px;
   white-space: nowrap;
 }
 
-.column-picker__option:hover {
-  background: var(--green-50);
+.column-picker__handle + .column-picker__option {
+  padding-left: 8px;
+}
+
+.column-picker__arrows {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.column-picker__arrow {
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  padding: 3px;
+}
+
+.column-picker__arrow:hover:not(:disabled) {
+  border-color: var(--line-strong);
+  color: var(--green-700);
+}
+
+.column-picker__arrow:disabled {
+  cursor: default;
+  opacity: 0.3;
 }
 
 .column-picker__option input {
@@ -74,8 +128,13 @@
   cursor: default;
 }
 
-.column-picker__show-all {
-  align-self: flex-start;
+.column-picker__footer {
+  display: flex;
+  gap: 18px;
+  margin: 6px 14px 0;
+}
+
+.column-picker__link {
   background: transparent;
   border: 0;
   color: var(--green-600);
@@ -83,15 +142,14 @@
   font-family: inherit;
   font-size: 0.82rem;
   font-weight: 700;
-  margin: 6px 14px 0;
   padding: 4px 0;
 }
 
-.column-picker__show-all:hover:not(:disabled) {
+.column-picker__link:hover:not(:disabled) {
   text-decoration: underline;
 }
 
-.column-picker__show-all:disabled {
+.column-picker__link:disabled {
   cursor: default;
   opacity: 0.45;
 }

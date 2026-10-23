@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { Fragment, useMemo, useState, type ReactNode } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useAppConfig } from '../../context/AppConfigContext';
 import { FORM_DEFS } from '../../config/formDefs';
@@ -6,7 +6,7 @@ import { useCollection } from '../../hooks/useCollection';
 import { useCatalog } from '../../hooks/useCatalog';
 import { Toolbar } from '../../components/ui/Toolbar';
 import { ColumnPicker } from '../../components/ui/ColumnPicker';
-import { useColumnVisibility, type ColumnOption } from '../../hooks/useColumnVisibility';
+import { useColumnVisibility, type ColumnOption, type OrderedColumn } from '../../hooks/useColumnVisibility';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { SalesOrderDetailPanel } from '../sales/SalesOrderDetailPanel';
 import { SalesDocEmailModal } from '../sales/SalesDocEmailModal';
@@ -568,18 +568,81 @@ export function ReportsView({ report }: ReportsViewProps) {
     expenses: EXPENSES_COLUMNS,
   };
   const columnView = useColumnVisibility(`reports-${report}`, fixedColumnsOf[report]);
-  const show = columnView.isVisible;
-  const shownCount = fixedColumnsOf[report].length - columnView.hiddenCount;
-  const arShown = arVisible.filter((f) => show(f.key));
-  const apShown = apVisible.filter((f) => show(f.key));
+  /* AR y AP: orden del usuario encima del orden del Configurator. */
+  const arShown = columnView.arrange(arVisible);
+  const apShown = columnView.arrange(apVisible);
 
-  /* El Excel exporta solo las columnas visibles (Overdue de A/P Growers no es columna de la tabla: siempre va). */
+  /* El Excel exporta solo las columnas visibles y en el orden de la tabla
+     (Overdue de A/P Growers no es columna de la tabla: siempre va, al final). */
   type KeyedExport = ExportColumn & { key: string };
   const exportShown = (title: string, columns: KeyedExport[]) =>
     void exportReport(
       title,
-      columns.filter((col) => show(col.key)).map(({ header, values }) => ({ header, values })),
+      columnView.arrange(columns).map(({ header, values }) => ({ header, values })),
     );
+
+  /* Columnas de Invoice Queue, A/P Growers y Expenses Report: encabezado y celda, en el orden del usuario. */
+  type ApGrowerRow = (typeof apGrowerRows)[number];
+  type ExpenseRow = (typeof expenseRows)[number];
+  const queueColumns: OrderedColumn<SalesOrder>[] = [
+    { key: 'date', th: <th className="reports__th">Date</th>, td: (so) => <td className="reports__td reports__td--muted">{fmtDate(so.DATE ?? '')}</td> },
+    { key: 'customer', th: <th className="reports__th">Customer</th>, td: (so) => <td className="reports__td">{customers.nameOf(so.ID_CUSTOMER)}</td> },
+    { key: 'number', th: <th className="reports__th"># Sales Order</th>, td: (so) => <td className="reports__td reports__td--mono">{so.SALES_ORDER_NUMBER || '\u2014'}</td> },
+    { key: 'total', th: <th className="reports__th reports__th--num">Total</th>, td: (so) => <td className="reports__td reports__td--num">{fmtMoney(so.TOTAL ?? 0)}</td> },
+    { key: 'dueDate', th: <th className="reports__th">Due Date</th>, td: (so) => <td className="reports__td reports__td--muted">{fmtDate(so.DUE_DATE ?? '')}</td> },
+    {
+      key: 'status',
+      th: <th className="reports__th">Status</th>,
+      td: (so) => (
+        <td className="reports__td">
+          <StatusBadge value={so.STATUS ?? 'Draft'} />
+        </td>
+      ),
+    },
+    { key: 'salesperson', th: <th className="reports__th">Salesperson</th>, td: (so) => <td className="reports__td">{buyerName(so.ID_USERS)}</td> },
+    { key: 'buyer', th: <th className="reports__th">Buyer</th>, td: (so) => <td className="reports__td reports__td--muted">{so.BUYER || '\u2014'}</td> },
+  ];
+  const apGrowerColumns: OrderedColumn<ApGrowerRow>[] = [
+    { key: 'grower', th: <th className="reports__th">Grower</th>, td: (r) => <td className="reports__td">{r.growerName}</td> },
+    { key: 'vendor', th: <th className="reports__th">Vendor</th>, td: (r) => <td className="reports__td">{customers.nameOf(r.po.ID_CUSTOMER)}</td> },
+    { key: 'lot', th: <th className="reports__th">Lot #</th>, td: (r) => <td className="reports__td reports__td--mono">{r.po.LOT_NUMBER}</td> },
+    { key: 'ref', th: <th className="reports__th"># Ref</th>, td: (r) => <td className="reports__td">{r.po.REF_NUMBER || '\u2014'}</td> },
+    { key: 'total', th: <th className="reports__th reports__th--num">Total</th>, td: (r) => <td className="reports__td reports__td--num">{fmtMoney(r.po.TOTAL ?? 0)}</td> },
+    { key: 'paid', th: <th className="reports__th reports__th--num">Amount paid</th>, td: (r) => <td className="reports__td reports__td--num">{fmtMoney(r.po.AMOUNT_PAID ?? 0)}</td> },
+    { key: 'balance', th: <th className="reports__th reports__th--num">Balance</th>, td: (r) => <td className="reports__td reports__td--num">{fmtMoney(r.balance)}</td> },
+    { key: 'arrival', th: <th className="reports__th">Arrival date</th>, td: (r) => <td className="reports__td">{fmtDate(r.po.ARRIVAL_DATE ?? '')}</td> },
+    { key: 'dueDate', th: <th className="reports__th">Due date</th>, td: (r) => <td className="reports__td">{fmtDate(r.dueDate)}</td> },
+  ];
+  const expenseColumns: OrderedColumn<ExpenseRow>[] = [
+    { key: 'date', th: <th className="reports__th">Date</th>, td: (r) => <td className="reports__td reports__td--muted">{fmtDate(r.e.DATE ?? '')}</td> },
+    { key: 'lot', th: <th className="reports__th"># Lot</th>, td: (r) => <td className="reports__td reports__td--mono">{r.lot}</td> },
+    { key: 'supplier', th: <th className="reports__th">Supplier</th>, td: (r) => <td className="reports__td">{suppliers.nameOf(r.e.ID_SUPPLIERS)}</td> },
+    { key: 'category', th: <th className="reports__th">Category</th>, td: (r) => <td className="reports__td reports__td--muted">{categories.nameOf(r.e.ID_CATEGORYBILL)}</td> },
+    { key: 'invoice', th: <th className="reports__th">Invoice #</th>, td: (r) => <td className="reports__td">{r.e.INVOICE_NUMBER || '\u2014'}</td> },
+    { key: 'amount', th: <th className="reports__th reports__th--num">Amount</th>, td: (r) => <td className="reports__td reports__td--num">{fmtMoney(r.e.AMOUNT ?? 0)}</td> },
+    { key: 'paid', th: <th className="reports__th reports__th--num">Amount paid</th>, td: (r) => <td className="reports__td reports__td--num">{fmtMoney(r.paidAmount)}</td> },
+    { key: 'balance', th: <th className="reports__th reports__th--num">Balance</th>, td: (r) => <td className="reports__td reports__td--num">{fmtMoney(r.balance)}</td> },
+    { key: 'paymentDate', th: <th className="reports__th">Payment date</th>, td: (r) => <td className="reports__td reports__td--muted">{fmtDate(r.paymentDate)}</td> },
+    {
+      key: 'status',
+      th: <th className="reports__th">Status</th>,
+      td: (r) => (
+        <td className="reports__td">
+          {r.paid || isPayableSupplier(suppliers.nameOf(r.e.ID_SUPPLIERS)) ? (
+            <span className={`reports__status reports__status--${r.paid ? 'paid' : 'pending'}`}>
+              {r.paid ? 'Paid' : 'Pending'}
+            </span>
+          ) : (
+            /* General Cost no recibe pagos. */
+            <span className="reports__status reports__status--none">No payment</span>
+          )}
+        </td>
+      ),
+    },
+  ];
+  const queueShown = columnView.arrange(queueColumns);
+  const apGrowerShown = columnView.arrange(apGrowerColumns);
+  const expenseShown = columnView.arrange(expenseColumns);
 
   const handleExport = () => {
     if (report === 'queue') {
@@ -690,19 +753,12 @@ export function ReportsView({ report }: ReportsViewProps) {
               <thead>
                 <tr>
                   {canEmailInvoice && <th className="reports__th reports__th--pay" aria-label="Email invoice" />}
-                  {show('date') && <th className="reports__th">Date</th>}
-                  {show('customer') && <th className="reports__th">Customer</th>}
-                  {show('number') && <th className="reports__th"># Sales Order</th>}
-                  {show('total') && <th className="reports__th reports__th--num">Total</th>}
-                  {show('dueDate') && <th className="reports__th">Due Date</th>}
-                  {show('status') && <th className="reports__th">Status</th>}
-                  {show('salesperson') && <th className="reports__th">Salesperson</th>}
-                  {show('buyer') && <th className="reports__th">Buyer</th>}
+                  {queueShown.map((col) => <Fragment key={col.key}>{col.th}</Fragment>)}
                 </tr>
               </thead>
               <tbody>
                 {queueRows.length === 0 && (
-                  <tr><td className="reports__empty" colSpan={shownCount + (canEmailInvoice ? 1 : 0)}>No sales orders pending. All caught up.</td></tr>
+                  <tr><td className="reports__empty" colSpan={queueShown.length + (canEmailInvoice ? 1 : 0)}>No sales orders pending. All caught up.</td></tr>
                 )}
                 {paginate(queueRows).map((so) => (
                   <tr key={so.id} className="reports__row--click" onClick={() => setViewingSale(so)} title="Open sales order detail">
@@ -725,18 +781,7 @@ export function ReportsView({ report }: ReportsViewProps) {
                         </button>
                       </td>
                     )}
-                    {show('date') && <td className="reports__td reports__td--muted">{fmtDate(so.DATE ?? '')}</td>}
-                    {show('customer') && <td className="reports__td">{customers.nameOf(so.ID_CUSTOMER)}</td>}
-                    {show('number') && <td className="reports__td reports__td--mono">{so.SALES_ORDER_NUMBER || '\u2014'}</td>}
-                    {show('total') && <td className="reports__td reports__td--num">{fmtMoney(so.TOTAL ?? 0)}</td>}
-                    {show('dueDate') && <td className="reports__td reports__td--muted">{fmtDate(so.DUE_DATE ?? '')}</td>}
-                    {show('status') && (
-                      <td className="reports__td">
-                        <StatusBadge value={so.STATUS ?? 'Draft'} />
-                      </td>
-                    )}
-                    {show('salesperson') && <td className="reports__td">{buyerName(so.ID_USERS)}</td>}
-                    {show('buyer') && <td className="reports__td reports__td--muted">{so.BUYER || '\u2014'}</td>}
+                    {queueShown.map((col) => <Fragment key={col.key}>{col.td(so)}</Fragment>)}
                   </tr>
                 ))}
               </tbody>
@@ -789,20 +834,12 @@ export function ReportsView({ report }: ReportsViewProps) {
                 <table className="reports__table">
                   <thead>
                     <tr>
-                      {show('grower') && <th className="reports__th">Grower</th>}
-                      {show('vendor') && <th className="reports__th">Vendor</th>}
-                      {show('lot') && <th className="reports__th">Lot #</th>}
-                      {show('ref') && <th className="reports__th"># Ref</th>}
-                      {show('total') && <th className="reports__th reports__th--num">Total</th>}
-                      {show('paid') && <th className="reports__th reports__th--num">Amount paid</th>}
-                      {show('balance') && <th className="reports__th reports__th--num">Balance</th>}
-                      {show('arrival') && <th className="reports__th">Arrival date</th>}
-                      {show('dueDate') && <th className="reports__th">Due date</th>}
+                      {apGrowerShown.map((col) => <Fragment key={col.key}>{col.th}</Fragment>)}
                     </tr>
                   </thead>
                   <tbody>
                     {apGrowerRows.length === 0 && (
-                      <tr><td className="reports__empty" colSpan={shownCount}>Nothing pending to pay growers. All caught up.</td></tr>
+                      <tr><td className="reports__empty" colSpan={apGrowerShown.length}>Nothing pending to pay growers. All caught up.</td></tr>
                     )}
                     {paginate(apGrowerRows).map((r) => (
                       <tr
@@ -811,15 +848,7 @@ export function ReportsView({ report }: ReportsViewProps) {
                         onClick={() => openPurchase(r.po.id)}
                         title={r.overdue ? 'Past due and not paid — open purchase order' : 'Open purchase order detail'}
                       >
-                        {show('grower') && <td className="reports__td">{r.growerName}</td>}
-                        {show('vendor') && <td className="reports__td">{customers.nameOf(r.po.ID_CUSTOMER)}</td>}
-                        {show('lot') && <td className="reports__td reports__td--mono">{r.po.LOT_NUMBER}</td>}
-                        {show('ref') && <td className="reports__td">{r.po.REF_NUMBER || '\u2014'}</td>}
-                        {show('total') && <td className="reports__td reports__td--num">{fmtMoney(r.po.TOTAL ?? 0)}</td>}
-                        {show('paid') && <td className="reports__td reports__td--num">{fmtMoney(r.po.AMOUNT_PAID ?? 0)}</td>}
-                        {show('balance') && <td className="reports__td reports__td--num">{fmtMoney(r.balance)}</td>}
-                        {show('arrival') && <td className="reports__td">{fmtDate(r.po.ARRIVAL_DATE ?? '')}</td>}
-                        {show('dueDate') && <td className="reports__td">{fmtDate(r.dueDate)}</td>}
+                        {apGrowerShown.map((col) => <Fragment key={col.key}>{col.td(r)}</Fragment>)}
                       </tr>
                     ))}
                   </tbody>
@@ -1033,45 +1062,16 @@ export function ReportsView({ report }: ReportsViewProps) {
             <table className="reports__table">
               <thead>
                 <tr>
-                  {show('date') && <th className="reports__th">Date</th>}
-                  {show('lot') && <th className="reports__th"># Lot</th>}
-                  {show('supplier') && <th className="reports__th">Supplier</th>}
-                  {show('category') && <th className="reports__th">Category</th>}
-                  {show('invoice') && <th className="reports__th">Invoice #</th>}
-                  {show('amount') && <th className="reports__th reports__th--num">Amount</th>}
-                  {show('paid') && <th className="reports__th reports__th--num">Amount paid</th>}
-                  {show('balance') && <th className="reports__th reports__th--num">Balance</th>}
-                  {show('paymentDate') && <th className="reports__th">Payment date</th>}
-                  {show('status') && <th className="reports__th">Status</th>}
+                  {expenseShown.map((col) => <Fragment key={col.key}>{col.th}</Fragment>)}
                 </tr>
               </thead>
               <tbody>
                 {expenseRows.length === 0 && (
-                  <tr><td className="reports__empty" colSpan={shownCount}>No expenses recorded.</td></tr>
+                  <tr><td className="reports__empty" colSpan={expenseShown.length}>No expenses recorded.</td></tr>
                 )}
                 {paginate(expenseRows).map((r) => (
                   <tr key={r.e.id} className="reports__row--click" onClick={() => openPurchase(r.e.ID_PURCHASEORDER)} title="Open purchase order detail">
-                    {show('date') && <td className="reports__td reports__td--muted">{fmtDate(r.e.DATE ?? '')}</td>}
-                    {show('lot') && <td className="reports__td reports__td--mono">{r.lot}</td>}
-                    {show('supplier') && <td className="reports__td">{suppliers.nameOf(r.e.ID_SUPPLIERS)}</td>}
-                    {show('category') && <td className="reports__td reports__td--muted">{categories.nameOf(r.e.ID_CATEGORYBILL)}</td>}
-                    {show('invoice') && <td className="reports__td">{r.e.INVOICE_NUMBER || '\u2014'}</td>}
-                    {show('amount') && <td className="reports__td reports__td--num">{fmtMoney(r.e.AMOUNT ?? 0)}</td>}
-                    {show('paid') && <td className="reports__td reports__td--num">{fmtMoney(r.paidAmount)}</td>}
-                    {show('balance') && <td className="reports__td reports__td--num">{fmtMoney(r.balance)}</td>}
-                    {show('paymentDate') && <td className="reports__td reports__td--muted">{fmtDate(r.paymentDate)}</td>}
-                    {show('status') && (
-                      <td className="reports__td">
-                        {r.paid || isPayableSupplier(suppliers.nameOf(r.e.ID_SUPPLIERS)) ? (
-                          <span className={`reports__status reports__status--${r.paid ? 'paid' : 'pending'}`}>
-                            {r.paid ? 'Paid' : 'Pending'}
-                          </span>
-                        ) : (
-                          /* General Cost no recibe pagos. */
-                          <span className="reports__status reports__status--none">No payment</span>
-                        )}
-                      </td>
-                    )}
+                    {expenseShown.map((col) => <Fragment key={col.key}>{col.td(r)}</Fragment>)}
                   </tr>
                 ))}
               </tbody>

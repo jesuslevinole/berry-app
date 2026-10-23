@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, type CSSProperties, type MouseEvent } from 'react';
-import type { ColumnVisibility } from '../../hooks/useColumnVisibility';
+import { useEffect, useRef, useState, type CSSProperties, type DragEvent, type MouseEvent } from 'react';
+import type { ColumnOption, ColumnVisibility } from '../../hooks/useColumnVisibility';
 import './ColumnPicker.css';
 
 interface ColumnPickerProps {
@@ -18,9 +18,105 @@ const menuStyle = (position: MenuPosition): CSSProperties =>
     '--column-picker-top': `${position.top}px`,
   }) as CSSProperties;
 
+interface ColumnPickerRowProps {
+  option: ColumnOption;
+  index: number;
+  view: ColumnVisibility;
+  /** Ultima columna visible: no se puede ocultar. */
+  locked: boolean;
+  dragging: boolean;
+  dropTarget: boolean;
+  onDragStart: (key: string) => void;
+  onDragOver: (index: number) => void;
+  onDrop: (index: number) => void;
+  onDragEnd: () => void;
+}
+
+/** Una columna de la lista: casilla para mostrarla y, con permiso, asa y flechas para moverla. */
+const ColumnPickerRow = ({
+  option,
+  index,
+  view,
+  locked,
+  dragging,
+  dropTarget,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  onDragEnd,
+}: ColumnPickerRowProps) => {
+  const isFirst = index === 0;
+  const isLast = index === view.options.length - 1;
+  const rowClass = `column-picker__row${dragging ? ' column-picker__row--dragging' : ''}${dropTarget ? ' column-picker__row--drop' : ''}`;
+
+  const handleDragStart = (event: DragEvent<HTMLLIElement>) => {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', option.key);
+    onDragStart(option.key);
+  };
+
+  const handleDragOver = (event: DragEvent<HTMLLIElement>) => {
+    event.preventDefault();
+    onDragOver(index);
+  };
+
+  const handleDrop = (event: DragEvent<HTMLLIElement>) => {
+    event.preventDefault();
+    onDrop(index);
+  };
+
+  return (
+    <li
+      className={rowClass}
+      draggable={view.canReorder}
+      onDragStart={view.canReorder ? handleDragStart : undefined}
+      onDragOver={view.canReorder ? handleDragOver : undefined}
+      onDrop={view.canReorder ? handleDrop : undefined}
+      onDragEnd={view.canReorder ? onDragEnd : undefined}
+    >
+      {view.canReorder && (
+        <span className="column-picker__handle" aria-hidden="true" title="Drag to reorder">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+            <circle cx="9" cy="6" r="1.6" /><circle cx="15" cy="6" r="1.6" />
+            <circle cx="9" cy="12" r="1.6" /><circle cx="15" cy="12" r="1.6" />
+            <circle cx="9" cy="18" r="1.6" /><circle cx="15" cy="18" r="1.6" />
+          </svg>
+        </span>
+      )}
+      <label className={`column-picker__option${locked ? ' column-picker__option--locked' : ''}`}>
+        <input type="checkbox" checked={view.isVisible(option.key)} disabled={locked} onChange={() => view.toggle(option.key)} />
+        <span>{option.label}</span>
+      </label>
+      {view.canReorder && (
+        <span className="column-picker__arrows">
+          <button
+            type="button"
+            className="column-picker__arrow"
+            aria-label={`Move ${option.label} up`}
+            disabled={isFirst}
+            onClick={() => view.move(option.key, index - 1)}
+          >
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 15l6-6 6 6" /></svg>
+          </button>
+          <button
+            type="button"
+            className="column-picker__arrow"
+            aria-label={`Move ${option.label} down`}
+            disabled={isLast}
+            onClick={() => view.move(option.key, index + 1)}
+          >
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6" /></svg>
+          </button>
+        </span>
+      )}
+    </li>
+  );
+};
+
 /**
  * Boton "Columns" de la barra de una tabla: abre la lista de columnas para mostrar
- * u ocultar cada una. La eleccion la guarda `useColumnVisibility`.
+ * u ocultar cada una y, si el rol lo permite, cambiar su orden (arrastrando o con las flechas).
+ * La eleccion la guarda `useColumnVisibility`.
  */
 export const ColumnPicker = ({ view }: ColumnPickerProps) => {
   const [position, setPosition] = useState<MenuPosition | null>(null);
@@ -64,6 +160,21 @@ export const ColumnPicker = ({ view }: ColumnPickerProps) => {
     setPosition({ top: rect.bottom + 6, right: Math.max(window.innerWidth - rect.right, 8) });
   };
 
+  /* Arrastrar y soltar (solo con "Reorder table columns" en el rol). */
+  const [dragKey, setDragKey] = useState<string | null>(null);
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
+
+  const handleDrop = (toIndex: number) => {
+    if (dragKey) view.move(dragKey, toIndex);
+    setDragKey(null);
+    setDropIndex(null);
+  };
+
+  const handleDragEnd = () => {
+    setDragKey(null);
+    setDropIndex(null);
+  };
+
   const visibleCount = view.options.length - view.hiddenCount;
   const buttonLabel = view.hiddenCount > 0 ? `Columns (${visibleCount}/${view.options.length})` : 'Columns';
 
@@ -85,29 +196,34 @@ export const ColumnPicker = ({ view }: ColumnPickerProps) => {
 
       {position && (
         <div className="column-picker__menu" role="menu" style={menuStyle(position)}>
-          <p className="column-picker__title">Show columns</p>
+          <p className="column-picker__title">{view.canReorder ? 'Show and order columns' : 'Show columns'}</p>
           <ul className="column-picker__list">
-            {view.options.map((option) => {
-              const checked = view.isVisible(option.key);
-              const lastVisible = checked && visibleCount === 1;
-              return (
-                <li key={option.key}>
-                  <label className={`column-picker__option${lastVisible ? ' column-picker__option--locked' : ''}`}>
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      disabled={lastVisible}
-                      onChange={() => view.toggle(option.key)}
-                    />
-                    <span>{option.label}</span>
-                  </label>
-                </li>
-              );
-            })}
+            {view.options.map((option, index) => (
+              <ColumnPickerRow
+                key={option.key}
+                option={option}
+                index={index}
+                view={view}
+                locked={view.isVisible(option.key) && visibleCount === 1}
+                dragging={dragKey === option.key}
+                dropTarget={dragKey !== null && dropIndex === index && dragKey !== option.key}
+                onDragStart={setDragKey}
+                onDragOver={setDropIndex}
+                onDrop={handleDrop}
+                onDragEnd={handleDragEnd}
+              />
+            ))}
           </ul>
-          <button type="button" className="column-picker__show-all" disabled={view.hiddenCount === 0} onClick={view.showAll}>
-            Show all
-          </button>
+          <div className="column-picker__footer">
+            <button type="button" className="column-picker__link" disabled={view.hiddenCount === 0} onClick={view.showAll}>
+              Show all
+            </button>
+            {view.canReorder && (
+              <button type="button" className="column-picker__link" disabled={!view.reordered} onClick={view.resetOrder}>
+                Reset order
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>

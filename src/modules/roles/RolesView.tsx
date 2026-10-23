@@ -307,7 +307,7 @@ export function RolesView() {
                 <h4 className="roles__section-title">Configurator capabilities</h4>
               </div>
               <p className="roles__matrix-hint">
-                Control who can customize the app: menu order, form fields and impersonation.
+                Control who can customize the app: menu order, form fields, table column order and impersonation.
               </p>
               <div className="roles__admin-grid">
                 {ADMIN_CAPABILITIES.map((cap) => (

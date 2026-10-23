@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { useCollection } from '../../hooks/useCollection';
 import { useCatalog } from '../../hooks/useCatalog';
 import { useInventoryItems } from '../../hooks/useInventoryItems';
@@ -6,7 +6,7 @@ import { SearchableSelect } from '../../components/ui/SearchableSelect';
 import { useAuth } from '../../context/AuthContext';
 import { Toolbar } from '../../components/ui/Toolbar';
 import { ColumnPicker } from '../../components/ui/ColumnPicker';
-import { useColumnVisibility, type ColumnOption } from '../../hooks/useColumnVisibility';
+import { useColumnVisibility, type ColumnOption, type OrderedColumn } from '../../hooks/useColumnVisibility';
 import { DataPortButtons } from '../../components/ui/DataPortButtons';
 import { PURCHASES_SCHEMAS } from '../../config/entitySchemas';
 import { fmtMoney, round2 } from '../../utils/format';
@@ -43,15 +43,48 @@ const SALES_COLUMNS: ColumnOption[] = [
   { key: 'total', label: 'Total' },
 ];
 
+/* Columnas de texto: el rotulo del pie ("Total") ocupa las que quedan al inicio. */
+const TEXT_COLUMN_KEYS = new Set(['commodity', 'description']);
+
+interface LotFooterRowProps {
+  /** Columnas visibles en el orden del usuario. */
+  keys: string[];
+  label: string;
+  /** Total de cada columna numerica (las que no tienen, como Price, quedan vacias). */
+  totals: Partial<Record<string, string | number>>;
+}
+
+/**
+ * Fila de totales que sigue el orden de las columnas: cada total va bajo su columna y el rotulo
+ * abarca las columnas de texto del inicio. Si la primera columna es numerica, no hay rotulo.
+ */
+const LotFooterRow = ({ keys, label, totals }: LotFooterRowProps) => {
+  const leadingText = keys.findIndex((key) => !TEXT_COLUMN_KEYS.has(key));
+  const labelSpan = leadingText === -1 ? keys.length : leadingText;
+  return (
+    <tr>
+      {labelSpan > 0 && (
+        <td className="lot-activity__tf" colSpan={labelSpan}>
+          {label}
+        </td>
+      )}
+      {keys.slice(labelSpan).map((key) =>
+        totals[key] === undefined ? (
+          <td key={key} className="lot-activity__tf" />
+        ) : (
+          <td key={key} className="lot-activity__tf lot-activity__tf--num">
+            {totals[key]}
+          </td>
+        ),
+      )}
+    </tr>
+  );
+};
+
 export function LotActivityView() {
   const { can } = useAuth();
   const purchaseColumns = useColumnVisibility('lot-activity-purchase', PURCHASE_COLUMNS);
   const salesColumns = useColumnVisibility('lot-activity-sales', SALES_COLUMNS);
-  const showPurchase = purchaseColumns.isVisible;
-  const showSales = salesColumns.isVisible;
-  /* El rotulo del pie ocupa las columnas de texto visibles (sin ellas, no hay rotulo). */
-  const purchaseLabelSpan = showPurchase('commodity') ? 1 : 0;
-  const salesLabelSpan = (showSales('commodity') ? 1 : 0) + (showSales('description') ? 1 : 0);
   const { data: purchaseOrders } = useCollection<PurchaseOrder>(COLLECTIONS.PURCHASE_ORDER);
   const { data: purchaseDetails } = useCollection<PurchaseDetail>(COLLECTIONS.PURCHASE_DETAILS);
   const { data: salesOrders } = useCollection<SalesOrder>(COLLECTIONS.SALES_ORDER);
@@ -136,6 +169,43 @@ export function LotActivityView() {
     const [y, m, d] = iso.split('-');
     return y && m && d ? `${d}/${m}/${y}` : iso;
   };
+
+  /* Columnas de cada tabla en el orden y con la visibilidad que eligio el usuario. */
+  const purchaseTable: OrderedColumn<PurchaseDetail>[] = [
+    {
+      key: 'commodity',
+      th: <th className="lot-activity__th">Commodity</th>,
+      td: (line) => <td className="lot-activity__td lot-activity__td--strong">{commodities.nameOf(line.ID_COMMODITIES)}</td>,
+    },
+    { key: 'quantity', th: <th className="lot-activity__th lot-activity__th--num">Quantity</th>, td: (line) => <td className="lot-activity__td lot-activity__td--num">{line.QUANTITY}</td> },
+    { key: 'price', th: <th className="lot-activity__th lot-activity__th--num">Price</th>, td: (line) => <td className="lot-activity__td lot-activity__td--num">{fmtMoney(line.PRICE)}</td> },
+    {
+      key: 'total',
+      th: <th className="lot-activity__th lot-activity__th--num">Total</th>,
+      td: (line) => <td className="lot-activity__td lot-activity__td--num lot-activity__td--strong">{fmtMoney(line.TOTAL)}</td>,
+    },
+  ];
+  const salesTable: OrderedColumn<SalesOrderDetail>[] = [
+    {
+      key: 'commodity',
+      th: <th className="lot-activity__th">Commodity</th>,
+      td: (line) => <td className="lot-activity__td lot-activity__td--strong">{commodities.nameOf(line.ID_COMMODITIES)}</td>,
+    },
+    {
+      key: 'description',
+      th: <th className="lot-activity__th">Description</th>,
+      td: (line) => <td className="lot-activity__td lot-activity__td--muted">{lineDescription(line) || '—'}</td>,
+    },
+    { key: 'quantity', th: <th className="lot-activity__th lot-activity__th--num">Quantity</th>, td: (line) => <td className="lot-activity__td lot-activity__td--num">{line.QUANTITY}</td> },
+    { key: 'price', th: <th className="lot-activity__th lot-activity__th--num">Price</th>, td: (line) => <td className="lot-activity__td lot-activity__td--num">{fmtMoney(line.PRICE)}</td> },
+    {
+      key: 'total',
+      th: <th className="lot-activity__th lot-activity__th--num">Total</th>,
+      td: (line) => <td className="lot-activity__td lot-activity__td--num lot-activity__td--strong">{fmtMoney(line.TOTAL)}</td>,
+    },
+  ];
+  const shownPurchase = purchaseColumns.arrange(purchaseTable);
+  const shownSales = salesColumns.arrange(salesTable);
 
   return (
     <div className="lot-activity">
@@ -223,37 +293,26 @@ export function LotActivityView() {
               <table className="lot-activity__table">
                 <thead>
                   <tr>
-                    {showPurchase('commodity') && <th className="lot-activity__th">Commodity</th>}
-                    {showPurchase('quantity') && <th className="lot-activity__th lot-activity__th--num">Quantity</th>}
-                    {showPurchase('price') && <th className="lot-activity__th lot-activity__th--num">Price</th>}
-                    {showPurchase('total') && <th className="lot-activity__th lot-activity__th--num">Total</th>}
+                    {shownPurchase.map((col) => <Fragment key={col.key}>{col.th}</Fragment>)}
                   </tr>
                 </thead>
                 <tbody>
                   {lotPurchaseLines.length === 0 && (
-                    <tr><td className="lot-activity__empty-row" colSpan={PURCHASE_COLUMNS.length - purchaseColumns.hiddenCount}>No purchase lines for this lot.</td></tr>
+                    <tr><td className="lot-activity__empty-row" colSpan={shownPurchase.length}>No purchase lines for this lot.</td></tr>
                   )}
                   {lotPurchaseLines.map((line) => (
                     <tr key={line.id}>
-                      {showPurchase('commodity') && (
-                        <td className="lot-activity__td lot-activity__td--strong">{commodities.nameOf(line.ID_COMMODITIES)}</td>
-                      )}
-                      {showPurchase('quantity') && <td className="lot-activity__td lot-activity__td--num">{line.QUANTITY}</td>}
-                      {showPurchase('price') && <td className="lot-activity__td lot-activity__td--num">{fmtMoney(line.PRICE)}</td>}
-                      {showPurchase('total') && (
-                        <td className="lot-activity__td lot-activity__td--num lot-activity__td--strong">{fmtMoney(line.TOTAL)}</td>
-                      )}
+                      {shownPurchase.map((col) => <Fragment key={col.key}>{col.td(line)}</Fragment>)}
                     </tr>
                   ))}
                 </tbody>
                 {lotPurchaseLines.length > 0 && (
                   <tfoot>
-                    <tr>
-                      {purchaseLabelSpan > 0 && <td className="lot-activity__tf">Total</td>}
-                      {showPurchase('quantity') && <td className="lot-activity__tf lot-activity__tf--num">{purchasedQty}</td>}
-                      {showPurchase('price') && <td className="lot-activity__tf" />}
-                      {showPurchase('total') && <td className="lot-activity__tf lot-activity__tf--num">{fmtMoney(purchasedTotal)}</td>}
-                    </tr>
+                    <LotFooterRow
+                      keys={shownPurchase.map((col) => col.key)}
+                      label="Total"
+                      totals={{ quantity: purchasedQty, total: fmtMoney(purchasedTotal) }}
+                    />
                   </tfoot>
                 )}
               </table>
@@ -299,39 +358,22 @@ export function LotActivityView() {
                   <table className="lot-activity__table">
                     <thead>
                       <tr>
-                        {showSales('commodity') && <th className="lot-activity__th">Commodity</th>}
-                        {showSales('description') && <th className="lot-activity__th">Description</th>}
-                        {showSales('quantity') && <th className="lot-activity__th lot-activity__th--num">Quantity</th>}
-                        {showSales('price') && <th className="lot-activity__th lot-activity__th--num">Price</th>}
-                        {showSales('total') && <th className="lot-activity__th lot-activity__th--num">Total</th>}
+                        {shownSales.map((col) => <Fragment key={col.key}>{col.th}</Fragment>)}
                       </tr>
                     </thead>
                     <tbody>
                       {group.lines.map((line) => (
                         <tr key={line.id}>
-                          {showSales('commodity') && (
-                            <td className="lot-activity__td lot-activity__td--strong">{commodities.nameOf(line.ID_COMMODITIES)}</td>
-                          )}
-                          {showSales('description') && (
-                            <td className="lot-activity__td lot-activity__td--muted">{lineDescription(line) || '—'}</td>
-                          )}
-                          {showSales('quantity') && <td className="lot-activity__td lot-activity__td--num">{line.QUANTITY}</td>}
-                          {showSales('price') && <td className="lot-activity__td lot-activity__td--num">{fmtMoney(line.PRICE)}</td>}
-                          {showSales('total') && (
-                            <td className="lot-activity__td lot-activity__td--num lot-activity__td--strong">{fmtMoney(line.TOTAL)}</td>
-                          )}
+                          {shownSales.map((col) => <Fragment key={col.key}>{col.td(line)}</Fragment>)}
                         </tr>
                       ))}
                     </tbody>
                     <tfoot>
-                      <tr>
-                        {salesLabelSpan > 0 && (
-                          <td className="lot-activity__tf" colSpan={salesLabelSpan}>Order total</td>
-                        )}
-                        {showSales('quantity') && <td className="lot-activity__tf lot-activity__tf--num">{group.qty}</td>}
-                        {showSales('price') && <td className="lot-activity__tf" />}
-                        {showSales('total') && <td className="lot-activity__tf lot-activity__tf--num">{fmtMoney(group.total)}</td>}
-                      </tr>
+                      <LotFooterRow
+                        keys={shownSales.map((col) => col.key)}
+                        label="Order total"
+                        totals={{ quantity: group.qty, total: fmtMoney(group.total) }}
+                      />
                     </tfoot>
                   </table>
                 </div>

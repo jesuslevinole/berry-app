@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useAppConfig } from '../../context/AppConfigContext';
 import { limit } from 'firebase/firestore';
@@ -11,7 +11,7 @@ import { printCheck } from '../../services/checkPrintService';
 import { COLLECTIONS, type Check } from '../../types/models';
 import { Toolbar } from '../../components/ui/Toolbar';
 import { ColumnPicker } from '../../components/ui/ColumnPicker';
-import { useColumnVisibility, type ColumnOption } from '../../hooks/useColumnVisibility';
+import { useColumnVisibility, type ColumnOption, type OrderedColumn } from '../../hooks/useColumnVisibility';
 import { DataPortButtons } from '../../components/ui/DataPortButtons';
 import { CHECKS_SCHEMAS } from '../../config/entitySchemas';
 import { confirmClose, Modal } from '../../components/ui/Modal';
@@ -51,7 +51,6 @@ export function ChecksView() {
 
   const [search, setSearch] = useState('');
   const columnView = useColumnVisibility('checks', CHECK_COLUMNS);
-  const show = columnView.isVisible;
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Check | null>(null);
 
@@ -216,6 +215,34 @@ export function ChecksView() {
     );
   };
 
+  /* Columnas de la tabla en el orden y con la visibilidad que eligio el usuario (Actions siempre al final). */
+  const tableColumns: OrderedColumn<Check>[] = [
+    { key: 'number', th: <th className="checks__th"># Check</th>, td: (check) => <td className="checks__td checks__td--mono">{check.CHECK_NUMBER}</td> },
+    { key: 'date', th: <th className="checks__th">Date</th>, td: (check) => <td className="checks__td checks__td--muted">{fmtDate(check.DATE)}</td> },
+    { key: 'bank', th: <th className="checks__th">Bank account</th>, td: (check) => <td className="checks__td checks__td--muted">{bankName(check)}</td> },
+    {
+      key: 'customer',
+      th: <th className="checks__th">Customer</th>,
+      td: (check) => <td className="checks__td checks__td--strong">{payees.nameOf(check.ID_CUSTOMER)}</td>,
+    },
+    {
+      key: 'memo',
+      th: <th className="checks__th">Memo</th>,
+      td: (check) => (
+        <td className="checks__td checks__td--muted checks__td--clip" title={check.MEMO || ''}>{check.MEMO || '—'}</td>
+      ),
+    },
+    {
+      key: 'ref',
+      th: <th className="checks__th">Ref #</th>,
+      td: (check) => (
+        <td className="checks__td checks__td--muted checks__td--clip" title={check.REF || ''}>{check.REF || '—'}</td>
+      ),
+    },
+    { key: 'amount', th: <th className="checks__th checks__th--num">Amount</th>, td: (check) => <td className="checks__td checks__td--num">{fmtMoney(check.AMOUNT ?? 0)}</td> },
+  ];
+  const shownColumns = columnView.arrange(tableColumns);
+
   return (
     <div className="checks">
       <Toolbar title="Checkbook" subtitle={`${rows.length} checks · ${fmtMoney(total)}`} searchValue={search} onSearchChange={setSearch}>
@@ -239,19 +266,13 @@ export function ChecksView() {
         <table className="checks__table">
           <thead>
             <tr>
-              {show('number') && <th className="checks__th"># Check</th>}
-              {show('date') && <th className="checks__th">Date</th>}
-              {show('bank') && <th className="checks__th">Bank account</th>}
-              {show('customer') && <th className="checks__th">Customer</th>}
-              {show('memo') && <th className="checks__th">Memo</th>}
-              {show('ref') && <th className="checks__th">Ref #</th>}
-              {show('amount') && <th className="checks__th checks__th--num">Amount</th>}
+              {shownColumns.map((col) => <Fragment key={col.key}>{col.th}</Fragment>)}
               <th className="checks__th checks__th--right">Actions</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 && (
-              <tr><td className="checks__empty" colSpan={CHECK_COLUMNS.length - columnView.hiddenCount + 1}>No checks yet.</td></tr>
+              <tr><td className="checks__empty" colSpan={shownColumns.length + 1}>No checks yet.</td></tr>
             )}
             {rows.map((check) => (
               <tr
@@ -259,17 +280,7 @@ export function ChecksView() {
                 className="checks__row"
                 onClick={() => (can('checks', 'edit') || can('checks', 'view')) && openEdit(check)}
               >
-                {show('number') && <td className="checks__td checks__td--mono">{check.CHECK_NUMBER}</td>}
-                {show('date') && <td className="checks__td checks__td--muted">{fmtDate(check.DATE)}</td>}
-                {show('bank') && <td className="checks__td checks__td--muted">{bankName(check)}</td>}
-                {show('customer') && <td className="checks__td checks__td--strong">{payees.nameOf(check.ID_CUSTOMER)}</td>}
-                {show('memo') && (
-                  <td className="checks__td checks__td--muted checks__td--clip" title={check.MEMO || ''}>{check.MEMO || '—'}</td>
-                )}
-                {show('ref') && (
-                  <td className="checks__td checks__td--muted checks__td--clip" title={check.REF || ''}>{check.REF || '—'}</td>
-                )}
-                {show('amount') && <td className="checks__td checks__td--num">{fmtMoney(check.AMOUNT ?? 0)}</td>}
+                {shownColumns.map((col) => <Fragment key={col.key}>{col.td(check)}</Fragment>)}
                 <td className="checks__td checks__td--right">
                   {can('checks', 'documents') && (
                     <button

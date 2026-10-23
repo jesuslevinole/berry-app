@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { limit, orderBy } from 'firebase/firestore';
 import { deleteFromTrashForever, emptyTrash, restoreFromTrash, subscribeToCollection } from '../../services/firestore';
 import { moduleLabel, recordLabel } from '../../services/recordLabels';
 import { useAuth } from '../../context/AuthContext';
 import { Toolbar } from '../../components/ui/Toolbar';
 import { ColumnPicker } from '../../components/ui/ColumnPicker';
-import { useColumnVisibility, type ColumnOption } from '../../hooks/useColumnVisibility';
+import { useColumnVisibility, type ColumnOption, type OrderedColumn } from '../../hooks/useColumnVisibility';
 import { PAGE_SIZE } from '../../config/limits';
 import { COLLECTIONS, type TrashItem } from '../../types/models';
 import './TrashView.css';
@@ -30,7 +30,6 @@ const TRASH_COLUMNS: ColumnOption[] = [
 export function TrashView() {
   const { can } = useAuth();
   const columnView = useColumnVisibility('recycle-bin', TRASH_COLUMNS);
-  const show = columnView.isVisible;
   const [items, setItems] = useState<TrashItem[]>([]);
   const [search, setSearch] = useState('');
   const [busyId, setBusyId] = useState('');
@@ -104,6 +103,23 @@ export function TrashView() {
     if (page > pageCount) setPage(1);
   }, [page, pageCount]);
 
+  /* Columnas en el orden y con la visibilidad que eligio el usuario; Actions siempre primero. */
+  const tableColumns: OrderedColumn<TrashItem>[] = [
+    { key: 'deleted', th: <th className="trash__th">Deleted</th>, td: (item) => <td className="trash__td trash__td--muted">{fmtDateTime(item.DELETED_AT)}</td> },
+    {
+      key: 'module',
+      th: <th className="trash__th">Module</th>,
+      td: (item) => <td className="trash__td trash__td--strong">{moduleLabel(item.ORIGIN_COLLECTION)}</td>,
+    },
+    {
+      key: 'record',
+      th: <th className="trash__th">Record</th>,
+      td: (item) => <td className="trash__td" title={`Record id: ${item.ORIGIN_ID}`}>{summarize(item)}</td>,
+    },
+    { key: 'deletedBy', th: <th className="trash__th">Deleted by</th>, td: (item) => <td className="trash__td">{item.DELETED_BY || '\u2014'}</td> },
+  ];
+  const shownColumns = columnView.arrange(tableColumns);
+
   return (
     <div className="trash">
       <Toolbar
@@ -135,15 +151,12 @@ export function TrashView() {
           <thead>
             <tr>
               <th className="trash__th trash__th--actions">Actions</th>
-              {show('deleted') && <th className="trash__th">Deleted</th>}
-              {show('module') && <th className="trash__th">Module</th>}
-              {show('record') && <th className="trash__th">Record</th>}
-              {show('deletedBy') && <th className="trash__th">Deleted by</th>}
+              {shownColumns.map((col) => <Fragment key={col.key}>{col.th}</Fragment>)}
             </tr>
           </thead>
           <tbody>
             {visibleRows.length === 0 && (
-              <tr><td className="trash__empty" colSpan={TRASH_COLUMNS.length - columnView.hiddenCount + 1}>The recycle bin is empty.</td></tr>
+              <tr><td className="trash__empty" colSpan={shownColumns.length + 1}>The recycle bin is empty.</td></tr>
             )}
             {visibleRows.map((item) => (
               <tr key={item.id}>
@@ -169,12 +182,7 @@ export function TrashView() {
                     </button>
                   )}
                 </td>
-                {show('deleted') && <td className="trash__td trash__td--muted">{fmtDateTime(item.DELETED_AT)}</td>}
-                {show('module') && <td className="trash__td trash__td--strong">{moduleLabel(item.ORIGIN_COLLECTION)}</td>}
-                {show('record') && (
-                  <td className="trash__td" title={`Record id: ${item.ORIGIN_ID}`}>{summarize(item)}</td>
-                )}
-                {show('deletedBy') && <td className="trash__td">{item.DELETED_BY || '\u2014'}</td>}
+                {shownColumns.map((col) => <Fragment key={col.key}>{col.td(item)}</Fragment>)}
               </tr>
             ))}
           </tbody>

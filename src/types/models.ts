@@ -263,6 +263,8 @@ export const ADMIN_CAPABILITIES = [
   { id: 'requiredFields', label: 'Set required fields' },
   { id: 'viewAs', label: 'View as other users' },
   { id: 'checkDesign', label: 'Customize checks' },
+  /* Cambiar el orden de las columnas con el boton Columns de cada tabla (preferencia del usuario). */
+  { id: 'columnOrder', label: 'Reorder table columns' },
 ] as const;
 
 export type AdminCapability = (typeof ADMIN_CAPABILITIES)[number]['id'];
