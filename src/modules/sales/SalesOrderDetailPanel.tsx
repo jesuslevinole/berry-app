@@ -49,8 +49,8 @@ export function SalesOrderDetailPanel({ order, purchaseOrders, buyerName, onClos
   const { can } = useAuth();
 
   /* ---- Loaded / Not loaded ----
-     Controla Invoice Queue (lista las ordenes NO cargadas) y el inventario
-     (una orden cargada ya salio del almacen). Se guarda el palomeo LOADED y
+     Controla el inventario (una orden cargada ya salio del almacen); Invoice Queue
+     ya no depende de esto, solo de Sent. Se guarda el palomeo LOADED y
      el estado se sincroniza, porque ambos modulos miran las dos cosas. */
   const [carga, setCarga] = useState({ loaded: estaCargada(order), status: order.STATUS ?? '' });
   const [guardandoCarga, setGuardandoCarga] = useState(false);

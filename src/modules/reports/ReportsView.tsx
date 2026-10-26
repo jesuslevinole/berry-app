@@ -241,18 +241,16 @@ export function ReportsView({ report }: ReportsViewProps) {
     if (po) setViewingPurchase(po);
   };
 
-  /* ---- 1. Invoice Queue: ordenes pendientes de cargar o de enviar el invoice ---- */
+  /* ---- 1. Invoice Queue: ordenes con el invoice pendiente de enviar ---- */
   const queueRows = useMemo(
     () =>
       salesOrders
-        /* Pendientes: sin palomeo, con estado anterior a Loaded y con el invoice sin enviar
-           (al enviarlo por correo desde aqui queda Sent = Yes y sale de la cola). */
+        /* Pendientes: invoice sin enviar (al enviarlo por correo desde aqui queda Sent = Yes y sale).
+           Marcarla como Loaded NO la saca de la cola (decision del cliente, 10/2026). */
         .filter(
           (so) =>
             !so.SENT &&
-            !so.LOADED &&
             so.STATUS !== 'Cancelled' &&
-            so.STATUS !== 'Loaded' &&
             so.STATUS !== 'Delivered' &&
             so.STATUS !== 'Paid',
         )
