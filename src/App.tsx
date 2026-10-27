@@ -18,6 +18,8 @@ import { fmtDate } from './utils/format';
 import { ReportsView } from './modules/reports/ReportsView';
 import { ChecksView } from './modules/checks/ChecksView';
 import { CompanyView } from './modules/company/CompanyView';
+import { BillingView } from './modules/billing/BillingView';
+import { canManageBilling } from './services/squareBillingService';
 import { EmailSettingsView } from './modules/emails/EmailSettingsView';
 import { UsersView } from './modules/users/UsersView';
 import { RolesView } from './modules/roles/RolesView';
@@ -26,7 +28,7 @@ import { useBrandTheme } from './hooks/useBrandTheme';
 import { useToday } from './hooks/useToday';
 import './App.css';
 
-const VIEW_ORDER: ViewKey[] = ['dashboard', 'purchases', 'sales', 'expenses', 'catalogs', 'lots', 'inventory', 'queue', 'apgrowers', 'ap', 'ar', 'expensesreport', 'activity', 'trash', 'checks', 'emails', 'company', 'users', 'roles', 'config'];
+const VIEW_ORDER: ViewKey[] = ['dashboard', 'purchases', 'sales', 'expenses', 'catalogs', 'lots', 'inventory', 'queue', 'apgrowers', 'ap', 'ar', 'expensesreport', 'activity', 'trash', 'checks', 'emails', 'company', 'billing', 'users', 'roles', 'config'];
 
 function Shell() {
   const { firebaseUser, bypass, loading, can, logout, isPlatformAdmin, needsCompanyChoice, consoleMode, company, memberships, profile } = useAuth();
@@ -41,7 +43,9 @@ function Shell() {
     window.scrollTo({ top: 0 });
   };
 
-  const allowedViews = VIEW_ORDER.filter((key) => can(key, 'view'));
+  /* Billing no va por roles: solo el dueno de la empresa (o la plataforma) paga. */
+  const billingAllowed = canManageBilling(company, firebaseUser?.uid, isPlatformAdmin);
+  const allowedViews = VIEW_ORDER.filter((key) => (key === 'billing' ? billingAllowed : can(key, 'view')));
 
   /* Si el rol no permite la vista actual, saltar a la primera permitida. */
   useEffect(() => {
@@ -107,6 +111,8 @@ function Shell() {
           {reason} for <b>{company?.name}</b> ({billing.label}). Renew the subscription to restore
           access. {dataNote}
         </p>
+        {/* El dueno renueva aqui mismo con su tarjeta; el resto de los usuarios solo ve el aviso. */}
+        {billingAllowed && <BillingView embedded />}
         <button type="button" className="btn btn--secondary" onClick={() => void logout()}>Sign out</button>
       </div>
     );
@@ -144,6 +150,7 @@ function Shell() {
         {view === 'checks' && <ChecksView />}
         {view === 'emails' && <EmailSettingsView />}
         {view === 'company' && <CompanyView />}
+        {view === 'billing' && <BillingView />}
         {view === 'users' && <UsersView />}
         {view === 'roles' && <RolesView />}
         {view === 'config' && <ConfigView />}

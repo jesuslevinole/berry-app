@@ -4,13 +4,14 @@ import { useAppConfig } from '../../context/AppConfigContext';
 import { APP_VERSION, APP_AUTHOR } from '../../config/version';
 import { NotificationsBell } from './NotificationsBell';
 import { billingInfoOf } from '../../services/billingService';
+import { canManageBilling } from '../../services/squareBillingService';
 import { useCompany } from '../../hooks/useCompany';
 import { PLATFORM_BRAND } from '../../config/platformBrand';
 import { TrialLimitNotice } from './TrialLimitNotice';
 import { TRIAL_RECORD_LIMIT } from '../../services/trialLimits';
 import './AppLayout.css';
 
-export type ViewKey = 'dashboard' | 'purchases' | 'sales' | 'expenses' | 'catalogs' | 'lots' | 'inventory' | 'queue' | 'apgrowers' | 'ap' | 'ar' | 'expensesreport' | 'activity' | 'trash' | 'checks' | 'emails' | 'company' | 'users' | 'roles' | 'config';
+export type ViewKey = 'dashboard' | 'purchases' | 'sales' | 'expenses' | 'catalogs' | 'lots' | 'inventory' | 'queue' | 'apgrowers' | 'ap' | 'ar' | 'expensesreport' | 'activity' | 'trash' | 'checks' | 'emails' | 'company' | 'billing' | 'users' | 'roles' | 'config';
 
 export const VIEW_TITLES: Record<ViewKey, string> = {
   dashboard: 'Dashboard',
@@ -30,6 +31,7 @@ export const VIEW_TITLES: Record<ViewKey, string> = {
   checks: 'Checkbook',
   emails: 'Email Settings',
   company: 'Company Info',
+  billing: 'Billing',
   users: 'System Users',
   roles: 'Roles & Permissions',
   config: 'Configurator',
@@ -193,6 +195,15 @@ const NAV_ITEMS: Array<{ key: ViewKey; label: string; icon: ReactNode }> = [
     ),
   },
   {
+    key: 'billing',
+    label: 'Billing',
+    icon: (
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <rect x="2.5" y="5" width="19" height="14" rx="2" /><path d="M2.5 10h19M6.5 15h4" />
+      </svg>
+    ),
+  },
+  {
     key: 'users',
     label: 'System Users',
     icon: (
@@ -246,8 +257,8 @@ export function AppLayout({ view, onNavigate, children }: AppLayoutProps) {
   const { company } = useCompany();
   const visibleItems = sortNav(
     NAV_ITEMS.filter((item) =>
-      /* Companies es de la plataforma, no de las empresas cliente. */
-      can(item.key, 'view'),
+      /* Billing no va por roles: solo el dueno de la empresa (o la plataforma) paga. */
+      item.key === 'billing' ? canManageBilling(subscription, firebaseUser?.uid, isPlatformAdmin) : can(item.key, 'view'),
     ),
   );
 

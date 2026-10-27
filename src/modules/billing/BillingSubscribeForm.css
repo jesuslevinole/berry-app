@@ -1,0 +1,141 @@
+.billing-form {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 22px;
+}
+
+.billing-form--done {
+  border-color: var(--green-500);
+}
+
+.billing-form__title {
+  color: var(--ink);
+  font-size: 1.02rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.billing-form__text {
+  color: var(--ink);
+  font-size: 0.92rem;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.billing-form__plans {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.billing-form__plan {
+  align-items: flex-start;
+  background: var(--surface);
+  border: 1.5px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  font-family: inherit;
+  gap: 4px;
+  padding: 14px 16px;
+  text-align: left;
+}
+
+.billing-form__plan:hover {
+  border-color: var(--green-500);
+}
+
+.billing-form__plan--on {
+  background: var(--green-50);
+  border-color: var(--green-600);
+}
+
+.billing-form__plan-name {
+  color: var(--ink);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.billing-form__plan-price {
+  color: var(--green-700);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.billing-form__plan-note {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.billing-form__cycle {
+  align-self: flex-start;
+  background: var(--green-50);
+  border-radius: 999px;
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+}
+
+.billing-form__cycle-option {
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.86rem;
+  font-weight: 700;
+  padding: 7px 18px;
+}
+
+.billing-form__cycle-option:hover {
+  color: var(--ink);
+}
+
+.billing-form__cycle-option--on {
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--green-700);
+}
+
+/* Square dibuja su iframe aqui; el alto minimo evita que la pagina salte al cargar. */
+.billing-form__card {
+  min-height: 90px;
+}
+
+.billing-form__hint,
+.billing-form__secure {
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin: 0;
+}
+
+.billing-form__summary {
+  background: var(--green-50);
+  border-radius: 9px;
+  color: var(--ink);
+  font-size: 0.88rem;
+  line-height: 1.5;
+  margin: 0;
+  padding: 10px 12px;
+}
+
+.billing-form__error {
+  background: var(--bad-bg);
+  border-radius: 9px;
+  color: var(--bad);
+  font-size: 0.86rem;
+  margin: 0;
+  padding: 10px 12px;
+}
+
+.billing-form__actions {
+  display: flex;
+  justify-content: flex-end;
+}

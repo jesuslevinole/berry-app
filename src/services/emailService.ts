@@ -52,7 +52,7 @@ export interface RecipientResult {
 }
 
 /** Token de la sesion para las llamadas al Worker. */
-async function sessionToken(): Promise<string> {
+export async function sessionToken(): Promise<string> {
   const user = auth.currentUser;
   if (!user) throw new Error('Your session expired. Sign in again.');
   return user.getIdToken();

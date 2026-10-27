@@ -121,3 +121,10 @@ Formato: `## AAAA-MM-DD — tema` y viñetas cortas. Escribir siempre al final.
 - Webhook: `invoice.payment_made` → `paidThrough = charged_through_date` de la suscripción y pago en `platform_payments/sq_<invoiceId>` (id fijo: un aviso repetido no duplica). `subscription.*` → estado y fecha de cancelación. `invoice.scheduled_charge_failed` → `lastPaymentFailedAt`. La firma usa `SQUARE_WEBHOOK_URL` (var), que debe ser idéntica a la registrada en Square.
 - Probado solo con respuestas simuladas (token de la cuenta de servicio, firma, alta, cobro, cancelación, sync). Falta probar contra el Sandbox real: el formato de `pricing` (`price` vs `price_money`) y si un plan STATIC sin artículos se acepta.
 - Pendiente Fase 2: botón "Sync with Square" en Plans & pricing y pantalla Billing del dueño.
+
+## 2026-10-27 — Square, Fase 2 (pantallas)
+- **Billing** (`modules/billing/`, vista `billing`): no va por roles ni está en `MODULE_DEFS`; la ve solo el dueño (`ownerUid`) o la plataforma, y nunca una empresa exenta (`canManageBilling` en `services/squareBillingService.ts`). También aparece dentro de la pantalla de "Subscription inactive" para que el dueño renueve sin salir.
+- El campo de tarjeta es el Web Payments SDK de Square (`hooks/useSquareCard.ts`, script de squarecdn según `SQUARE_ENV`): el app solo recibe un token de un solo uso. No se llama a `verifyBuyer` (3-D Secure); en EE. UU. no es obligatorio. Revisar si Square lo pide en Sandbox.
+- Application ID y Location ID los da el Worker (`GET /api/billing/config`), no el `.env`: un solo lugar (`wrangler.jsonc`).
+- Plans & pricing: botón **Sync with Square** (`POST /api/billing/sync-plans`). Hay que pulsarlo después de crear o cambiar precios; sin eso el plan no se puede pagar en línea.
+- Pendiente: cambiar de plan y actualizar la tarjeta desde Billing (hoy: cancelar y suscribirse de nuevo; la nueva empieza al terminar lo pagado).

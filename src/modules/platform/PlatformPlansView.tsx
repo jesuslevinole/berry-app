@@ -7,6 +7,7 @@ import {
   saveExamplePlans,
   type PlanDraft,
 } from '../../services/platformPlansService';
+import { syncSquarePlans, type PlanSyncResult } from '../../services/squareBillingService';
 import { fmtMoney } from '../../utils/format';
 import type { PlatformPlan } from '../../types/models';
 import { PlanCard } from '../landing/PlanCard';
@@ -39,6 +40,8 @@ export const PlatformPlansView = () => {
   const [editor, setEditor] = useState<EditorState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncResults, setSyncResults] = useState<PlanSyncResult[] | null>(null);
 
   const refreshPlans = async () => {
     try {
@@ -97,17 +100,56 @@ export const PlatformPlansView = () => {
     }
   };
 
+  /* Crea en Square (mensual y anual) los planes con precio; hay que hacerlo despues de cambiar precios. */
+  const handleSyncSquare = async () => {
+    setSyncing(true);
+    setError(null);
+    try {
+      setSyncResults(await syncSquarePlans());
+    } catch (e) {
+      setError((e as Error).message || 'The plans could not be synced with Square.');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const isEmpty = !!plans && plans.length === 0;
 
   return (
     <div className="platform-plans">
       <Toolbar title="Plans & pricing" subtitle="What the landing page shows in Pricing">
+        <button
+          type="button"
+          className="btn btn--secondary"
+          disabled={syncing || isEmpty}
+          title="Create the monthly and yearly prices in Square so companies can pay online"
+          onClick={() => void handleSyncSquare()}
+        >
+          {syncing ? 'Syncing…' : 'Sync with Square'}
+        </button>
         <button type="button" className="btn btn--primary" onClick={handleAdd}>
           + Add plan
         </button>
       </Toolbar>
 
       {error && <div className="platform-plans__error">{error}</div>}
+
+      {syncResults && (
+        <div className="platform-plans__sync">
+          <p className="platform-plans__sync-title">Square</p>
+          <ul className="platform-plans__sync-list">
+            {syncResults.map((result) => (
+              <li key={result.planId} className="platform-plans__sync-item">
+                <b>{result.name}</b> — {result.status}
+              </li>
+            ))}
+          </ul>
+          <p className="platform-plans__sync-note">
+            Sync again after changing a price: Square keeps current subscribers on their price and new ones get the new
+            price.
+          </p>
+        </div>
+      )}
 
       {isEmpty && (
         <div className="platform-plans__empty">
