@@ -382,6 +382,26 @@ export interface Company extends BaseDoc {
   lastPaymentAmount?: number;
   /** Contacto de facturacion. */
   billingEmail?: string;
+
+  /* ---- Square (los escribe solo el Worker con la cuenta de servicio: worker/billing.ts) ---- */
+  squareCustomerId?: string;
+  squareCardId?: string;
+  squareSubscriptionId?: string;
+  /** Plan de Plans & pricing (platform_plans) y ciclo de la suscripcion. */
+  subscriptionPlanId?: string;
+  subscriptionCycle?: 'monthly' | 'annual';
+  /** Precio del ciclo en USD. */
+  subscriptionAmount?: number;
+  /** Estado en Square: PENDING (empieza despues de la prueba), ACTIVE, CANCELED, PAUSED… */
+  subscriptionStatus?: string;
+  /** Primer cobro (AAAA-MM-DD). */
+  subscriptionStartsAt?: string;
+  /** Fecha en que termina si se cancelo ('' = no cancelada). */
+  subscriptionCanceledDate?: string;
+  cardBrand?: string;
+  cardLast4?: string;
+  /** Ultimo cobro automatico fallido ('' = ninguno pendiente). */
+  lastPaymentFailedAt?: string;
 }
 
 /** Administrador de la plataforma agregado desde el Admin Panel (id del documento = email). */

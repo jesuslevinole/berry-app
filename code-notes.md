@@ -112,3 +112,12 @@ Formato: `## AAAA-MM-DD — tema` y viñetas cortas. Escribir siempre al final.
 
 ## 2026-10-26 — Invoice Queue: Loaded ya no saca la orden
 - La cola muestra las órdenes con el invoice sin enviar (`!SENT`), excepto Cancelled, Delivered y Paid. Marcar Loaded (palomeo o estado) ya no la saca: decisión del cliente. No volver a filtrar por `LOADED`. Aplica a todas las empresas (es código, no configuración).
+
+## 2026-10-27 — Square, Fase 1 (Worker)
+- Decisiones del cliente: tarjeta durante la prueba gratis (el primer cobro sale el día después de `trialEndsAt`, o de `paidThrough` si ya pagó a mano); ciclos mensual y anual; Enterprise ("Let's talk") no se cobra en línea.
+- Formulario de tarjeta de Square (Web Payments SDK, Fase 2) + Subscriptions API, no payment links: con payment links Square crea el cliente por su cuenta (por teléfono) y no se sabe de qué empresa es el pago. Aquí el Customer lleva `reference_id = companyId`.
+- `worker/billing.ts`: `config`, `sync-plans` (admin), `subscribe` y `cancel` (dueño = `ownerUid` o admin), `webhook`. Admin de plataforma = puede leer `platform_payments` con su propio token (las reglas son la única lista).
+- Square no deja cambiar el precio de una variación: `sync-plans` crea una nueva cuando cambia el precio; los clientes que ya pagan siguen con la anterior. Mapeo en `platform_billing_plans/{planId}` (no en `platform_plans`, porque el editor de planes guarda con `setDoc` y lo borraría).
+- Webhook: `invoice.payment_made` → `paidThrough = charged_through_date` de la suscripción y pago en `platform_payments/sq_<invoiceId>` (id fijo: un aviso repetido no duplica). `subscription.*` → estado y fecha de cancelación. `invoice.scheduled_charge_failed` → `lastPaymentFailedAt`. La firma usa `SQUARE_WEBHOOK_URL` (var), que debe ser idéntica a la registrada en Square.
+- Probado solo con respuestas simuladas (token de la cuenta de servicio, firma, alta, cobro, cancelación, sync). Falta probar contra el Sandbox real: el formato de `pricing` (`price` vs `price_money`) y si un plan STATIC sin artículos se acepta.
+- Pendiente Fase 2: botón "Sync with Square" en Plans & pricing y pantalla Billing del dueño.

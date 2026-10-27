@@ -1,378 +1,22 @@
 /**
- * Worker de Berry: sirve la app (dist/) y expone POST /api/send-email.
- *
- * Seguridad:
- *  - Solo usuarios autenticados: el navegador manda el ID token de Firebase y aqui se
- *    verifica la firma (RS256, llaves publicas de Google), el proyecto, el emisor y la vigencia.
- *  - La API key de Resend vive como secret del Worker (nunca llega al navegador).
- *  - El remitente lo fija el servidor (MAIL_FROM); el usuario solo va como Reply-To.
- *  - Solo se envia a correos autorizados en Email Settings (CAT_EMAILRECIPIENTS) de la
- *    empresa del usuario. La lista se lee de Firestore CON EL TOKEN DEL USUARIO, asi que las
- *    reglas de seguridad garantizan que solo vea la lista de su propia empresa.
- *  - Limites de destinatarios y de tamano para evitar abuso.
+ * Worker de Berry: sirve la app (dist/) y enruta la API.
+ *  - /api/send-email y /api/email-status: correos (email.ts).
+ *  - /api/billing/*: cobro de suscripciones con Square (billing.ts).
+ * Las rutas /api/* verifican el ID token de Firebase del usuario (firebaseAuth.ts), salvo
+ * /api/billing/config (datos publicos) y /api/billing/webhook (firma de Square).
  */
+import type { Env } from './env';
+import { handleBillingConfig, handleCancel, handleSquareWebhook, handleSubscribe, handleSyncPlans } from './billing';
+import { handleEmailStatus, handleSendEmail } from './email';
+import { json } from './http';
 
-interface Env {
-  ASSETS: { fetch(request: Request): Promise<Response> };
-  /** Secret: wrangler secret put RESEND_API_KEY */
-  RESEND_API_KEY: string;
-  /** Var: "Berry Source <noreply@tudominio.com>" (dominio verificado en Resend). */
-  MAIL_FROM: string;
-  /** Var: id del proyecto de Firebase (berry-app-7021e). */
-  FIREBASE_PROJECT_ID: string;
-}
-
-interface FirebaseClaims {
-  aud: string;
-  iss: string;
-  sub: string;
-  exp: number;
-  iat: number;
-  auth_time?: number;
-  email?: string;
-  email_verified?: boolean;
-}
-
-const MAX_RECIPIENTS = 15;
-const MAX_ATTACHMENTS = 6;
-/** ~7.5 MB en base64 (Resend admite hasta 40 MB por correo). */
-const MAX_ATTACHMENT_CHARS = 30_000_000;
-const MAX_HTML_CHARS = 200_000;
-const EMAIL_RE = /^[^\s@<>,;]+@[^\s@<>,;]+\.[^\s@<>,;]+$/;
-
-const json = (body: unknown, status = 200): Response =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
-  });
-
-/* ---------------- Verificacion del ID token de Firebase ---------------- */
-
-const JWKS_URL = 'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
-
-interface Jwk extends JsonWebKey {
-  kid: string;
-}
-
-/** Cache en memoria de las llaves publicas de Google (respeta su max-age). */
-let jwksCache: { keys: Map<string, CryptoKey>; expires: number } | null = null;
-
-async function googleKeys(): Promise<Map<string, CryptoKey>> {
-  if (jwksCache && jwksCache.expires > Date.now()) return jwksCache.keys;
-  const res = await fetch(JWKS_URL);
-  if (!res.ok) throw new Error('Could not load Firebase public keys');
-  const { keys } = (await res.json()) as { keys: Jwk[] };
-  const map = new Map<string, CryptoKey>();
-  for (const jwk of keys) {
-    const key = await crypto.subtle.importKey(
-      'jwk',
-      { kty: jwk.kty, n: jwk.n, e: jwk.e, alg: 'RS256', ext: true },
-      { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
-      false,
-      ['verify'],
-    );
-    map.set(jwk.kid, key);
-  }
-  const maxAge = Number(/max-age=(\d+)/.exec(res.headers.get('Cache-Control') ?? '')?.[1] ?? 3600);
-  jwksCache = { keys: map, expires: Date.now() + maxAge * 1000 };
-  return map;
-}
-
-const b64urlToBytes = (value: string): Uint8Array<ArrayBuffer> => {
-  const b64 = value.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(value.length / 4) * 4, '=');
-  const bin = atob(b64);
-  const bytes = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
-  return bytes;
+/* Rutas POST del cobro (cada una valida quien llama). */
+const BILLING_ROUTES: Record<string, (request: Request, env: Env) => Promise<Response>> = {
+  '/api/billing/sync-plans': handleSyncPlans,
+  '/api/billing/subscribe': handleSubscribe,
+  '/api/billing/cancel': handleCancel,
+  '/api/billing/webhook': handleSquareWebhook,
 };
-
-const b64urlToJson = <T>(value: string): T => JSON.parse(new TextDecoder().decode(b64urlToBytes(value))) as T;
-
-/** Devuelve los claims si el token es valido para este proyecto; si no, lanza error. */
-async function verifyFirebaseToken(token: string, projectId: string): Promise<FirebaseClaims> {
-  const parts = token.split('.');
-  if (parts.length !== 3) throw new Error('Malformed token');
-  const [headerB64, payloadB64, signatureB64] = parts;
-  const header = b64urlToJson<{ alg: string; kid: string }>(headerB64);
-  if (header.alg !== 'RS256' || !header.kid) throw new Error('Unexpected token algorithm');
-
-  let keys = await googleKeys();
-  if (!keys.has(header.kid)) {
-    /* Google rota las llaves: si no esta, se recarga una vez. */
-    jwksCache = null;
-    keys = await googleKeys();
-  }
-  const key = keys.get(header.kid);
-  if (!key) throw new Error('Unknown signing key');
-
-  const valid = await crypto.subtle.verify(
-    'RSASSA-PKCS1-v1_5',
-    key,
-    b64urlToBytes(signatureB64),
-    new TextEncoder().encode(`${headerB64}.${payloadB64}`),
-  );
-  if (!valid) throw new Error('Invalid signature');
-
-  const claims = b64urlToJson<FirebaseClaims>(payloadB64);
-  const now = Math.floor(Date.now() / 1000);
-  const skew = 300;
-  if (claims.aud !== projectId) throw new Error('Wrong project');
-  if (claims.iss !== `https://securetoken.google.com/${projectId}`) throw new Error('Wrong issuer');
-  if (!claims.sub) throw new Error('Missing subject');
-  if (claims.exp <= now - skew) throw new Error('Token expired');
-  if (claims.iat > now + skew) throw new Error('Token issued in the future');
-  if (claims.auth_time && claims.auth_time > now + skew) throw new Error('Invalid auth time');
-  return claims;
-}
-
-/* ---------------- Destinatarios autorizados (Email Settings) ---------------- */
-
-const COMPANY_ID_RE = /^[A-Za-z0-9_-]{1,128}$/;
-
-interface FirestoreListResponse {
-  documents?: { fields?: Record<string, { stringValue?: string; booleanValue?: boolean }> }[];
-  nextPageToken?: string;
-}
-
-/** Correos activos de Email Settings de la empresa, leidos con los permisos del usuario. */
-async function authorizedRecipients(projectId: string, companyId: string, idToken: string): Promise<Set<string>> {
-  const base = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/companies/${companyId}/CAT_EMAILRECIPIENTS`;
-  const emails = new Set<string>();
-  let pageToken = '';
-  for (let page = 0; page < 10; page += 1) {
-    const url = `${base}?pageSize=300${pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : ''}`;
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${idToken}`, Accept: 'application/json' } });
-    if (res.status === 403 || res.status === 401) throw new Error('forbidden');
-    if (!res.ok) {
-      /* Se devuelve el motivo exacto de Google para poder diagnosticar. */
-      const detail = (await res.json().catch(() => ({}))) as { error?: { status?: string; message?: string } };
-      const reason = [detail.error?.status, detail.error?.message].filter(Boolean).join(': ');
-      throw new Error(`Firestore ${res.status}${reason ? ` — ${reason}` : ''}`);
-    }
-    const data = (await res.json()) as FirestoreListResponse;
-    for (const doc of data.documents ?? []) {
-      const email = doc.fields?.EMAIL?.stringValue?.trim().toLowerCase();
-      const active = doc.fields?.ACTIVE?.booleanValue !== false;
-      if (email && active) emails.add(email);
-    }
-    if (!data.nextPageToken) break;
-    pageToken = data.nextPageToken;
-  }
-  return emails;
-}
-
-/** Correos del cliente (Sales Email y Accounting Email), leidos con los permisos del usuario. */
-async function customerEmails(projectId: string, companyId: string, customerId: string, idToken: string): Promise<Set<string>> {
-  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/companies/${companyId}/BD_CUSTOMER/${encodeURIComponent(customerId)}`;
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${idToken}`, Accept: 'application/json' } });
-  if (res.status === 404) return new Set();
-  if (res.status === 403 || res.status === 401) throw new Error('forbidden');
-  if (!res.ok) throw new Error(`Firestore ${res.status}`);
-  type FieldValue = { stringValue?: string; arrayValue?: { values?: { stringValue?: string }[] } };
-  const data = (await res.json()) as { fields?: Record<string, FieldValue> };
-  /* Texto separado por comas (EnumList) o lista. */
-  const text = (f?: FieldValue): string =>
-    f?.stringValue ?? (f?.arrayValue?.values ?? []).map((v) => v.stringValue ?? '').join(',');
-  const raw = `${text(data.fields?.ACCOUNTING_EMAIL_CUSTOMER)},${text(data.fields?.ACCOUNTING_EMAIL_TWO_CUSTOMER)}`;
-  return new Set(
-    raw
-      .split(/[,;\s]+/)
-      .map((e) => e.trim().toLowerCase())
-      .filter((e) => EMAIL_RE.test(e)),
-  );
-}
-
-/** Correo(s) del Warehouse (Catalogs > Locations), leidos con los permisos del usuario. */
-async function warehouseEmails(projectId: string, companyId: string, locationId: string, idToken: string): Promise<Set<string>> {
-  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/companies/${companyId}/CAT_LOCATIONS/${encodeURIComponent(locationId)}`;
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${idToken}`, Accept: 'application/json' } });
-  if (res.status === 404) return new Set();
-  if (res.status === 403 || res.status === 401) throw new Error('forbidden');
-  if (!res.ok) throw new Error(`Firestore ${res.status}`);
-  const data = (await res.json()) as { fields?: Record<string, { stringValue?: string }> };
-  return new Set(
-    (data.fields?.EMAIL_LOCATIONS?.stringValue ?? '')
-      .split(/[,;\s]+/)
-      .map((e) => e.trim().toLowerCase())
-      .filter((e) => EMAIL_RE.test(e)),
-  );
-}
-
-/* ---------------- /api/send-email ---------------- */
-
-interface SendEmailBody {
-  to?: unknown;
-  cc?: unknown;
-  subject?: unknown;
-  html?: unknown;
-  attachments?: unknown;
-  companyId?: unknown;
-  customerId?: unknown;
-  warehouseId?: unknown;
-}
-
-const emailList = (value: unknown): string[] =>
-  Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string').map((v) => v.trim()).filter(Boolean) : [];
-
-async function handleSendEmail(request: Request, env: Env): Promise<Response> {
-  if (!env.RESEND_API_KEY || !env.MAIL_FROM || !env.FIREBASE_PROJECT_ID) {
-    return json({ error: 'Email is not configured on the server (RESEND_API_KEY, MAIL_FROM, FIREBASE_PROJECT_ID).' }, 500);
-  }
-
-  const auth = request.headers.get('Authorization') ?? '';
-  const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
-  if (!token) return json({ error: 'Sign in to send emails.' }, 401);
-
-  let claims: FirebaseClaims;
-  try {
-    claims = await verifyFirebaseToken(token, env.FIREBASE_PROJECT_ID);
-  } catch {
-    return json({ error: 'Your session is not valid. Sign in again.' }, 401);
-  }
-
-  let body: SendEmailBody;
-  try {
-    body = (await request.json()) as SendEmailBody;
-  } catch {
-    return json({ error: 'Invalid request.' }, 400);
-  }
-
-  const to = emailList(body.to);
-  const cc = emailList(body.cc);
-  const subject = typeof body.subject === 'string' ? body.subject.trim().slice(0, 200) : '';
-  const html = typeof body.html === 'string' ? body.html : '';
-  const attachments = Array.isArray(body.attachments) ? body.attachments : [];
-
-  if (to.length === 0) return json({ error: 'Add at least one recipient.' }, 400);
-  if (to.length + cc.length > MAX_RECIPIENTS) return json({ error: `Up to ${MAX_RECIPIENTS} recipients per email.` }, 400);
-  const bad = [...to, ...cc].filter((e) => !EMAIL_RE.test(e));
-  if (bad.length) return json({ error: `Invalid email address: ${bad.join(', ')}` }, 400);
-  if (!subject) return json({ error: 'The subject is required.' }, 400);
-  if (html.length > MAX_HTML_CHARS) return json({ error: 'The message is too long.' }, 400);
-  if (attachments.length > MAX_ATTACHMENTS) return json({ error: `Up to ${MAX_ATTACHMENTS} attachments.` }, 400);
-
-  /* Solo correos autorizados en Email Settings de la empresa del usuario. */
-  const companyId = typeof body.companyId === 'string' ? body.companyId : '';
-  if (!COMPANY_ID_RE.test(companyId)) return json({ error: 'No active company.' }, 400);
-  let allowed: Set<string>;
-  try {
-    allowed = await authorizedRecipients(env.FIREBASE_PROJECT_ID, companyId, token);
-    /* Ademas de Email Settings: los correos del cliente del documento (Catalogs > Customers). */
-    const customerId = typeof body.customerId === 'string' ? body.customerId : '';
-    if (customerId && COMPANY_ID_RE.test(customerId)) {
-      for (const email of await customerEmails(env.FIREBASE_PROJECT_ID, companyId, customerId, token)) allowed.add(email);
-    }
-    /* Y el correo del Warehouse (Catalogs > Locations) de la orden. */
-    const warehouseId = typeof body.warehouseId === 'string' ? body.warehouseId : '';
-    if (warehouseId && COMPANY_ID_RE.test(warehouseId)) {
-      for (const email of await warehouseEmails(env.FIREBASE_PROJECT_ID, companyId, warehouseId, token)) allowed.add(email);
-    }
-  } catch (e) {
-    const message = (e as Error).message || 'unknown error';
-    if (message === 'forbidden') return json({ error: 'You do not have access to this company.' }, 403);
-    console.error('Email Settings check failed:', message);
-    return json({ error: `Could not check the authorized recipients (${message}).` }, 502);
-  }
-  const notAllowed = [...to, ...cc].filter((e) => !allowed.has(e.toLowerCase()));
-  if (notAllowed.length) {
-    return json({ error: `Not in Email Settings, the customer's or the warehouse's emails: ${notAllowed.join(', ')}` }, 403);
-  }
-
-  let totalChars = 0;
-  const cleanAttachments: { filename: string; content: string }[] = [];
-  for (const a of attachments) {
-    const item = a as { filename?: unknown; content?: unknown };
-    if (typeof item.filename !== 'string' || typeof item.content !== 'string') {
-      return json({ error: 'Invalid attachment.' }, 400);
-    }
-    totalChars += item.content.length;
-    cleanAttachments.push({ filename: item.filename.replace(/[^\w.\- ]+/g, '_').slice(0, 120), content: item.content });
-  }
-  if (totalChars > MAX_ATTACHMENT_CHARS) return json({ error: 'The attachment is too large.' }, 413);
-
-  /*
-   * Un correo por destinatario: cada uno recibe su copia (no ven a los demas), un
-   * correo rechazado no tumba a los otros y se sabe el resultado de cada direccion.
-   */
-  const recipients = [...new Set([...to, ...cc].map((e) => e.toLowerCase()))];
-  const replyTo = claims.email && claims.email_verified !== false ? claims.email : undefined;
-  const results: { email: string; id?: string; error?: string }[] = [];
-
-  for (let index = 0; index < recipients.length; index += 1) {
-    const email = recipients[index];
-    /* Resend permite ~2 envios por segundo: se espacian para no chocar con el limite. */
-    if (index > 0) await sleep(600);
-    results.push(
-      await sendOne(env, {
-        from: env.MAIL_FROM,
-        to: [email],
-        reply_to: replyTo,
-        subject,
-        html,
-        attachments: cleanAttachments.length ? cleanAttachments : undefined,
-      }).then((r) => ({ email, ...r })),
-    );
-  }
-
-  const sent = results.filter((r) => r.id).length;
-  if (sent === 0) {
-    return json({ error: results[0]?.error ?? 'The email provider rejected the message.', results }, 502);
-  }
-  return json({ results });
-}
-
-const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
-
-/** Envia un correo a Resend; si responde "demasiadas solicitudes", reintenta una vez. */
-async function sendOne(env: Env, payload: Record<string, unknown>): Promise<{ id?: string; error?: string }> {
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    const data = (await res.json().catch(() => ({}))) as { id?: string; message?: string };
-    if (res.ok && data.id) return { id: data.id };
-    if (res.status === 429 && attempt === 0) {
-      await sleep(1200);
-      continue;
-    }
-    return { error: data.message ? `Email provider: ${data.message}` : `Email provider error (${res.status}).` };
-  }
-  return { error: 'Email provider is busy. Try again.' };
-}
-
-/* ---------------- /api/email-status ---------------- */
-
-/** Estado real de entrega de cada correo enviado (delivered, bounced, etc.), segun Resend. */
-async function handleEmailStatus(request: Request, env: Env): Promise<Response> {
-  if (!env.RESEND_API_KEY || !env.FIREBASE_PROJECT_ID) return json({ error: 'Email is not configured on the server.' }, 500);
-  const auth = request.headers.get('Authorization') ?? '';
-  const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
-  try {
-    await verifyFirebaseToken(token, env.FIREBASE_PROJECT_ID);
-  } catch {
-    return json({ error: 'Your session is not valid. Sign in again.' }, 401);
-  }
-  let body: { ids?: unknown };
-  try {
-    body = (await request.json()) as { ids?: unknown };
-  } catch {
-    return json({ error: 'Invalid request.' }, 400);
-  }
-  const valid = Array.isArray(body.ids) ? body.ids.filter((v): v is string => typeof v === 'string' && /^[\w-]{8,64}$/.test(v)) : [];
-  const ids = [...new Set(valid)].slice(0, 40);
-
-  const statuses: Record<string, { status: string; to?: string[] }> = {};
-  for (let index = 0; index < ids.length; index += 1) {
-    if (index > 0) await sleep(550);
-    const id = ids[index];
-    const res = await fetch(`https://api.resend.com/emails/${id}`, { headers: { Authorization: `Bearer ${env.RESEND_API_KEY}` } });
-    const data = (await res.json().catch(() => ({}))) as { last_event?: string; to?: string[] };
-    statuses[id] = res.ok ? { status: data.last_event ?? 'unknown', to: data.to } : { status: 'unknown' };
-  }
-  return json({ statuses });
-}
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -391,6 +35,20 @@ export default {
         return await handleSendEmail(request, env);
       } catch {
         return json({ error: 'Unexpected error sending the email.' }, 500);
+      }
+    }
+    if (url.pathname === '/api/billing/config') {
+      if (request.method !== 'GET') return json({ error: 'Method not allowed.' }, 405);
+      return handleBillingConfig(env);
+    }
+    const billingRoute = BILLING_ROUTES[url.pathname];
+    if (billingRoute) {
+      if (request.method !== 'POST') return json({ error: 'Method not allowed.' }, 405);
+      try {
+        return await billingRoute(request, env);
+      } catch (error) {
+        console.error('Billing error:', url.pathname, (error as Error).message);
+        return json({ error: 'Unexpected error with the payment. Try again.' }, 500);
       }
     }
     if (url.pathname.startsWith('/api/')) return json({ error: 'Not found.' }, 404);
